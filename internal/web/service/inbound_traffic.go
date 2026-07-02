@@ -48,6 +48,8 @@ func (s *InboundService) addTrafficLocked(inboundTraffics []*xray.Traffic, clien
 		return false, false, err
 	}
 
+	s.updateResellerUsage(tx, clientTraffics)
+
 	needRestart0, count, err := s.autoRenewClients(tx)
 	if err != nil {
 		logger.Warning("Error in renew clients:", err)
@@ -64,13 +66,21 @@ func (s *InboundService) addTrafficLocked(inboundTraffics []*xray.Traffic, clien
 		disabledClientsCount = count
 	}
 
+	needRestart3, resellerDisabled, err := s.disableResellerOverQuotaClients(tx)
+	if err != nil {
+		logger.Warning("Error in disabling reseller over-quota clients:", err)
+	} else if resellerDisabled > 0 {
+		logger.Debugf("%v clients disabled by reseller quota", resellerDisabled)
+		disabledClientsCount += resellerDisabled
+	}
+
 	needRestart2, count, err := s.disableInvalidInbounds(tx)
 	if err != nil {
 		logger.Warning("Error in disabling invalid inbounds:", err)
 	} else if count > 0 {
 		logger.Debugf("%v inbounds disabled", count)
 	}
-	return needRestart0 || needRestart1 || needRestart2, disabledClientsCount > 0, nil
+	return needRestart0 || needRestart1 || needRestart2 || needRestart3, disabledClientsCount > 0, nil
 }
 
 func (s *InboundService) addInboundTraffic(tx *gorm.DB, traffics []*xray.Traffic) error {
@@ -1063,3 +1073,129 @@ func (s *InboundService) SearchClientTraffic(query string) (traffic *xray.Client
 
 	return traffic, nil
 }
+
+func (s *InboundService) updateResellerUsage(tx *gorm.DB, clientTraffics []*xray.ClientTraffic) {
+	if len(clientTraffics) == 0 {
+		return
+	}
+	type ownerTraffic struct {
+		OwnerId int
+		Up      int64
+		Down    int64
+	}
+	deltas := make(map[int]*ownerTraffic)
+	for _, ct := range clientTraffics {
+		if ct == nil || ct.Email == "" {
+			continue
+		}
+		var ownerId int
+		if err := tx.Model(&model.ClientRecord{}).Where("email = ?", ct.Email).Pluck("owner_id", &ownerId).Error; err != nil || ownerId == 0 {
+			continue
+		}
+		if _, ok := deltas[ownerId]; !ok {
+			deltas[ownerId] = &ownerTraffic{OwnerId: ownerId}
+		}
+		deltas[ownerId].Up += ct.Up
+		deltas[ownerId].Down += ct.Down
+	}
+	for _, d := range deltas {
+		if d.Up == 0 && d.Down == 0 {
+			continue
+		}
+		tx.Model(&model.User{}).Where("id = ? AND role = ?", d.OwnerId, "reseller").
+			Updates(map[string]any{
+				"usage_up":   gorm.Expr("usage_up + ?", d.Up),
+				"usage_down": gorm.Expr("usage_down + ?", d.Down),
+			})
+	}
+}
+
+func (s *InboundService) disableResellerOverQuotaClients(tx *gorm.DB) (bool, int64, error) {
+	needRestart := false
+	type resellerOverQuota struct {
+		Id int
+	}
+	var overQuota []resellerOverQuota
+	err := tx.Model(&model.User{}).
+		Where("role = ? AND usage_limit > 0 AND (usage_up + usage_down >= usage_limit)", "reseller").
+		Pluck("id", &overQuota).Error
+	if err != nil || len(overQuota) == 0 {
+		return false, 0, err
+	}
+	overQuotaIds := make([]int, len(overQuota))
+	for i, r := range overQuota {
+		overQuotaIds[i] = r.Id
+	}
+
+	var emails []string
+	err = tx.Model(&model.ClientRecord{}).
+		Where("owner_id IN ? AND enable = ?", overQuotaIds, true).
+		Pluck("email", &emails).Error
+	if err != nil || len(emails) == 0 {
+		return false, 0, err
+	}
+
+	type target struct {
+		InboundID int  `gorm:"column:inbound_id"`
+		NodeID    *int `gorm:"column:node_id"`
+		Tag       string
+		Email     string
+	}
+	var targets []target
+	err = tx.Raw(`
+		SELECT inbounds.id AS inbound_id, inbounds.node_id AS node_id,
+		       inbounds.tag AS tag, clients.email AS email
+		FROM clients
+		JOIN client_inbounds ON client_inbounds.client_id = clients.id
+		JOIN inbounds        ON inbounds.id = client_inbounds.inbound_id
+		WHERE clients.email IN ?
+	`, emails).Scan(&targets).Error
+	if err != nil {
+		return false, 0, err
+	}
+
+	var localTargets []target
+	localByInbound := make(map[int]map[string]struct{})
+	for _, t := range targets {
+		if t.NodeID == nil {
+			localTargets = append(localTargets, t)
+			if localByInbound[t.InboundID] == nil {
+				localByInbound[t.InboundID] = make(map[string]struct{})
+			}
+			localByInbound[t.InboundID][t.Email] = struct{}{}
+		}
+	}
+
+	if p != nil && len(localTargets) > 0 {
+		_ = s.xrayApi.Init(p.GetAPIPort())
+		for _, t := range localTargets {
+			if err1 := s.xrayApi.RemoveUser(t.Tag, t.Email); err1 != nil {
+				needRestart = true
+			}
+		}
+		s.xrayApi.Close()
+	}
+
+	for inboundID, emailSet := range localByInbound {
+		if _, _, mErr := s.markClientsDisabledInSettings(tx, inboundID, emailSet); mErr != nil {
+			logger.Warning("disableResellerOverQuotaClients: settings sync failed for inbound", inboundID, ":", mErr)
+		}
+	}
+
+	result := tx.Model(xray.ClientTraffic{}).
+		Where("email IN ? AND enable = ?", emails, true).
+		Update("enable", false)
+	err = result.Error
+	count := result.RowsAffected
+
+	if len(emails) > 0 {
+		if err2 := tx.Model(&model.ClientRecord{}).
+			Where("email IN ?", emails).
+			Updates(map[string]any{"enable": false}).Error; err2 != nil {
+			logger.Warning("disableResellerOverQuotaClients: update clients.enable:", err2)
+		}
+	}
+
+	return needRestart, count, err
+}
+

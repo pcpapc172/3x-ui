@@ -84,7 +84,13 @@ func (a *InboundController) initRouter(g *gin.RouterGroup) {
 // getInbounds retrieves the list of inbounds for the logged-in user.
 func (a *InboundController) getInbounds(c *gin.Context) {
 	user := session.GetLoginUser(c)
-	inbounds, err := a.inboundService.GetInbounds(user.Id)
+	var inbounds []*model.Inbound
+	var err error
+	if user.Role == "reseller" {
+		inbounds, err = a.inboundService.GetInboundsForReseller(user.Id)
+	} else {
+		inbounds, err = a.inboundService.GetInbounds(user.Id)
+	}
 	if err != nil {
 		jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.obtain"), err)
 		return
@@ -96,7 +102,13 @@ func (a *InboundController) getInbounds(c *gin.Context) {
 // payloads from settings.clients[]. Detail-view flows still use /get/:id.
 func (a *InboundController) getInboundsSlim(c *gin.Context) {
 	user := session.GetLoginUser(c)
-	inbounds, err := a.inboundService.GetInboundsSlim(user.Id)
+	var inbounds []*model.Inbound
+	var err error
+	if user.Role == "reseller" {
+		inbounds, err = a.inboundService.GetInboundsSlimForReseller(user.Id)
+	} else {
+		inbounds, err = a.inboundService.GetInboundsSlim(user.Id)
+	}
 	if err != nil {
 		jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.obtain"), err)
 		return
@@ -109,7 +121,13 @@ func (a *InboundController) getInboundsSlim(c *gin.Context) {
 // remark template (name-only display part) is applied consistently.
 func (a *InboundController) getAllInboundLinks(c *gin.Context) {
 	user := session.GetLoginUser(c)
-	links, err := a.inboundService.GetAllInboundLinks(resolveHost(c), user.Id)
+	var links []string
+	var err error
+	if user.Role == "reseller" {
+		links, err = a.inboundService.GetAllInboundLinksForReseller(resolveHost(c), user.Id)
+	} else {
+		links, err = a.inboundService.GetAllInboundLinks(resolveHost(c), user.Id)
+	}
 	if err != nil {
 		jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.obtain"), err)
 		return
@@ -122,7 +140,13 @@ func (a *InboundController) getAllInboundLinks(c *gin.Context) {
 // Avoids shipping per-client settings and traffic stats just to fill a dropdown.
 func (a *InboundController) getInboundOptions(c *gin.Context) {
 	user := session.GetLoginUser(c)
-	options, err := a.inboundService.GetInboundOptions(user.Id)
+	var options []service.InboundOption
+	var err error
+	if user.Role == "reseller" {
+		options, err = a.inboundService.GetInboundOptionsForReseller(user.Id)
+	} else {
+		options, err = a.inboundService.GetInboundOptions(user.Id)
+	}
 	if err != nil {
 		jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.obtain"), err)
 		return

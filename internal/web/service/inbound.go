@@ -164,6 +164,25 @@ func (s *InboundService) GetInbounds(userId int) ([]*model.Inbound, error) {
 	return inbounds, nil
 }
 
+// GetInboundsForReseller returns inbounds that have clients owned by the given
+// reseller (via client_inbounds -> clients.owner_id).
+func (s *InboundService) GetInboundsForReseller(resellerId int) ([]*model.Inbound, error) {
+	db := database.GetDB()
+	var inbounds []*model.Inbound
+	err := db.Model(model.Inbound{}).
+		Preload("ClientStats").
+		Where("id IN (SELECT client_inbounds.inbound_id FROM client_inbounds JOIN clients ON clients.id = client_inbounds.client_id WHERE clients.owner_id = ?)", resellerId).
+		Order("id ASC").
+		Find(&inbounds).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	s.enrichClientStats(db, inbounds)
+	s.annotateFallbackParents(db, inbounds)
+	s.annotateLocalOriginGuid(inbounds)
+	return inbounds, nil
+}
+
 // annotateLocalOriginGuid fills OriginNodeGuid for this panel's OWN inbounds
 // (NodeID == nil) with the panel's stable GUID; inbounds synced from a node
 // already carry the originating node's GUID. Read-time only (not persisted) so
@@ -323,6 +342,67 @@ func (s *InboundService) GetInboundOptions(userId int) ([]InboundOption, error) 
 		Select("id, remark, tag, protocol, port, stream_settings, settings, node_id").
 		Where("user_id = ?", userId).
 		Order("id ASC").
+		Scan(&rows).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	out := make([]InboundOption, 0, len(rows))
+	for _, r := range rows {
+		wgPublicKey, wgMtu, wgDns := inboundWireguardHints(r.Protocol, r.Settings)
+		out = append(out, InboundOption{
+			Id:             r.Id,
+			Remark:         r.Remark,
+			Tag:            r.Tag,
+			Protocol:       r.Protocol,
+			Port:           r.Port,
+			TlsFlowCapable: inboundCanEnableTlsFlow(r.Protocol, r.StreamSettings, r.Settings),
+			SsMethod:       inboundShadowsocksMethod(r.Protocol, r.Settings),
+			WgPublicKey:    wgPublicKey,
+			WgMtu:          wgMtu,
+			WgDns:          wgDns,
+			NodeId:         r.NodeId,
+		})
+	}
+	return out, nil
+}
+
+func (s *InboundService) GetInboundsSlimForReseller(resellerId int) ([]*model.Inbound, error) {
+	db := database.GetDB()
+	var inbounds []*model.Inbound
+	err := db.Model(model.Inbound{}).
+		Preload("ClientStats").
+		Where("id IN (SELECT client_inbounds.inbound_id FROM client_inbounds JOIN clients ON clients.id = client_inbounds.client_id WHERE clients.owner_id = ?)", resellerId).
+		Order("id ASC").
+		Find(&inbounds).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	s.annotateFallbackParents(db, inbounds)
+	s.annotateLocalOriginGuid(inbounds)
+	s.backfillClientStats(db, inbounds)
+	s.overlayInboundsClientStats(db, inbounds)
+	for _, ib := range inbounds {
+		ib.Settings = slimSettingsClients(ib.Settings)
+	}
+	return inbounds, nil
+}
+
+func (s *InboundService) GetInboundOptionsForReseller(resellerId int) ([]InboundOption, error) {
+	db := database.GetDB()
+	var rows []struct {
+		Id             int    `gorm:"column:id"`
+		Remark         string `gorm:"column:remark"`
+		Tag            string `gorm:"column:tag"`
+		Protocol       string `gorm:"column:protocol"`
+		Port           int    `gorm:"column:port"`
+		StreamSettings string `gorm:"column:stream_settings"`
+		Settings       string `gorm:"column:settings"`
+		NodeId         *int   `gorm:"column:node_id"`
+	}
+	err := db.Table("inbounds").
+		Select("inbounds.id, inbounds.remark, inbounds.tag, inbounds.protocol, inbounds.port, inbounds.stream_settings, inbounds.settings, inbounds.node_id").
+		Where("inbounds.id IN (SELECT client_inbounds.inbound_id FROM client_inbounds JOIN clients ON clients.id = client_inbounds.client_id WHERE clients.owner_id = ?)", resellerId).
+		Order("inbounds.id ASC").
 		Scan(&rows).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err

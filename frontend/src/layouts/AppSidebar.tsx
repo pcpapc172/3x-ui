@@ -150,24 +150,44 @@ export default function AppSidebar() {
 
   const [collapsed, setCollapsed] = useState<boolean>(() => readCollapsed());
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [userRole, setUserRole] = useState<string>('admin');
+
+  useEffect(() => {
+    HttpUtil.get<{ role: string }>('/user/info').then((resp) => {
+      if (resp.obj?.role) {
+        setUserRole(resp.obj.role);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const isAdmin = userRole === 'admin';
 
   const currentTheme: 'light' | 'dark' = isDark ? 'dark' : 'light';
   const panelVersion = window.X_UI_CUR_VER || '';
 
-  const tabs = useMemo<{ key: string; icon: IconName; title: string }[]>(() => [
-    { key: '/', icon: 'dashboard', title: t('menu.dashboard') },
-    { key: '/inbounds', icon: 'inbound', title: t('menu.inbounds') },
-    { key: '/clients', icon: 'team', title: t('menu.clients') },
-    { key: '/groups', icon: 'groups', title: t('menu.groups') },
-    { key: '/nodes', icon: 'cluster', title: t('menu.nodes') },
-    { key: '/hosts', icon: 'hosts', title: t('menu.hosts') },
-    { key: '/outbound', icon: 'outbound', title: t('menu.outbounds') },
-    { key: '/routing', icon: 'routing', title: t('menu.routing') },
-    { key: '/settings', icon: 'setting', title: t('menu.settings') },
-    { key: '/xray', icon: 'tool', title: t('menu.xray') },
-    { key: '/api-docs', icon: 'apidocs', title: t('menu.apiDocs') },
-    { key: LOGOUT_KEY, icon: 'logout', title: t('logout') },
-  ], [t]);
+  const tabs = useMemo<{ key: string; icon: IconName; title: string }[]>(() => {
+    const allTabs = [
+      { key: '/', icon: 'dashboard', title: t('menu.dashboard') },
+      { key: '/inbounds', icon: 'inbound', title: t('menu.inbounds') },
+      { key: '/clients', icon: 'team', title: t('menu.clients') },
+      { key: '/groups', icon: 'groups', title: t('menu.groups') },
+      { key: '/nodes', icon: 'cluster', title: t('menu.nodes') },
+      { key: '/hosts', icon: 'hosts', title: t('menu.hosts') },
+      { key: '/outbound', icon: 'outbound', title: t('menu.outbounds') },
+      { key: '/routing', icon: 'routing', title: t('menu.routing') },
+      { key: '/settings', icon: 'setting', title: t('menu.settings') },
+      { key: '/xray', icon: 'tool', title: t('menu.xray') },
+      { key: '/api-docs', icon: 'apidocs', title: t('menu.apiDocs') },
+      { key: '/admins', icon: 'team', title: t('menu.admins') },
+      { key: LOGOUT_KEY, icon: 'logout', title: t('logout') },
+    ];
+    if (!isAdmin) {
+      return allTabs.filter((tab) =>
+        ['/', '/clients', LOGOUT_KEY].includes(tab.key)
+      );
+    }
+    return allTabs;
+  }, [t, isAdmin]);
 
   const navItems = useMemo(() => tabs.filter((tab) => tab.icon !== 'logout'), [tabs]);
   const utilItems = useMemo(() => tabs.filter((tab) => tab.icon === 'logout'), [tabs]);

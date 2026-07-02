@@ -7,6 +7,7 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
+	"github.com/mhsanaei/3x-ui/v3/internal/web/session"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/websocket"
 
 	"github.com/gin-gonic/gin"
@@ -83,7 +84,14 @@ func (a *ClientController) initRouter(g *gin.RouterGroup) {
 }
 
 func (a *ClientController) list(c *gin.Context) {
-	rows, err := a.clientService.List()
+	user := session.GetLoginUser(c)
+	var rows []service.ClientWithAttachments
+	var err error
+	if user.Role == "reseller" {
+		rows, err = a.clientService.ListForReseller(user.Id)
+	} else {
+		rows, err = a.clientService.List()
+	}
 	if err != nil {
 		jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.obtain"), err)
 		return
@@ -143,6 +151,10 @@ func (a *ClientController) create(c *gin.Context) {
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
+	}
+	user := session.GetLoginUser(c)
+	if user.Role == "reseller" {
+		payload.Client.OwnerId = user.Id
 	}
 	needRestart, err := a.clientService.Create(&a.inboundService, &payload)
 	if err != nil {
@@ -376,6 +388,12 @@ func (a *ClientController) bulkCreate(c *gin.Context) {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
+	user := session.GetLoginUser(c)
+	if user.Role == "reseller" {
+		for i := range payloads {
+			payloads[i].Client.OwnerId = user.Id
+		}
+	}
 	result, needRestart, err := a.clientService.BulkCreate(&a.inboundService, payloads)
 	if err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
@@ -430,6 +448,12 @@ func (a *ClientController) importClients(c *gin.Context) {
 	if err := json.Unmarshal([]byte(req.Data), &items); err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
+	}
+	user := session.GetLoginUser(c)
+	if user.Role == "reseller" {
+		for i := range items {
+			items[i].Client.OwnerId = user.Id
+		}
 	}
 	result, needRestart, err := a.clientService.ImportClients(&a.inboundService, items)
 	if err != nil {

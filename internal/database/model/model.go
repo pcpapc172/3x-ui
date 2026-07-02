@@ -40,6 +40,11 @@ type User struct {
 	Username   string `json:"username"`
 	Password   string `json:"password"`
 	LoginEpoch int64  `json:"-" gorm:"default:0"`
+	Role       string `json:"role" gorm:"default:admin"`
+	OwnerId    int    `json:"ownerId" gorm:"default:0;index"`
+	UsageLimit int64  `json:"usageLimit" gorm:"default:0"`
+	UsageUp    int64  `json:"usageUp" gorm:"default:0"`
+	UsageDown  int64  `json:"usageDown" gorm:"default:0"`
 }
 
 // Inbound represents an Xray inbound configuration with traffic statistics and settings.
@@ -613,6 +618,7 @@ type Client struct {
 	Group        string         `json:"group,omitempty" form:"group"` // Logical grouping label
 	Comment      string         `json:"comment" form:"comment"`       // Client comment
 	Reset        int            `json:"reset" form:"reset"`           // Reset period in days
+	OwnerId      int            `json:"ownerId" form:"ownerId"`
 	CreatedAt    int64          `json:"created_at,omitempty"`         // Creation timestamp
 	UpdatedAt    int64          `json:"updated_at,omitempty"`         // Last update timestamp
 }
@@ -640,6 +646,7 @@ type ClientRecord struct {
 	Group        string `json:"group" gorm:"column:group_name;default:'';index:idx_client_record_group"`
 	Comment      string `json:"comment"`
 	Reset        int    `json:"reset" gorm:"default:0"`
+	OwnerId      int    `json:"ownerId" gorm:"column:owner_id;default:0;index:idx_client_record_owner"`
 	CreatedAt    int64  `json:"createdAt" gorm:"autoCreateTime:milli"`
 	UpdatedAt    int64  `json:"updatedAt" gorm:"autoUpdateTime:milli"`
 }
@@ -807,6 +814,7 @@ func (c *Client) ToRecord() *ClientRecord {
 		Group:      c.Group,
 		Comment:    c.Comment,
 		Reset:      c.Reset,
+		OwnerId:    c.OwnerId,
 		CreatedAt:  c.CreatedAt,
 		UpdatedAt:  c.UpdatedAt,
 
@@ -858,6 +866,7 @@ func (r *ClientRecord) ToClient() *Client {
 		Group:      r.Group,
 		Comment:    r.Comment,
 		Reset:      r.Reset,
+		OwnerId:    r.OwnerId,
 		CreatedAt:  r.CreatedAt,
 		UpdatedAt:  r.UpdatedAt,
 

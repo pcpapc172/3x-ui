@@ -77,6 +77,7 @@ func (a *APIController) initRouter(g *gin.RouterGroup) {
 	// advertise support, before CSRF/handlers read the body.
 	api.Use(middleware.ConfigEnvelopeMiddleware())
 	api.Use(middleware.CSRFMiddleware())
+	api.Use(middleware.RBACMiddleware())
 
 	// Inbounds API
 	inbounds := api.Group("/inbounds")
@@ -104,11 +105,34 @@ func (a *APIController) initRouter(g *gin.RouterGroup) {
 	a.settingController = NewSettingController(api)
 	a.xraySettingController = NewXraySettingController(api)
 
+	// Reseller management (admin-only via RBAC middleware)
+	NewResellerController(api)
+
 	// Extra routes
 	api.POST("/backuptotgbot", a.BackuptoTgbot)
+
+	// User info endpoint (used by frontend to determine role and usage)
+	api.GET("/user/info", a.userInfo)
 }
 
 // BackuptoTgbot sends a backup of the panel data to Telegram bot admins.
 func (a *APIController) BackuptoTgbot(c *gin.Context) {
 	a.Tgbot.SendBackupToAdmins()
+}
+
+// userInfo returns the current logged-in user's role and usage info.
+func (a *APIController) userInfo(c *gin.Context) {
+	user := session.GetLoginUser(c)
+	if user == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	jsonObj(c, gin.H{
+		"id":         user.Id,
+		"username":   user.Username,
+		"role":       user.Role,
+		"usageLimit": user.UsageLimit,
+		"usageUp":    user.UsageUp,
+		"usageDown":  user.UsageDown,
+	}, nil)
 }

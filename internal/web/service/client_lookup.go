@@ -180,6 +180,63 @@ func (s *ClientService) List() ([]ClientWithAttachments, error) {
 	return out, nil
 }
 
+func (s *ClientService) ListForReseller(resellerId int) ([]ClientWithAttachments, error) {
+	db := database.GetDB()
+	var rows []model.ClientRecord
+	if err := db.Where("owner_id = ?", resellerId).Order("id ASC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return []ClientWithAttachments{}, nil
+	}
+
+	clientIds := make([]int, 0, len(rows))
+	emails := make([]string, 0, len(rows))
+	for i := range rows {
+		clientIds = append(clientIds, rows[i].Id)
+		if rows[i].Email != "" {
+			emails = append(emails, rows[i].Email)
+		}
+	}
+
+	attachments := make(map[int][]int, len(rows))
+	for _, batch := range chunkInts(clientIds, sqlInChunk) {
+		var links []model.ClientInbound
+		if err := db.Where("client_id IN ?", batch).Find(&links).Error; err != nil {
+			return nil, err
+		}
+		for _, l := range links {
+			attachments[l.ClientId] = append(attachments[l.ClientId], l.InboundId)
+		}
+	}
+
+	trafficByEmail := make(map[string]*xray.ClientTraffic, len(emails))
+	if len(emails) > 0 {
+		var stats []xray.ClientTraffic
+		for _, batch := range chunkStrings(emails, sqlInChunk) {
+			var batchStats []xray.ClientTraffic
+			if err := db.Where("email IN ?", batch).Find(&batchStats).Error; err != nil {
+				return nil, err
+			}
+			stats = append(stats, batchStats...)
+		}
+		overlayGlobalTrafficValues(db, stats)
+		for i := range stats {
+			trafficByEmail[stats[i].Email] = &stats[i]
+		}
+	}
+
+	out := make([]ClientWithAttachments, 0, len(rows))
+	for i := range rows {
+		out = append(out, ClientWithAttachments{
+			ClientRecord: rows[i],
+			InboundIds:   attachments[rows[i].Id],
+			Traffic:      trafficByEmail[rows[i].Email],
+		})
+	}
+	return out, nil
+}
+
 func (s *ClientService) HasPendingNode(inboundSvc *InboundService, email string) bool {
 	if strings.TrimSpace(email) == "" {
 		return false
