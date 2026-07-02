@@ -36,7 +36,7 @@ export default function AdminsPage() {
   const fetchResellers = useCallback(async () => {
     setLoading(true);
     try {
-      const resp = await HttpUtil.get<Msg<ResellerInfo[]>>('/resellers/list');
+      const resp = await HttpUtil.get<Msg<ResellerInfo[]>>('/panel/api/resellers/list');
       if (resp.success && resp.obj) {
         setResellers(resp.obj);
       }
@@ -70,7 +70,7 @@ export default function AdminsPage() {
 
   const handleDelete = async (id: number) => {
     try {
-      const resp = await HttpUtil.post<Msg<unknown>>(`/resellers/del/${id}`);
+      const resp = await HttpUtil.post<Msg<unknown>>(`/panel/api/resellers/del/${id}`);
       if (resp.success) {
         fetchResellers();
       }
@@ -81,7 +81,7 @@ export default function AdminsPage() {
 
   const handleResetUsage = async (id: number) => {
     try {
-      const resp = await HttpUtil.post<Msg<{ reEnabled: number }>>(`/resellers/resetUsage/${id}`);
+      const resp = await HttpUtil.post<Msg<{ reEnabled: number }>>(`/panel/api/resellers/resetUsage/${id}`);
       if (resp.success) {
         message.success(`Reset usage, re-enabled ${resp.obj?.reEnabled ?? 0} clients`);
         fetchResellers();
@@ -102,9 +102,9 @@ export default function AdminsPage() {
       };
       let resp: Msg<unknown>;
       if (editingReseller) {
-        resp = await HttpUtil.post<Msg<unknown>>(`/resellers/update/${editingReseller.id}`, payload);
+        resp = await HttpUtil.post<Msg<unknown>>(`/panel/api/resellers/update/${editingReseller.id}`, payload);
       } else {
-        resp = await HttpUtil.post<Msg<unknown>>('/resellers/add', payload);
+        resp = await HttpUtil.post<Msg<unknown>>('/panel/api/resellers/add', payload);
       }
       if (resp.success) {
         setModalOpen(false);

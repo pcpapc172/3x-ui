@@ -153,7 +153,7 @@ export default function AppSidebar() {
   const [userRole, setUserRole] = useState<string>('admin');
 
   useEffect(() => {
-    HttpUtil.get<{ role: string }>('/user/info').then((resp) => {
+    HttpUtil.get<{ role: string }>('/panel/api/user/info').then((resp) => {
       if (resp.obj?.role) {
         setUserRole(resp.obj.role);
       }
