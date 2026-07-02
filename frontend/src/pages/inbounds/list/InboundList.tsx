@@ -49,6 +49,7 @@ export default function InboundList({
   onGeneralAction,
   onRowAction,
   onBulkDelete,
+  readonly,
 }: InboundListProps) {
   const { t } = useTranslation();
   const [statsRecord, setStatsRecord] = useState<DBInboundRecord | null>(null);
@@ -161,14 +162,18 @@ export default function InboundList({
       hoverable
       title={(
         <Space>
-          <Button type="primary" onClick={onAddInbound} icon={<PlusOutlined />} aria-label={t('pages.inbounds.addInbound')}>
-            {!isMobile && t('pages.inbounds.addInbound')}
-          </Button>
-          <Dropdown trigger={['click']} menu={generalActionsMenu}>
-            <Button type="primary" icon={<MenuOutlined />} aria-label={t('pages.inbounds.generalActions')}>
-              {!isMobile && t('pages.inbounds.generalActions')}
+          {!readonly && (
+            <Button type="primary" onClick={onAddInbound} icon={<PlusOutlined />} aria-label={t('pages.inbounds.addInbound')}>
+              {!isMobile && t('pages.inbounds.addInbound')}
             </Button>
-          </Dropdown>
+          )}
+          {!readonly && (
+            <Dropdown trigger={['click']} menu={generalActionsMenu}>
+              <Button type="primary" icon={<MenuOutlined />} aria-label={t('pages.inbounds.generalActions')}>
+                {!isMobile && t('pages.inbounds.generalActions')}
+              </Button>
+            </Dropdown>
+          )}
           {showNodeFilter && (
             <Select
               value={nodeFilter}

@@ -183,7 +183,7 @@ export default function AppSidebar() {
     ];
     if (!isAdmin) {
       return allTabs.filter((tab) =>
-        ['/', '/clients', LOGOUT_KEY].includes(tab.key)
+        ['/', '/inbounds', '/clients', LOGOUT_KEY].includes(tab.key)
       );
     }
     return allTabs;

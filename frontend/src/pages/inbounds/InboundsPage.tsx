@@ -31,6 +31,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useNodesQuery } from '@/api/queries/useNodesQuery';
+import { HttpUtil } from '@/utils';
 import AppSidebar from '@/layouts/AppSidebar';
 const TextModal = lazy(() => import('@/components/feedback/TextModal'));
 const PromptModal = lazy(() => import('@/components/feedback/PromptModal'));
@@ -154,6 +155,13 @@ export default function InboundsPage() {
   const [promptOkText, setPromptOkText] = useState('OK');
   const [promptType, setPromptType] = useState<'textarea' | 'input'>('textarea');
   const [promptInitial, setPromptInitial] = useState('');
+
+  const [isReadonly, setIsReadonly] = useState(false);
+  useEffect(() => {
+    HttpUtil.get<{ role: string }>('/panel/api/user/info', undefined, { silent: true })
+      .then((resp) => { if (resp.obj?.role === 'reseller') setIsReadonly(true); })
+      .catch(() => {});
+  }, []);
   const [promptJson, setPromptJson] = useState(false);
   const [promptLoading, setPromptLoading] = useState(false);
   const [promptHandler, setPromptHandler] = useState<((value: string) => Promise<boolean | void> | boolean | void) | null>(null);
@@ -615,10 +623,11 @@ export default function InboundsPage() {
                       subEnable={subSettings.enable}
                       nodesById={nodesById}
                       hasActiveNode={showNodeInfo}
-                      onAddInbound={onAddInbound}
-                      onGeneralAction={onGeneralAction}
-                      onRowAction={({ key, dbInbound }) => onRowAction({ key, dbInbound: dbInbound as unknown as DBInbound })}
-                      onBulkDelete={confirmBulkDelete}
+                      onAddInbound={isReadonly ? () => {} : onAddInbound}
+                      onGeneralAction={isReadonly ? () => {} : onGeneralAction}
+                      onRowAction={isReadonly ? () => {} : ({ key, dbInbound }) => onRowAction({ key, dbInbound: dbInbound as unknown as DBInbound })}
+                      onBulkDelete={isReadonly ? async () => false : confirmBulkDelete}
+                      readonly={isReadonly}
                     />
                   </Col>
                 </Row>

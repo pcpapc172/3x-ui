@@ -11,11 +11,45 @@ import (
 
 // resellerAllowedPrefixes lists API path prefixes a reseller may access.
 var resellerAllowedPrefixes = []string{
-	"/panel/api/inbounds/list",
-	"/panel/api/inbounds/options",
-	"/panel/api/inbounds/allLinks",
-	"/panel/api/clients/",
 	"/panel/api/user/info",
+	"/panel/api/setting/all",
+	"/panel/api/server/status",
+	"/panel/api/inbounds/",
+	"/panel/api/clients/",
+}
+
+var resellerBlockedPrefixes = []string{
+	"/panel/api/setting/",
+	"/panel/api/server/",
+	"/panel/api/nodes/",
+	"/panel/api/hosts/",
+	"/panel/api/xray/",
+	"/panel/api/resellers/",
+}
+
+func RBACMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := session.GetLoginUser(c)
+		if user == nil {
+			c.Next()
+			return
+		}
+		if user.Role != "reseller" {
+			c.Next()
+			return
+		}
+
+		path := c.Request.URL.Path
+
+		for _, prefix := range resellerAllowedPrefixes {
+			if strings.HasPrefix(path, prefix) {
+				c.Next()
+				return
+			}
+		}
+
+		c.AbortWithStatus(http.StatusForbidden)
+	}
 }
 
 // resellerBlockedPrefixes lists API path prefixes a reseller is denied from.
