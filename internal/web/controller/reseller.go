@@ -58,7 +58,7 @@ type addResellerForm struct {
 
 func (a *ResellerController) add(c *gin.Context) {
 	var form addResellerForm
-	if err := c.ShouldBindJSON(&form); err != nil {
+	if err := c.ShouldBind(&form); err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
@@ -83,7 +83,7 @@ func (a *ResellerController) update(c *gin.Context) {
 		return
 	}
 	var form updateResellerForm
-	if err := c.ShouldBindJSON(&form); err != nil {
+	if err := c.ShouldBind(&form); err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
