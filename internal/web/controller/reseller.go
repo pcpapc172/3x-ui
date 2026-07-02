@@ -51,9 +51,9 @@ func (a *ResellerController) list(c *gin.Context) {
 }
 
 type addResellerForm struct {
-	Username   string `json:"username"`
-	Password   string `json:"password"`
-	UsageLimit int64  `json:"usageLimit"`
+	Username   string `form:"username" json:"username"`
+	Password   string `form:"password" json:"password"`
+	UsageLimit int64  `form:"usageLimit" json:"usageLimit"`
 }
 
 func (a *ResellerController) add(c *gin.Context) {
@@ -71,9 +71,9 @@ func (a *ResellerController) add(c *gin.Context) {
 }
 
 type updateResellerForm struct {
-	Username   string `json:"username"`
-	Password   string `json:"password"`
-	UsageLimit int64  `json:"usageLimit"`
+	Username   string `form:"username" json:"username"`
+	Password   string `form:"password" json:"password"`
+	UsageLimit int64  `form:"usageLimit" json:"usageLimit"`
 }
 
 func (a *ResellerController) update(c *gin.Context) {
