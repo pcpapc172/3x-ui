@@ -895,7 +895,7 @@ func (s *InboundService) setRemoteTrafficLocked(nodeID int, snap *runtime.Traffi
 	committed = true
 
 	if len(nodeTrafficDeltas) > 0 {
-		InboundService{}.updateResellerUsage(database.GetDB(), nodeTrafficDeltas)
+		(&InboundService{}).updateResellerUsage(database.GetDB(), nodeTrafficDeltas)
 	}
 
 	if p != nil {

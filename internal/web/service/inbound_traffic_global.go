@@ -88,7 +88,7 @@ func (s *InboundService) AcceptGlobalTraffic(masterGuid string, traffics []*xray
 					knownTraffic = append(knownTraffic, t)
 				}
 			}
-			InboundService{}.updateResellerUsage(tx, knownTraffic)
+			(&InboundService{}).updateResellerUsage(tx, knownTraffic)
 			return nil
 		}); err != nil {
 			return err
