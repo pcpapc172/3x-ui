@@ -89,12 +89,14 @@ export default function ClientInfoModal({
   const [ipsLoading, setIpsLoading] = useState(false);
   const [ipsClearing, setIpsClearing] = useState(false);
   const [ipsModalOpen, setIpsModalOpen] = useState(false);
+  const [ownerName, setOwnerName] = useState('');
 
   useEffect(() => {
     if (!open) {
       setLinks([]);
       setClientIps([]);
       setIpsModalOpen(false);
+      setOwnerName('');
       return;
     }
     if (!client?.subId) return;
@@ -106,8 +108,18 @@ export default function ClientInfoModal({
       if (cancelled) return;
       setLinks(msg?.success && Array.isArray(msg.obj) ? msg.obj : []);
     })();
+    if (client.ownerId && client.ownerId > 0 && !client.ownerName) {
+      (async () => {
+        const msg = await HttpUtil.get<{ ownerName: string }>(
+          `/panel/api/clients/get/${encodeURIComponent(client.email)}`,
+        ) as ApiMsg<{ ownerName: string }>;
+        if (!cancelled && msg?.obj?.ownerName) setOwnerName(msg.obj.ownerName);
+      })();
+    } else if (client.ownerName) {
+      setOwnerName(client.ownerName);
+    }
     return () => { cancelled = true; };
-  }, [open, client?.subId]);
+  }, [open, client?.subId, client?.ownerId, client?.ownerName, client?.email]);
 
   const traffic = client?.traffic || null;
   const totalBytes = client?.totalGB || 0;
@@ -314,10 +326,10 @@ export default function ClientInfoModal({
                     <td><Tag className="info-large-tag">{client.comment}</Tag></td>
                   </tr>
                 )}
-                {client.ownerName && (
+                {(ownerName || client.ownerName) && (
                   <tr>
                     <td>Client Owner</td>
-                    <td><Tag color="blue">{client.ownerName}</Tag></td>
+                    <td><Tag color="blue">{ownerName || client.ownerName}</Tag></td>
                   </tr>
                 )}
                 <tr>

@@ -13,6 +13,7 @@ const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
 const XrayPage = lazy(() => import('@/pages/xray/XrayPage'));
 const ApiDocsPage = lazy(() => import('@/pages/api-docs/ApiDocsPage'));
 const AdminsPage = lazy(() => import('@/pages/admins/AdminsPage'));
+const MultiplyPage = lazy(() => import('@/pages/multiply/MultiplyPage'));
 
 function withSuspense(node: React.ReactNode) {
   return <Suspense fallback={null}>{node}</Suspense>;
@@ -35,6 +36,7 @@ const routes: RouteObject[] = [
       { path: 'routing', element: withSuspense(<XrayPage />) },
       { path: 'api-docs', element: withSuspense(<ApiDocsPage />) },
       { path: 'admins', element: withSuspense(<AdminsPage />) },
+      { path: 'multiply', element: withSuspense(<MultiplyPage />) },
     ],
   },
 ];

@@ -108,6 +108,9 @@ func (a *APIController) initRouter(g *gin.RouterGroup) {
 	// Reseller management (admin-only via RBAC middleware)
 	NewResellerController(api)
 
+	// Multiply (admin-only)
+	NewMultiplyController(api)
+
 	// Extra routes
 	api.POST("/backuptotgbot", a.BackuptoTgbot)
 

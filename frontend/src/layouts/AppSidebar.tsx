@@ -181,6 +181,7 @@ export default function AppSidebar() {
       { key: '/xray', icon: 'tool', title: t('menu.xray') },
       { key: '/api-docs', icon: 'apidocs', title: t('menu.apiDocs') },
       { key: '/admins', icon: 'team', title: t('menu.admins') },
+      { key: '/multiply', icon: 'inbound', title: 'Multiply' },
       { key: LOGOUT_KEY, icon: 'logout', title: t('logout') },
     ];
     if (!isAdmin) {

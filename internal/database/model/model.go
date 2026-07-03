@@ -730,6 +730,12 @@ const (
 	ExternalLinkKindSubscription = "subscription"
 )
 
+type InboundMultiplier struct {
+	Id        int     `json:"id" gorm:"primaryKey;autoIncrement"`
+	InboundId int     `json:"inboundId" gorm:"uniqueIndex"`
+	Rate      float64 `json:"rate" gorm:"default:1"`
+}
+
 type InboundFallback struct {
 	Id        int    `json:"id" gorm:"primaryKey;autoIncrement"`
 	MasterId  int    `json:"masterId" gorm:"index;not null;column:master_id"`

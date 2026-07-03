@@ -1084,6 +1084,21 @@ func (s *InboundService) updateResellerUsage(tx *gorm.DB, clientTraffics []*xray
 		Down    int64
 	}
 	deltas := make(map[int]*ownerTraffic)
+
+	multiplierCache := make(map[int]float64)
+	getMultiplier := func(inboundId int) float64 {
+		if rate, ok := multiplierCache[inboundId]; ok {
+			return rate
+		}
+		var m model.InboundMultiplier
+		if err := tx.Where("inbound_id = ?", inboundId).First(&m).Error; err == nil {
+			multiplierCache[inboundId] = m.Rate
+			return m.Rate
+		}
+		multiplierCache[inboundId] = 1
+		return 1
+	}
+
 	for _, ct := range clientTraffics {
 		if ct == nil || ct.Email == "" {
 			continue
@@ -1092,11 +1107,32 @@ func (s *InboundService) updateResellerUsage(tx *gorm.DB, clientTraffics []*xray
 		if err := tx.Model(&model.ClientRecord{}).Where("email = ?", ct.Email).Pluck("owner_id", &ownerId).Error; err != nil || ownerId == 0 {
 			continue
 		}
+
+		var clientRecord model.ClientRecord
+		if err := tx.Where("email = ?", ct.Email).First(&clientRecord).Error; err != nil {
+			continue
+		}
+		var inboundIds []int
+		if err := tx.Model(&model.ClientInbound{}).Where("client_id = ?", clientRecord.Id).Pluck("inbound_id", &inboundIds).Error; err != nil || len(inboundIds) == 0 {
+			inboundIds = []int{0}
+		}
+
+		totalRate := 1.0
+		for _, ibId := range inboundIds {
+			rate := getMultiplier(ibId)
+			if rate > totalRate {
+				totalRate = rate
+			}
+		}
+
+		multUp := int64(float64(ct.Up) * totalRate)
+		multDown := int64(float64(ct.Down) * totalRate)
+
 		if _, ok := deltas[ownerId]; !ok {
 			deltas[ownerId] = &ownerTraffic{OwnerId: ownerId}
 		}
-		deltas[ownerId].Up += ct.Up
-		deltas[ownerId].Down += ct.Down
+		deltas[ownerId].Up += multUp
+		deltas[ownerId].Down += multDown
 	}
 	for _, d := range deltas {
 		if d.Up == 0 && d.Down == 0 {
