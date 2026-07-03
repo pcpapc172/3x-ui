@@ -73,7 +73,7 @@ func (s *InboundService) AcceptGlobalTraffic(masterGuid string, traffics []*xray
 			})
 		}
 
-		return db.Transaction(func(tx *gorm.DB) error {
+		if err := db.Transaction(func(tx *gorm.DB) error {
 			for _, batch := range chunkGlobalRows(rows, 200) {
 				if err := tx.Clauses(clause.OnConflict{
 					Columns:   []clause.Column{{Name: "master_guid"}, {Name: "email"}},
@@ -82,8 +82,19 @@ func (s *InboundService) AcceptGlobalTraffic(masterGuid string, traffics []*xray
 					return err
 				}
 			}
+			knownTraffic := make([]*xray.ClientTraffic, 0, len(known))
+			for _, email := range known {
+				if t := byEmail[email]; t != nil {
+					knownTraffic = append(knownTraffic, t)
+				}
+			}
+			InboundService{}.updateResellerUsage(tx, knownTraffic)
 			return nil
-		})
+		}); err != nil {
+			return err
+		}
+
+		return nil
 	})
 }
 
