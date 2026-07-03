@@ -7,7 +7,8 @@
 .groups-page,
 .api-docs-page,
 .admins-page,
-.multiply-page {
+.multiply-page,
+.reseller-page {
   --bg-page: #e6e8ec;
   --bg-card: #ffffff;
   min-height: 100vh;
@@ -23,7 +24,8 @@
 .groups-page.is-dark,
 .api-docs-page.is-dark,
 .admins-page.is-dark,
-.multiply-page.is-dark {
+.multiply-page.is-dark,
+.reseller-page.is-dark {
   --bg-page: #1a1b1f;
   --bg-card: #23252b;
 }
@@ -37,7 +39,8 @@
 .groups-page.is-dark.is-ultra,
 .api-docs-page.is-dark.is-ultra,
 .admins-page.is-dark.is-ultra,
-.multiply-page.is-dark.is-ultra {
+.multiply-page.is-dark.is-ultra,
+.reseller-page.is-dark.is-ultra {
   --bg-page: #000;
   --bg-card: #101013;
 }
@@ -61,7 +64,9 @@
 .admins-page .ant-layout,
 .admins-page .ant-layout-content,
 .multiply-page .ant-layout,
-.multiply-page .ant-layout-content {
+.multiply-page .ant-layout-content,
+.reseller-page .ant-layout,
+.reseller-page .ant-layout-content {
   background: transparent;
 }
 
@@ -74,7 +79,8 @@
 .groups-page .content-shell,
 .api-docs-page .content-shell,
 .admins-page .content-shell,
-.multiply-page .content-shell {
+.multiply-page .content-shell,
+.reseller-page .content-shell {
   background: transparent;
 }
 
@@ -86,7 +92,8 @@
 .nodes-page .content-area,
 .groups-page .content-area,
 .admins-page .content-area,
-.multiply-page .content-area {
+.multiply-page .content-area,
+.reseller-page .content-area {
   padding: 24px;
 }
 
@@ -96,7 +103,8 @@
   .nodes-page .content-area,
   .groups-page .content-area,
   .admins-page .content-area,
-  .multiply-page .content-area {
+  .multiply-page .content-area,
+  .reseller-page .content-area {
     padding: 8px;
   }
 }
@@ -182,7 +190,8 @@ body.dark .ant-dropdown-menu-item-divider {
 .nodes-page .summary-card,
 .groups-page .summary-card,
 .admins-page .summary-card,
-.multiply-page .summary-card {
+.multiply-page .summary-card,
+.reseller-page .summary-card {
   padding: 16px;
 }
 
@@ -192,7 +201,8 @@ body.dark .ant-dropdown-menu-item-divider {
   .nodes-page .summary-card,
   .groups-page .summary-card,
   .admins-page .summary-card,
-  .multiply-page .summary-card {
+  .multiply-page .summary-card,
+  .reseller-page .summary-card {
     padding: 8px;
   }
 }

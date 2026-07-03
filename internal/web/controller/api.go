@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/database"
+	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/middleware"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service/panel"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service/tgbot"
@@ -116,6 +118,7 @@ func (a *APIController) initRouter(g *gin.RouterGroup) {
 
 	// User info endpoint (used by frontend to determine role and usage)
 	api.GET("/user/info", a.userInfo)
+	api.GET("/user/overview", a.userOverview)
 }
 
 // BackuptoTgbot sends a backup of the panel data to Telegram bot admins.
@@ -137,5 +140,42 @@ func (a *APIController) userInfo(c *gin.Context) {
 		"usageLimit": user.UsageLimit,
 		"usageUp":    user.UsageUp,
 		"usageDown":  user.UsageDown,
+	}, nil)
+}
+
+// userOverview returns aggregated stats for the current reseller's own clients.
+func (a *APIController) userOverview(c *gin.Context) {
+	user := session.GetLoginUser(c)
+	if user == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	db := database.GetDB()
+
+	var clientCount int64
+	_ = db.Model(&model.ClientRecord{}).Where("owner_id = ?", user.Id).Count(&clientCount).Error
+
+	var enabledCount int64
+	_ = db.Model(&model.ClientRecord{}).Where("owner_id = ? AND enable = ?", user.Id, true).Count(&enabledCount).Error
+
+	remaining := int64(0)
+	if user.UsageLimit > 0 {
+		remaining = user.UsageLimit - user.UsageUp - user.UsageDown
+		if remaining < 0 {
+			remaining = 0
+		}
+	}
+
+	jsonObj(c, gin.H{
+		"id":           user.Id,
+		"username":     user.Username,
+		"role":         user.Role,
+		"usageLimit":   user.UsageLimit,
+		"usageUp":      user.UsageUp,
+		"usageDown":    user.UsageDown,
+		"remaining":    remaining,
+		"clientCount":  clientCount,
+		"enabledCount": enabledCount,
 	}, nil)
 }

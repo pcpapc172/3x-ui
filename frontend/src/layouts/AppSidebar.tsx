@@ -170,6 +170,7 @@ export default function AppSidebar() {
   const tabs = useMemo<{ key: string; icon: IconName; title: string }[]>(() => {
     const allTabs = [
       { key: '/', icon: 'dashboard', title: t('menu.dashboard') },
+      { key: '/reseller', icon: 'dashboard', title: t('pages.reseller.title', 'Reseller') },
       { key: '/inbounds', icon: 'inbound', title: t('menu.inbounds') },
       { key: '/clients', icon: 'team', title: t('menu.clients') },
       { key: '/groups', icon: 'groups', title: t('menu.groups') },
@@ -186,7 +187,7 @@ export default function AppSidebar() {
     ];
     if (!isAdmin) {
       return allTabs.filter((tab) =>
-        ['/', '/inbounds', '/clients', LOGOUT_KEY].includes(tab.key)
+        ['/', '/reseller', '/inbounds', '/clients', LOGOUT_KEY].includes(tab.key)
       );
     }
     return allTabs;

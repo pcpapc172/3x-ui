@@ -1990,6 +1990,17 @@
         "badTag": "Geçersiz etiket",
         "badVlessRoute": "0 ile 65535 arasında tek bir sayı girin"
       }
+    },
+    "reseller": {
+      "title": "Reseller",
+      "sent": "Sent",
+      "received": "Received",
+      "remaining": "Remaining",
+      "unlimited": "Unlimited",
+      "totalUsage": "Total Usage",
+      "totalClients": "Total Clients",
+      "activeClients": "Active Clients",
+      "quotaUsed": "Quota Used"
     }
   },
   "tgbot": {

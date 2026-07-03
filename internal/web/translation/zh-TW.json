@@ -1990,6 +1990,17 @@
         "badTag": "無效的標籤",
         "badVlessRoute": "請輸入 0 到 65535 之間的單一數字"
       }
+    },
+    "reseller": {
+      "title": "Reseller",
+      "sent": "Sent",
+      "received": "Received",
+      "remaining": "Remaining",
+      "unlimited": "Unlimited",
+      "totalUsage": "Total Usage",
+      "totalClients": "Total Clients",
+      "activeClients": "Active Clients",
+      "quotaUsed": "Quota Used"
     }
   },
   "tgbot": {

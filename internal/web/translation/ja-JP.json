@@ -1990,6 +1990,17 @@
         "badTag": "無効なタグ",
         "badVlessRoute": "0〜65535 の単一の数値を入力してください"
       }
+    },
+    "reseller": {
+      "title": "Reseller",
+      "sent": "Sent",
+      "received": "Received",
+      "remaining": "Remaining",
+      "unlimited": "Unlimited",
+      "totalUsage": "Total Usage",
+      "totalClients": "Total Clients",
+      "activeClients": "Active Clients",
+      "quotaUsed": "Quota Used"
     }
   },
   "tgbot": {

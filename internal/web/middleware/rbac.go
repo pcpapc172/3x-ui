@@ -11,6 +11,7 @@ import (
 
 var resellerAllowedPrefixes = []string{
 	"panel/api/user/info",
+	"panel/api/user/overview",
 	"panel/api/setting/all",
 	"panel/api/setting/defaultSettings",
 	"panel/api/server/status",

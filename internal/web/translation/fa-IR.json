@@ -1990,6 +1990,17 @@
         "badTag": "برچسب نامعتبر",
         "badVlessRoute": "یک عدد بین 0 تا 65535 وارد کنید"
       }
+    },
+    "reseller": {
+      "title": "Reseller",
+      "sent": "Sent",
+      "received": "Received",
+      "remaining": "Remaining",
+      "unlimited": "Unlimited",
+      "totalUsage": "Total Usage",
+      "totalClients": "Total Clients",
+      "activeClients": "Active Clients",
+      "quotaUsed": "Quota Used"
     }
   },
   "tgbot": {

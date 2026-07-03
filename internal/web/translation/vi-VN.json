@@ -1990,6 +1990,17 @@
         "badTag": "Tag không hợp lệ",
         "badVlessRoute": "Nhập một số duy nhất từ 0 đến 65535"
       }
+    },
+    "reseller": {
+      "title": "Reseller",
+      "sent": "Sent",
+      "received": "Received",
+      "remaining": "Remaining",
+      "unlimited": "Unlimited",
+      "totalUsage": "Total Usage",
+      "totalClients": "Total Clients",
+      "activeClients": "Active Clients",
+      "quotaUsed": "Quota Used"
     }
   },
   "tgbot": {

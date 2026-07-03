@@ -7,7 +7,8 @@
 .groups-page .ant-card,
 .api-docs-page .ant-card,
 .admins-page .ant-card,
-.multiply-page .ant-card {
+.multiply-page .ant-card,
+.reseller-page .ant-card {
   border-radius: 12px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   transition: transform 0.2s ease, box-shadow 0.25s ease, border-color 0.2s ease;
@@ -22,7 +23,8 @@
 .groups-page.is-dark .ant-card,
 .api-docs-page.is-dark .ant-card,
 .admins-page.is-dark .ant-card,
-.multiply-page.is-dark .ant-card {
+.multiply-page.is-dark .ant-card,
+.reseller-page.is-dark .ant-card {
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.03);
@@ -37,7 +39,8 @@
 .groups-page.is-dark.is-ultra .ant-card,
 .api-docs-page.is-dark.is-ultra .ant-card,
 .admins-page.is-dark.is-ultra .ant-card,
-.multiply-page.is-dark.is-ultra .ant-card {
+.multiply-page.is-dark.is-ultra .ant-card,
+.reseller-page.is-dark.is-ultra .ant-card {
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.6),
     inset 0 1px 0 rgba(255, 255, 255, 0.025);
@@ -52,7 +55,8 @@
 .groups-page .ant-card.ant-card-hoverable:hover,
 .api-docs-page .ant-card.ant-card-hoverable:hover,
 .admins-page .ant-card.ant-card-hoverable:hover,
-.multiply-page .ant-card.ant-card-hoverable:hover {
+.multiply-page .ant-card.ant-card-hoverable:hover,
+.reseller-page .ant-card.ant-card-hoverable:hover {
   cursor: default;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
 }
@@ -66,7 +70,8 @@
 .groups-page.is-dark .ant-card.ant-card-hoverable:hover,
 .api-docs-page.is-dark .ant-card.ant-card-hoverable:hover,
 .admins-page.is-dark .ant-card.ant-card-hoverable:hover,
-.multiply-page.is-dark .ant-card.ant-card-hoverable:hover {
+.multiply-page.is-dark .ant-card.ant-card-hoverable:hover,
+.reseller-page.is-dark .ant-card.ant-card-hoverable:hover {
   box-shadow:
     0 8px 24px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
@@ -81,7 +86,8 @@
 .groups-page.is-dark.is-ultra .ant-card.ant-card-hoverable:hover,
 .api-docs-page.is-dark.is-ultra .ant-card.ant-card-hoverable:hover,
 .admins-page.is-dark.is-ultra .ant-card.ant-card-hoverable:hover,
-.multiply-page.is-dark.is-ultra .ant-card.ant-card-hoverable:hover {
+.multiply-page.is-dark.is-ultra .ant-card.ant-card-hoverable:hover,
+.reseller-page.is-dark.is-ultra .ant-card.ant-card-hoverable:hover {
   box-shadow:
     0 8px 24px rgba(0, 0, 0, 0.75),
     inset 0 1px 0 rgba(255, 255, 255, 0.03);
@@ -96,7 +102,8 @@
 .groups-page .ant-card .ant-card-actions,
 .api-docs-page .ant-card .ant-card-actions,
 .admins-page .ant-card .ant-card-actions,
-.multiply-page .ant-card .ant-card-actions {
+.multiply-page .ant-card .ant-card-actions,
+.reseller-page .ant-card .ant-card-actions {
   background: transparent;
 }
 
