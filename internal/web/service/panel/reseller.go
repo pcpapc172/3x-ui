@@ -160,18 +160,6 @@ func (s *ResellerService) ReEnableResellerClients(id int) error {
 	db.Model(&model.ClientRecord{}).Where("email IN ?", emails).Update("enable", true)
 	db.Table("client_traffics").Where("email IN ?", emails).Update("enable", true)
 
-	return int64(len(emails)), nil
-}
-
-func (s *ResellerService) ReEnableResellerClients(id int) error {
-	db := database.GetDB()
-	var emails []string
-	db.Model(&model.ClientRecord{}).Where("owner_id = ? AND enable = ? AND locked = ?", id, false, false).Pluck("email", &emails)
-	if len(emails) == 0 {
-		return nil
-	}
-	db.Model(&model.ClientRecord{}).Where("email IN ?", emails).Update("enable", true)
-	db.Table("client_traffics").Where("email IN ?", emails).Update("enable", true)
 	return nil
 }
 
