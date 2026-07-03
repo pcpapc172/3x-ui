@@ -10,11 +10,11 @@ import (
 )
 
 var resellerAllowedPrefixes = []string{
-	"/panel/api/user/info",
-	"/panel/api/setting/all",
-	"/panel/api/server/status",
-	"/panel/api/inbounds/",
-	"/panel/api/clients/",
+	"panel/api/user/info",
+	"panel/api/setting/all",
+	"panel/api/server/status",
+	"panel/api/inbounds/",
+	"panel/api/clients/",
 }
 
 func RBACMiddleware() gin.HandlerFunc {
@@ -34,6 +34,7 @@ func RBACMiddleware() gin.HandlerFunc {
 		if basePath != "" && basePath != "/" {
 			path = strings.TrimPrefix(path, basePath)
 		}
+		path = strings.TrimPrefix(path, "/")
 
 		for _, prefix := range resellerAllowedPrefixes {
 			if strings.HasPrefix(path, prefix) {
