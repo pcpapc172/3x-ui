@@ -28,7 +28,13 @@ func (s *InboundService) GetAllInboundLinks(host string, userId int) ([]string, 
 	if registeredSubLinkProvider == nil {
 		return nil, common.NewError("sub link provider not registered")
 	}
-	inbounds, err := s.GetInbounds(userId)
+	var inbounds []*model.Inbound
+	var err error
+	if userId > 0 {
+		inbounds, err = s.GetInbounds(userId)
+	} else {
+		inbounds, err = s.GetAllInbounds()
+	}
 	if err != nil {
 		return nil, err
 	}

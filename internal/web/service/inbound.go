@@ -216,7 +216,11 @@ func (s *InboundService) annotateLocalOriginGuid(inbounds []*model.Inbound) {
 func (s *InboundService) GetInboundsSlim(userId int) ([]*model.Inbound, error) {
 	db := database.GetDB()
 	var inbounds []*model.Inbound
-	err := db.Model(model.Inbound{}).Preload("ClientStats").Where("user_id = ?", userId).Order("id ASC").Find(&inbounds).Error
+	q := db.Model(model.Inbound{}).Preload("ClientStats")
+	if userId > 0 {
+		q = q.Where("user_id = ?", userId)
+	}
+	err := q.Order("id ASC").Find(&inbounds).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
@@ -338,9 +342,12 @@ func (s *InboundService) GetInboundOptions(userId int) ([]InboundOption, error) 
 		Settings       string `gorm:"column:settings"`
 		NodeId         *int   `gorm:"column:node_id"`
 	}
-	err := db.Table("inbounds").
-		Select("id, remark, tag, protocol, port, stream_settings, settings, node_id").
-		Where("user_id = ?", userId).
+	q := db.Table("inbounds").
+		Select("id, remark, tag, protocol, port, stream_settings, settings, node_id")
+	if userId > 0 {
+		q = q.Where("user_id = ?", userId)
+	}
+	err := q.
 		Order("id ASC").
 		Scan(&rows).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
