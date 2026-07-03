@@ -393,6 +393,8 @@ func (s *InboundService) setRemoteTrafficLocked(nodeID int, snap *runtime.Traffi
 
 	newInboundIDs := make(map[int]struct{})
 
+	var nodeTrafficDeltas []*xray.ClientTraffic
+
 	snapTags := make(map[string]struct{}, len(snap.Inbounds))
 	for _, snapIb := range snap.Inbounds {
 		if snapIb == nil {
@@ -636,6 +638,14 @@ func (s *InboundService) setRemoteTrafficLocked(nodeID int, snap *runtime.Traffi
 				if deltaDown = canon.Down - base.Down; deltaDown < 0 {
 					deltaDown = 0
 				}
+			}
+
+			if deltaUp > 0 || deltaDown > 0 {
+				nodeTrafficDeltas = append(nodeTrafficDeltas, &xray.ClientTraffic{
+					Email: cs.Email,
+					Up:    deltaUp,
+					Down:  deltaDown,
+				})
 			}
 
 			if _, rowExists := existingEmails[cs.Email]; !rowExists {
@@ -883,6 +893,10 @@ func (s *InboundService) setRemoteTrafficLocked(nodeID int, snap *runtime.Traffi
 		return false, err
 	}
 	committed = true
+
+	if len(nodeTrafficDeltas) > 0 {
+		InboundService{}.updateResellerUsage(database.GetDB(), nodeTrafficDeltas)
+	}
 
 	if p != nil {
 		tree := snap.OnlineTree
