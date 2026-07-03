@@ -642,6 +642,7 @@ type ClientRecord struct {
 	TotalGB      int64  `json:"totalGB" gorm:"column:total_gb"`
 	ExpiryTime   int64  `json:"expiryTime" gorm:"column:expiry_time"`
 	Enable       bool   `json:"enable" gorm:"default:true"`
+	Locked       bool   `json:"locked" gorm:"default:false"`
 	TgID         int64  `json:"tgId" gorm:"column:tg_id"`
 	Group        string `json:"group" gorm:"column:group_name;default:'';index:idx_client_record_group"`
 	Comment      string `json:"comment"`

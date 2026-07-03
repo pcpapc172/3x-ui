@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, Card, Col, Form, Input, InputNumber, Layout, Modal, Popconfirm, Row, Space, Table, Tag, message } from 'antd';
-import { DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Button, Card, Col, Form, Input, InputNumber, Layout, Modal, Popconfirm, Row, Space, Table, Tag, Tooltip, message } from 'antd';
+import { DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, CopyOutlined } from '@ant-design/icons';
 
 import { HttpUtil } from '@/utils';
 import type { Msg } from '@/utils';
@@ -32,6 +32,12 @@ export default function AdminsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingReseller, setEditingReseller] = useState<ResellerInfo | null>(null);
   const [form] = Form.useForm();
+
+  const generateRandom = useCallback(() => {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    const pick = (len: number) => Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    form.setFieldsValue({ username: `rs-${pick(8)}`, password: pick(16) });
+  }, [form]);
 
   const fetchResellers = useCallback(async () => {
     setLoading(true);
@@ -206,6 +212,13 @@ export default function AdminsPage() {
         okText={editingReseller ? 'Update' : 'Create'}
       >
         <Form form={form} layout="vertical">
+          {!editingReseller && (
+            <Form.Item>
+              <Tooltip title="Generate random username and password">
+                <Button icon={<CopyOutlined />} onClick={generateRandom}>Generate Random</Button>
+              </Tooltip>
+            </Form.Item>
+          )}
           <Form.Item
             name="username"
             label={t('pages.settings.username', 'Username')}

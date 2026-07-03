@@ -1129,7 +1129,7 @@ func (s *InboundService) disableResellerOverQuotaClients(tx *gorm.DB) (bool, int
 
 	var emails []string
 	err = tx.Model(&model.ClientRecord{}).
-		Where("owner_id IN ? AND enable = ?", overQuotaIds, true).
+		Where("owner_id IN ? AND enable = ? AND locked = ?", overQuotaIds, true, false).
 		Pluck("email", &emails).Error
 	if err != nil || len(emails) == 0 {
 		return false, 0, err
@@ -1191,7 +1191,7 @@ func (s *InboundService) disableResellerOverQuotaClients(tx *gorm.DB) (bool, int
 	if len(emails) > 0 {
 		if err2 := tx.Model(&model.ClientRecord{}).
 			Where("email IN ?", emails).
-			Updates(map[string]any{"enable": false}).Error; err2 != nil {
+			Updates(map[string]any{"enable": false, "locked": true}).Error; err2 != nil {
 			logger.Warning("disableResellerOverQuotaClients: update clients.enable:", err2)
 		}
 	}

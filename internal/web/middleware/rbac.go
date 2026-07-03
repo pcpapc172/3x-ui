@@ -15,8 +15,30 @@ var resellerAllowedPrefixes = []string{
 	"panel/api/setting/defaultSettings",
 	"panel/api/server/status",
 	"panel/api/server/getPanelUpdateInfo",
-	"panel/api/inbounds/",
+	"panel/api/inbounds/list",
+	"panel/api/inbounds/options",
+	"panel/api/inbounds/allLinks",
+	"panel/api/inbounds/get/",
 	"panel/api/clients/",
+}
+
+var resellerBlockedPrefixes = []string{
+	"panel/api/inbounds/add",
+	"panel/api/inbounds/del",
+	"panel/api/inbounds/bulkDel",
+	"panel/api/inbounds/update",
+	"panel/api/inbounds/setEnable",
+	"panel/api/inbounds/resetTraffic",
+	"panel/api/inbounds/delAllClients",
+	"panel/api/inbounds/resetAllTraffics",
+	"panel/api/inbounds/import",
+	"panel/api/inbounds/pushClientTraffics",
+	"panel/api/setting/",
+	"panel/api/server/",
+	"panel/api/nodes/",
+	"panel/api/hosts/",
+	"panel/api/xray/",
+	"panel/api/resellers/",
 }
 
 func RBACMiddleware() gin.HandlerFunc {
@@ -37,6 +59,13 @@ func RBACMiddleware() gin.HandlerFunc {
 			path = strings.TrimPrefix(path, basePath)
 		}
 		path = strings.TrimPrefix(path, "/")
+
+		for _, prefix := range resellerBlockedPrefixes {
+			if strings.HasPrefix(path, prefix) {
+				c.AbortWithStatus(http.StatusForbidden)
+				return
+			}
+		}
 
 		for _, prefix := range resellerAllowedPrefixes {
 			if strings.HasPrefix(path, prefix) {

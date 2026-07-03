@@ -55,6 +55,7 @@ type ClientPageParams struct {
 	HasTgID    string `form:"hasTgId"`
 	HasComment string `form:"hasComment"`
 	Group      string `form:"group"`
+	OwnerID    int    `form:"ownerId"`
 }
 
 // ClientPageResponse is the shape returned by ListPaged. `Total` is the
@@ -180,6 +181,9 @@ func (s *ClientService) ListPaged(inboundSvc *InboundService, settingSvc *Settin
 			continue
 		}
 		if !clientMatchesAnyGroup(c, params.Group) {
+			continue
+		}
+		if params.OwnerID > 0 && c.OwnerId != params.OwnerID {
 			continue
 		}
 		filtered = append(filtered, c)
