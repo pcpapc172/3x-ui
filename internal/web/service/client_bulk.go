@@ -1392,6 +1392,8 @@ func (s *ClientService) BulkSetEnable(inboundSvc *InboundService, emails []strin
 	for _, email := range cleanEmails {
 		if _, ok := recordsByEmail[email]; !ok {
 			skippedReasons[email] = "client not found"
+		} else if enable && recordsByEmail[email].Locked {
+			skippedReasons[email] = "client locked by quota"
 		}
 	}
 

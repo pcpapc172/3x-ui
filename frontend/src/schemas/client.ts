@@ -39,6 +39,8 @@ export const ClientRecordSchema = z.object({
   keepAlive: z.number().optional(),
   createdAt: z.number().optional(),
   updatedAt: z.number().optional(),
+  ownerId: z.number().optional(),
+  ownerName: z.string().optional(),
 }).loose();
 
 export const InboundOptionSchema = z.object({

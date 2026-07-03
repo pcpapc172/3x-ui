@@ -153,11 +153,11 @@ func (s *ResellerService) ResetResellerUsage(id int) (int64, error) {
 func (s *ResellerService) ReEnableResellerClients(id int) error {
 	db := database.GetDB()
 	var emails []string
-	db.Model(&model.ClientRecord{}).Where("owner_id = ? AND enable = ? AND locked = ?", id, false, false).Pluck("email", &emails)
+	db.Model(&model.ClientRecord{}).Where("owner_id = ? AND locked = ?", id, true).Pluck("email", &emails)
 	if len(emails) == 0 {
 		return nil
 	}
-	db.Model(&model.ClientRecord{}).Where("email IN ?", emails).Update("enable", true)
+	db.Model(&model.ClientRecord{}).Where("email IN ?", emails).Updates(map[string]any{"enable": true, "locked": false})
 	db.Table("client_traffics").Where("email IN ?", emails).Update("enable", true)
 
 	return nil

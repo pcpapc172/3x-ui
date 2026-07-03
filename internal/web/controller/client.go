@@ -2,9 +2,11 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
 	"strconv"
 	"strings"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/session"
@@ -140,14 +142,20 @@ func (a *ClientController) get(c *gin.Context) {
 		return
 	}
 	rec.Flow = flow
-	// Consumed bytes (up+down, including cross-node global overlay) so API
-	// consumers can pair usage with the client's totalGB quota (#4973).
-	// Best-effort: a traffic lookup failure must not break the client fetch.
+
+	var ownerName string
+	if rec.OwnerId > 0 {
+		var user model.User
+		if err := database.GetDB().Where("id = ?", rec.OwnerId).First(&user).Error; err == nil {
+			ownerName = user.Username
+		}
+	}
+
 	var usedTraffic int64
 	if t, tErr := a.inboundService.GetClientTrafficByEmail(email); tErr == nil && t != nil {
 		usedTraffic = t.Up + t.Down
 	}
-	jsonObj(c, gin.H{"client": rec, "inboundIds": inboundIds, "externalLinks": externalLinks, "usedTraffic": usedTraffic}, nil)
+	jsonObj(c, gin.H{"client": rec, "inboundIds": inboundIds, "externalLinks": externalLinks, "usedTraffic": usedTraffic, "ownerId": rec.OwnerId, "ownerName": ownerName}, nil)
 }
 
 func (a *ClientController) create(c *gin.Context) {
@@ -178,6 +186,14 @@ func (a *ClientController) update(c *gin.Context) {
 	if err := c.ShouldBindJSON(&updated); err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
+	}
+	if updated.Enable {
+		var locked bool
+		database.GetDB().Model(&model.ClientRecord{}).Where("email = ?", email).Pluck("locked", &locked)
+		if locked {
+			jsonMsg(c, I18nWeb(c, "somethingWentWrong"), errors.New("client locked by quota"))
+			return
+		}
 	}
 	inboundFilter := parseInboundIdsQuery(c.Query("inboundIds"))
 	needRestart, err := a.clientService.UpdateByEmail(&a.inboundService, email, updated, inboundFilter...)

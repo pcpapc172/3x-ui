@@ -314,6 +314,12 @@ export default function ClientInfoModal({
                     <td><Tag className="info-large-tag">{client.comment}</Tag></td>
                   </tr>
                 )}
+                {client.ownerName && (
+                  <tr>
+                    <td>Client Owner</td>
+                    <td><Tag color="blue">{client.ownerName}</Tag></td>
+                  </tr>
+                )}
                 <tr>
                   <td>{t('pages.clients.attachedInbounds')}</td>
                   <td>
