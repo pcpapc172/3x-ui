@@ -51,9 +51,9 @@ func (a *ResellerController) list(c *gin.Context) {
 }
 
 type addResellerForm struct {
-	Username   string `form:"username" json:"username"`
-	Password   string `form:"password" json:"password"`
-	UsageLimit int64  `form:"usageLimit" json:"usageLimit"`
+	Username   string  `form:"username" json:"username"`
+	Password   string  `form:"password" json:"password"`
+	UsageLimit float64 `form:"usageLimit" json:"usageLimit"`
 }
 
 func (a *ResellerController) add(c *gin.Context) {
@@ -62,7 +62,7 @@ func (a *ResellerController) add(c *gin.Context) {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
-	user, err := a.resellerService.CreateReseller(form.Username, form.Password, form.UsageLimit)
+	user, err := a.resellerService.CreateReseller(form.Username, form.Password, int64(form.UsageLimit))
 	if err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
@@ -71,9 +71,9 @@ func (a *ResellerController) add(c *gin.Context) {
 }
 
 type updateResellerForm struct {
-	Username   string `form:"username" json:"username"`
-	Password   string `form:"password" json:"password"`
-	UsageLimit int64  `form:"usageLimit" json:"usageLimit"`
+	Username   string  `form:"username" json:"username"`
+	Password   string  `form:"password" json:"password"`
+	UsageLimit float64 `form:"usageLimit" json:"usageLimit"`
 }
 
 func (a *ResellerController) update(c *gin.Context) {
@@ -87,7 +87,7 @@ func (a *ResellerController) update(c *gin.Context) {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
-	if err := a.resellerService.UpdateReseller(id, form.Username, form.Password, form.UsageLimit); err != nil {
+	if err := a.resellerService.UpdateReseller(id, form.Username, form.Password, int64(form.UsageLimit)); err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
