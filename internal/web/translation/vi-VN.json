@@ -973,6 +973,34 @@
       "removeFromGroupDesc": "Chọn thành viên để xóa khỏi nhóm này. Bản thân client được giữ lại (dùng «Xóa client trong nhóm» để xóa hoàn toàn).",
       "removeFromGroupResult": "Đã xóa {count} client khỏi {name}."
     },
+    "admins": {
+      "title": "Resellers",
+      "resellers": "Resellers",
+      "addReseller": "Add Reseller",
+      "editReseller": "Edit Reseller",
+      "resetUsage": "Reset Usage",
+      "resetUsageConfirm": "Reset usage and re-enable all clients?",
+      "deleteConfirm": "Delete this reseller?",
+      "generateRandom": "Generate Random",
+      "leaveBlank": "Leave blank to keep current",
+      "usageLimitGB": "Usage Limit (GB)",
+      "totalResellers": "Total Resellers",
+      "activeResellers": "Active",
+      "totalClients": "Total Clients",
+      "totalUsage": "Total Usage"
+    },
+    "multiply": {
+      "title": "Traffic Multiplier",
+      "trafficMultiplier": "Traffic Multiplier",
+      "inbound": "Inbound",
+      "rate": "Rate",
+      "selectInbound": "Select inbound",
+      "add": "Add",
+      "removeConfirm": "Remove this multiplier?",
+      "totalMultipliers": "Total Multipliers",
+      "maxRate": "Max Rate",
+      "avgRate": "Avg Rate"
+    },
     "nodes": {
       "title": "Nút",
       "addNode": "Thêm nút",

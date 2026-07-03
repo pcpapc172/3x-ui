@@ -973,6 +973,34 @@
       "removeFromGroupDesc": "選擇要從此群組移除的成員。客戶端本身保留(用「刪除群組中的客戶端」完全移除)。",
       "removeFromGroupResult": "已從 {name} 移除 {count} 個客戶端。"
     },
+    "admins": {
+      "title": "Resellers",
+      "resellers": "Resellers",
+      "addReseller": "Add Reseller",
+      "editReseller": "Edit Reseller",
+      "resetUsage": "Reset Usage",
+      "resetUsageConfirm": "Reset usage and re-enable all clients?",
+      "deleteConfirm": "Delete this reseller?",
+      "generateRandom": "Generate Random",
+      "leaveBlank": "Leave blank to keep current",
+      "usageLimitGB": "Usage Limit (GB)",
+      "totalResellers": "Total Resellers",
+      "activeResellers": "Active",
+      "totalClients": "Total Clients",
+      "totalUsage": "Total Usage"
+    },
+    "multiply": {
+      "title": "Traffic Multiplier",
+      "trafficMultiplier": "Traffic Multiplier",
+      "inbound": "Inbound",
+      "rate": "Rate",
+      "selectInbound": "Select inbound",
+      "add": "Add",
+      "removeConfirm": "Remove this multiplier?",
+      "totalMultipliers": "Total Multipliers",
+      "maxRate": "Max Rate",
+      "avgRate": "Avg Rate"
+    },
     "nodes": {
       "title": "節點",
       "addNode": "新增節點",

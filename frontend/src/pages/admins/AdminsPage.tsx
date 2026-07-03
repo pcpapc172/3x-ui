@@ -1,8 +1,41 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, Card, Col, Form, Input, InputNumber, Layout, Modal, Popconfirm, Row, Space, Table, Tag, Tooltip, message } from 'antd';
-import { DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, CopyOutlined } from '@ant-design/icons';
+import {
+  Button,
+  Card,
+  Col,
+  ConfigProvider,
+  Form,
+  Input,
+  InputNumber,
+  Layout,
+  Modal,
+  Popconfirm,
+  Result,
+  Row,
+  Space,
+  Spin,
+  Statistic,
+  Table,
+  Tag,
+  Tooltip,
+  message,
+} from 'antd';
+import {
+  DeleteOutlined,
+  EditOutlined,
+  PlusOutlined,
+  ReloadOutlined,
+  CopyOutlined,
+  TeamOutlined,
+  CheckCircleOutlined,
+  ExclamationCircleOutlined,
+  CloudDownloadOutlined,
+} from '@ant-design/icons';
 
+import { useTheme } from '@/hooks/useTheme';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
+import AppSidebar from '@/layouts/AppSidebar';
 import { HttpUtil } from '@/utils';
 import type { Msg } from '@/utils';
 
@@ -27,11 +60,38 @@ function formatBytes(bytes: number): string {
 
 export default function AdminsPage() {
   const { t } = useTranslation();
+  const { isDark, isUltra, antdThemeConfig } = useTheme();
+  const { isMobile } = useMediaQuery();
+  const [messageApi, messageContextHolder] = message.useMessage();
   const [resellers, setResellers] = useState<ResellerInfo[]>([]);
+  const [fetched, setFetched] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingReseller, setEditingReseller] = useState<ResellerInfo | null>(null);
   const [form] = Form.useForm();
+
+  const pageClass = useMemo(() => {
+    const classes = ['admins-page'];
+    if (isDark) classes.push('is-dark');
+    if (isUltra) classes.push('is-ultra');
+    return classes.join(' ');
+  }, [isDark, isUltra]);
+
+  const totals = useMemo(() => {
+    let active = 0;
+    let totalUp = 0;
+    let totalDown = 0;
+    let totalClients = 0;
+    for (const r of resellers) {
+      const overQuota = r.usageLimit > 0 && (r.usageUp + r.usageDown) >= r.usageLimit;
+      if (!overQuota) active++;
+      totalUp += r.usageUp;
+      totalDown += r.usageDown;
+      totalClients += r.clientCount;
+    }
+    return { total: resellers.length, active, totalUp, totalDown, totalClients };
+  }, [resellers]);
 
   const generateRandom = useCallback(() => {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -41,17 +101,19 @@ export default function AdminsPage() {
 
   const fetchResellers = useCallback(async () => {
     setLoading(true);
+    setFetchError('');
     try {
       const resp = await HttpUtil.get<Msg<ResellerInfo[]>>('/panel/api/resellers/list');
       if (resp.success && resp.obj) {
         setResellers(resp.obj);
       }
     } catch {
-      // handled by HttpUtil
+      setFetchError(t('somethingWentWrong'));
     } finally {
       setLoading(false);
+      setFetched(true);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchResellers();
@@ -89,7 +151,7 @@ export default function AdminsPage() {
     try {
       const resp = await HttpUtil.post<Msg<{ reEnabled: number }>>(`/panel/api/resellers/resetUsage/${id}`);
       if (resp.success) {
-        message.success(`Reset usage, re-enabled ${resp.obj?.reEnabled ?? 0} clients`);
+        messageApi.success(`Reset usage, re-enabled ${resp.obj?.reEnabled ?? 0} clients`);
         fetchResellers();
       }
     } catch {
@@ -134,37 +196,37 @@ export default function AdminsPage() {
       key: 'username',
     },
     {
-      title: 'Clients',
+      title: t('pages.clients.title', 'Clients'),
       dataIndex: 'clientCount',
       key: 'clientCount',
       width: 80,
     },
     {
-      title: 'Upload',
+      title: t('pages.inbounds.up', 'Upload'),
       dataIndex: 'usageUp',
       key: 'usageUp',
       render: (v: number) => formatBytes(v),
     },
     {
-      title: 'Download',
+      title: t('pages.inbounds.down', 'Download'),
       dataIndex: 'usageDown',
       key: 'usageDown',
       render: (v: number) => formatBytes(v),
     },
     {
-      title: 'Limit',
+      title: t('pages.settings.limit', 'Limit'),
       dataIndex: 'usageLimit',
       key: 'usageLimit',
-      render: (v: number) => v === 0 ? 'Unlimited' : formatBytes(v),
+      render: (v: number) => v === 0 ? t('pages.settings.unlimited', 'Unlimited') : formatBytes(v),
     },
     {
-      title: 'Status',
+      title: t('pages.settings.status', 'Status'),
       key: 'status',
       render: (_: unknown, record: ResellerInfo) => {
         const overQuota = record.usageLimit > 0 && (record.usageUp + record.usageDown) >= record.usageLimit;
         return overQuota
-          ? <Tag color="red">Over Quota</Tag>
-          : <Tag color="green">Active</Tag>;
+          ? <Tag color="error">{t('pages.settings.overQuota', 'Over Quota')}</Tag>
+          : <Tag color="success">{t('pages.settings.active', 'Active')}</Tag>;
       },
     },
     {
@@ -173,12 +235,18 @@ export default function AdminsPage() {
       width: 200,
       render: (_: unknown, record: ResellerInfo) => (
         <Space>
-          <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
-          <Popconfirm title="Reset usage and re-enable all clients?" onConfirm={() => handleResetUsage(record.id)}>
-            <Button size="small" icon={<ReloadOutlined />} />
+          <Tooltip title={t('edit', 'Edit')}>
+            <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
+          </Tooltip>
+          <Popconfirm title={t('pages.admins.resetUsageConfirm', 'Reset usage and re-enable all clients?')} onConfirm={() => handleResetUsage(record.id)}>
+            <Tooltip title={t('pages.admins.resetUsage', 'Reset Usage')}>
+              <Button size="small" icon={<ReloadOutlined />} />
+            </Tooltip>
           </Popconfirm>
-          <Popconfirm title="Delete this reseller?" onConfirm={() => handleDelete(record.id)}>
-            <Button size="small" danger icon={<DeleteOutlined />} />
+          <Popconfirm title={t('pages.admins.deleteConfirm', 'Delete this reseller?')} onConfirm={() => handleDelete(record.id)}>
+            <Tooltip title={t('delete', 'Delete')}>
+              <Button size="small" danger icon={<DeleteOutlined />} />
+            </Tooltip>
           </Popconfirm>
         </Space>
       ),
@@ -186,58 +254,122 @@ export default function AdminsPage() {
   ];
 
   return (
-    <Layout.Content style={{ padding: 24 }}>
-      <Card
-        title="Resellers"
-        extra={
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-            Add Reseller
-          </Button>
-        }
-      >
-        <Table
-          dataSource={resellers}
-          columns={columns}
-          rowKey="id"
-          loading={loading}
-          pagination={false}
-        />
-      </Card>
+    <ConfigProvider theme={antdThemeConfig}>
+      {messageContextHolder}
+      <Layout className={pageClass}>
+        <AppSidebar />
 
-      <Modal
-        title={editingReseller ? 'Edit Reseller' : 'Add Reseller'}
-        open={modalOpen}
-        onOk={handleSubmit}
-        onCancel={() => setModalOpen(false)}
-        okText={editingReseller ? 'Update' : 'Create'}
-      >
-        <Form form={form} layout="vertical">
-          {!editingReseller && (
-            <Form.Item>
-              <Tooltip title="Generate random username and password">
-                <Button icon={<CopyOutlined />} onClick={generateRandom}>Generate Random</Button>
-              </Tooltip>
+        <Layout className="content-shell">
+          <Layout.Content id="content-layout" className="content-area">
+            <Spin spinning={!fetched} delay={200} description={t('loading')} size="large">
+              {!fetched ? (
+                <div className="loading-spacer" />
+              ) : fetchError ? (
+                <Result
+                  status="error"
+                  title={t('somethingWentWrong')}
+                  subTitle={fetchError}
+                  extra={<Button type="primary" onClick={fetchResellers}>{t('refresh')}</Button>}
+                />
+              ) : (
+                <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 12]}>
+                  <Col span={24}>
+                    <Card size="small" hoverable className="summary-card">
+                      <Row gutter={[16, isMobile ? 16 : 12]}>
+                        <Col xs={12} sm={12} md={6}>
+                          <Statistic
+                            title={t('pages.admins.totalResellers', 'Total Resellers')}
+                            value={totals.total}
+                            prefix={<TeamOutlined />}
+                          />
+                        </Col>
+                        <Col xs={12} sm={12} md={6}>
+                          <Statistic
+                            title={t('pages.admins.activeResellers', 'Active')}
+                            value={totals.active}
+                            prefix={<CheckCircleOutlined style={{ color: 'var(--ant-color-success)' }} />}
+                          />
+                        </Col>
+                        <Col xs={12} sm={12} md={6}>
+                          <Statistic
+                            title={t('pages.admins.totalClients', 'Total Clients')}
+                            value={totals.totalClients}
+                            prefix={<ExclamationCircleOutlined />}
+                          />
+                        </Col>
+                        <Col xs={12} sm={12} md={6}>
+                          <Statistic
+                            title={t('pages.admins.totalUsage', 'Total Usage')}
+                            value={formatBytes(totals.totalUp + totals.totalDown)}
+                            prefix={<CloudDownloadOutlined />}
+                          />
+                        </Col>
+                      </Row>
+                    </Card>
+                  </Col>
+
+                  <Col span={24}>
+                    <Card
+                      size="small"
+                      hoverable
+                      title={t('pages.admins.resellers', 'Resellers')}
+                      extra={
+                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                          {isMobile ? '' : t('pages.admins.addReseller', 'Add Reseller')}
+                        </Button>
+                      }
+                    >
+                      <Table
+                        dataSource={resellers}
+                        columns={columns}
+                        rowKey="id"
+                        loading={loading}
+                        pagination={false}
+                        size="small"
+                      />
+                    </Card>
+                  </Col>
+                </Row>
+              )}
+            </Spin>
+          </Layout.Content>
+        </Layout>
+
+        <Modal
+          title={editingReseller ? t('pages.admins.editReseller', 'Edit Reseller') : t('pages.admins.addReseller', 'Add Reseller')}
+          open={modalOpen}
+          onOk={handleSubmit}
+          onCancel={() => setModalOpen(false)}
+          okText={editingReseller ? t('update', 'Update') : t('create', 'Create')}
+        >
+          <Form form={form} layout="vertical">
+            {!editingReseller && (
+              <Form.Item>
+                <Tooltip title={t('pages.admins.generateRandom', 'Generate random username and password')}>
+                  <Button icon={<CopyOutlined />} onClick={generateRandom}>{t('pages.admins.generateRandom', 'Generate Random')}</Button>
+                </Tooltip>
+              </Form.Item>
+            )}
+            <Form.Item
+              name="username"
+              label={t('pages.settings.username', 'Username')}
+              rules={[{ required: true }]}
+            >
+              <Input disabled={!!editingReseller} />
             </Form.Item>
-          )}
-          <Form.Item
-            name="username"
-            label={t('pages.settings.username', 'Username')}
-            rules={[{ required: true }]}
-          >
-            <Input disabled={!!editingReseller} />
-          </Form.Item>
-          <Form.Item
-            name="password"
-            label={t('pages.settings.password', 'Password')}
-            rules={editingReseller ? [] : [{ required: true }]}
-          >
-            <Input.Password placeholder={editingReseller ? 'Leave blank to keep current' : ''} />
-          </Form.Item>
-          <Form.Item name="usageLimit" label="Usage Limit (GB)">
-            <InputNumber min={0} style={{ width: '100%' }} />
-          </Form.Item>
-        </Form>
-      </Modal>
-    </Layout.Content>
+            <Form.Item
+              name="password"
+              label={t('pages.settings.password', 'Password')}
+              rules={editingReseller ? [] : [{ required: true }]}
+            >
+              <Input.Password placeholder={editingReseller ? t('pages.admins.leaveBlank', 'Leave blank to keep current') : ''} />
+            </Form.Item>
+            <Form.Item name="usageLimit" label={t('pages.admins.usageLimitGB', 'Usage Limit (GB)')}>
+              <InputNumber min={0} style={{ width: '100%' }} />
+            </Form.Item>
+          </Form>
+        </Modal>
+      </Layout>
+    </ConfigProvider>
   );
 }
