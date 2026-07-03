@@ -30,6 +30,10 @@ func RBACMiddleware() gin.HandlerFunc {
 		}
 
 		path := c.Request.URL.Path
+		basePath := c.GetString("base_path")
+		if basePath != "" && basePath != "/" {
+			path = strings.TrimPrefix(path, basePath)
+		}
 
 		for _, prefix := range resellerAllowedPrefixes {
 			if strings.HasPrefix(path, prefix) {

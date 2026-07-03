@@ -150,17 +150,19 @@ export default function AppSidebar() {
 
   const [collapsed, setCollapsed] = useState<boolean>(() => readCollapsed());
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [userRole, setUserRole] = useState<string>('admin');
+  const [userRole, setUserRole] = useState<string>('');
+  const [roleFetched, setRoleFetched] = useState(false);
 
   useEffect(() => {
-    HttpUtil.get<{ role: string }>('/panel/api/user/info').then((resp) => {
+    HttpUtil.get<{ role: string }>('/panel/api/user/info', undefined, { silent: true }).then((resp) => {
       if (resp.obj?.role) {
         setUserRole(resp.obj.role);
       }
-    }).catch(() => {});
+      setRoleFetched(true);
+    }).catch(() => { setRoleFetched(true); });
   }, []);
 
-  const isAdmin = userRole === 'admin';
+  const isAdmin = roleFetched ? userRole === 'admin' : true;
 
   const currentTheme: 'light' | 'dark' = isDark ? 'dark' : 'light';
   const panelVersion = window.X_UI_CUR_VER || '';
