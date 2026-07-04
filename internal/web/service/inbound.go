@@ -472,6 +472,77 @@ func (s *InboundService) GetAllInbounds() ([]*model.Inbound, error) {
 	return inbounds, nil
 }
 
+// GetInboundsByIds retrieves inbounds matching the given IDs with client stats.
+func (s *InboundService) GetInboundsByIds(ids []int) ([]*model.Inbound, error) {
+	db := database.GetDB()
+	var inbounds []*model.Inbound
+	err := db.Model(model.Inbound{}).Preload("ClientStats").Where("id IN ?", ids).Find(&inbounds).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	s.enrichClientStats(db, inbounds)
+	return inbounds, nil
+}
+
+// GetInboundsSlimByIds is the slim variant filtered by IDs.
+func (s *InboundService) GetInboundsSlimByIds(ids []int) ([]*model.Inbound, error) {
+	db := database.GetDB()
+	var inbounds []*model.Inbound
+	err := db.Model(model.Inbound{}).Preload("ClientStats").Where("id IN ?", ids).Order("id ASC").Find(&inbounds).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	s.annotateFallbackParents(db, inbounds)
+	s.annotateLocalOriginGuid(inbounds)
+	s.backfillClientStats(db, inbounds)
+	s.overlayInboundsClientStats(db, inbounds)
+	for _, ib := range inbounds {
+		ib.Settings = slimSettingsClients(ib.Settings)
+	}
+	return inbounds, nil
+}
+
+// GetInboundOptionsByIds returns lightweight inbound projections filtered by IDs.
+func (s *InboundService) GetInboundOptionsByIds(ids []int) ([]InboundOption, error) {
+	db := database.GetDB()
+	var rows []struct {
+		Id             int    `gorm:"column:id"`
+		Remark         string `gorm:"column:remark"`
+		Tag            string `gorm:"column:tag"`
+		Protocol       string `gorm:"column:protocol"`
+		Port           int    `gorm:"column:port"`
+		StreamSettings string `gorm:"column:stream_settings"`
+		Settings       string `gorm:"column:settings"`
+		NodeId         *int   `gorm:"column:node_id"`
+	}
+	err := db.Table("inbounds").
+		Select("id, remark, tag, protocol, port, stream_settings, settings, node_id").
+		Where("id IN ?", ids).
+		Order("id ASC").
+		Scan(&rows).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	out := make([]InboundOption, 0, len(rows))
+	for _, r := range rows {
+		wgPublicKey, wgMtu, wgDns := inboundWireguardHints(r.Protocol, r.Settings)
+		out = append(out, InboundOption{
+			Id:             r.Id,
+			Remark:         r.Remark,
+			Tag:            r.Tag,
+			Protocol:       r.Protocol,
+			Port:           r.Port,
+			TlsFlowCapable: inboundCanEnableTlsFlow(r.Protocol, r.StreamSettings, r.Settings),
+			SsMethod:       inboundShadowsocksMethod(r.Protocol, r.Settings),
+			WgPublicKey:    wgPublicKey,
+			WgMtu:          wgMtu,
+			WgDns:          wgDns,
+			NodeId:         r.NodeId,
+		})
+	}
+	return out, nil
+}
+
 func (s *InboundService) GetInboundsByTrafficReset(period string) ([]*model.Inbound, error) {
 	db := database.GetDB()
 	var inbounds []*model.Inbound

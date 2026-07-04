@@ -41,6 +41,17 @@ func (s *InboundService) GetAllInboundLinks(host string, userId int) ([]string, 
 	return registeredSubLinkProvider.LinksForInbounds(host, inbounds), nil
 }
 
+func (s *InboundService) GetAllInboundLinksByIds(host string, ids []int) ([]string, error) {
+	if registeredSubLinkProvider == nil {
+		return nil, common.NewError("sub link provider not registered")
+	}
+	inbounds, err := s.GetInboundsByIds(ids)
+	if err != nil {
+		return nil, err
+	}
+	return registeredSubLinkProvider.LinksForInbounds(host, inbounds), nil
+}
+
 func (s *InboundService) GetAllInboundLinksForReseller(host string, resellerId int) ([]string, error) {
 	if registeredSubLinkProvider == nil {
 		return nil, common.NewError("sub link provider not registered")

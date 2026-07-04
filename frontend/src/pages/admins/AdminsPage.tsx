@@ -13,6 +13,7 @@ import {
   Popconfirm,
   Result,
   Row,
+  Select,
   Space,
   Spin,
   Statistic,
@@ -48,6 +49,16 @@ interface ResellerInfo {
   usageDown: number;
   clientCount: number;
   enabled: boolean;
+  allowedInboundsMode: string;
+  allowedInboundIds: number[];
+}
+
+interface InboundOption {
+  id: number;
+  remark?: string;
+  tag?: string;
+  protocol?: string;
+  port?: number;
 }
 
 function formatBytes(bytes: number): string {
@@ -69,6 +80,7 @@ export default function AdminsPage() {
   const [fetchError, setFetchError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingReseller, setEditingReseller] = useState<ResellerInfo | null>(null);
+  const [inbounds, setInbounds] = useState<InboundOption[]>([]);
   const [form] = Form.useForm();
 
   const pageClass = useMemo(() => {
@@ -103,9 +115,15 @@ export default function AdminsPage() {
     setLoading(true);
     setFetchError('');
     try {
-      const resp = await HttpUtil.get<Msg<ResellerInfo[]>>('/panel/api/resellers/list');
+      const [resp, inbResp] = await Promise.all([
+        HttpUtil.get<Msg<ResellerInfo[]>>('/panel/api/resellers/list'),
+        HttpUtil.get<Msg<InboundOption[]>>('/panel/api/inbounds/options'),
+      ]);
       if (resp.success && resp.obj) {
         setResellers(resp.obj);
+      }
+      if (inbResp.success && inbResp.obj) {
+        setInbounds(inbResp.obj);
       }
     } catch {
       setFetchError(t('somethingWentWrong'));
@@ -122,7 +140,7 @@ export default function AdminsPage() {
   const handleAdd = () => {
     setEditingReseller(null);
     form.resetFields();
-    form.setFieldsValue({ usageLimit: 0 });
+    form.setFieldsValue({ usageLimit: 0, allowedInboundsMode: 'all', allowedInboundIds: [] });
     setModalOpen(true);
   };
 
@@ -132,6 +150,8 @@ export default function AdminsPage() {
       username: record.username,
       password: '',
       usageLimit: record.usageLimit / (1024 * 1024 * 1024),
+      allowedInboundsMode: record.allowedInboundsMode || 'all',
+      allowedInboundIds: record.allowedInboundIds || [],
     });
     setModalOpen(true);
   };
@@ -167,6 +187,8 @@ export default function AdminsPage() {
         username: values.username,
         password: values.password || '',
         usageLimit: usageLimitBytes,
+        allowedInboundsMode: values.allowedInboundsMode || 'all',
+        allowedInboundIds: values.allowedInboundsMode === 'select' ? (values.allowedInboundIds || []) : [],
       };
       let resp: Msg<unknown>;
       if (editingReseller) {
@@ -366,6 +388,31 @@ export default function AdminsPage() {
             </Form.Item>
             <Form.Item name="usageLimit" label={t('pages.admins.usageLimitGB', 'Usage Limit (GB)')}>
               <InputNumber min={0} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="allowedInboundsMode" label={t('pages.admins.allowedInboundsMode', 'Allowed Inbounds')}>
+              <Select
+                options={[
+                  { value: 'all', label: t('pages.admins.inboundAll', 'All Inbounds') },
+                  { value: 'select', label: t('pages.admins.inboundSelect', 'Select Inbounds') },
+                ]}
+              />
+            </Form.Item>
+            <Form.Item
+              noStyle
+              shouldUpdate={(prev, cur) => prev.allowedInboundsMode !== cur.allowedInboundsMode}
+            >
+              {({ getFieldValue }) => getFieldValue('allowedInboundsMode') === 'select' && (
+                <Form.Item name="allowedInboundIds" label={t('pages.admins.selectInbounds', 'Select Inbounds')}>
+                  <Select
+                    mode="multiple"
+                    placeholder={t('pages.admins.selectInboundsPlaceholder', 'Select inbounds this reseller can access')}
+                    options={inbounds.map((ib) => ({
+                      value: ib.id,
+                      label: `${ib.remark || ib.tag || ib.id} (${ib.protocol}:${ib.port})`,
+                    }))}
+                  />
+                </Form.Item>
+              )}
             </Form.Item>
           </Form>
         </Modal>

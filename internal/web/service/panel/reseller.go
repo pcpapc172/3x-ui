@@ -12,14 +12,16 @@ import (
 
 // ResellerInfo is the admin-facing projection of a reseller account.
 type ResellerInfo struct {
-	Id           int    `json:"id"`
-	Username     string `json:"username"`
-	Role         string `json:"role"`
-	UsageLimit   int64  `json:"usageLimit"`
-	UsageUp      int64  `json:"usageUp"`
-	UsageDown    int64  `json:"usageDown"`
-	ClientCount  int64  `json:"clientCount"`
-	Enabled      bool   `json:"enabled"`
+	Id                   int    `json:"id"`
+	Username             string `json:"username"`
+	Role                 string `json:"role"`
+	UsageLimit           int64  `json:"usageLimit"`
+	UsageUp              int64  `json:"usageUp"`
+	UsageDown            int64  `json:"usageDown"`
+	ClientCount          int64  `json:"clientCount"`
+	Enabled              bool   `json:"enabled"`
+	AllowedInboundsMode  string `json:"allowedInboundsMode"`
+	AllowedInboundIds    []int  `json:"allowedInboundIds"`
 }
 
 // ResellerService provides CRUD operations for reseller accounts.
@@ -36,25 +38,30 @@ func (s *ResellerService) ListResellers() ([]ResellerInfo, error) {
 		var count int64
 		_ = db.Model(&model.ClientRecord{}).Where("owner_id = ?", u.Id).Count(&count).Error
 		result = append(result, ResellerInfo{
-			Id:          u.Id,
-			Username:    u.Username,
-			Role:        u.Role,
-			UsageLimit:  u.UsageLimit,
-			UsageUp:     u.UsageUp,
-			UsageDown:   u.UsageDown,
-			ClientCount: count,
-			Enabled:     u.LoginEpoch >= 0,
+			Id:                  u.Id,
+			Username:            u.Username,
+			Role:                u.Role,
+			UsageLimit:          u.UsageLimit,
+			UsageUp:             u.UsageUp,
+			UsageDown:           u.UsageDown,
+			ClientCount:         count,
+			Enabled:             u.LoginEpoch >= 0,
+			AllowedInboundsMode: u.AllowedInboundsMode,
+			AllowedInboundIds:   u.AllowedInboundIds,
 		})
 	}
 	return result, nil
 }
 
-func (s *ResellerService) CreateReseller(username, password string, usageLimit int64) (*model.User, error) {
+func (s *ResellerService) CreateReseller(username, password string, usageLimit int64, allowedInboundsMode string, allowedInboundIds []int) (*model.User, error) {
 	if username == "" {
 		return nil, errors.New("username is required")
 	}
 	if password == "" {
 		return nil, errors.New("password is required")
+	}
+	if allowedInboundsMode == "" {
+		allowedInboundsMode = "all"
 	}
 	db := database.GetDB()
 	var exists int64
@@ -67,10 +74,12 @@ func (s *ResellerService) CreateReseller(username, password string, usageLimit i
 		return nil, err
 	}
 	user := &model.User{
-		Username:   username,
-		Password:   hashed,
-		Role:       "reseller",
-		UsageLimit: usageLimit,
+		Username:            username,
+		Password:            hashed,
+		Role:                "reseller",
+		UsageLimit:          usageLimit,
+		AllowedInboundsMode: allowedInboundsMode,
+		AllowedInboundIds:   allowedInboundIds,
 	}
 	if err := db.Create(user).Error; err != nil {
 		return nil, err
@@ -78,7 +87,7 @@ func (s *ResellerService) CreateReseller(username, password string, usageLimit i
 	return user, nil
 }
 
-func (s *ResellerService) UpdateReseller(id int, username, password string, usageLimit int64) error {
+func (s *ResellerService) UpdateReseller(id int, username, password string, usageLimit int64, allowedInboundsMode string, allowedInboundIds []int) error {
 	db := database.GetDB()
 	user := &model.User{}
 	if err := db.First(user, id).Error; err != nil {
@@ -88,8 +97,10 @@ func (s *ResellerService) UpdateReseller(id int, username, password string, usag
 		return errors.New("user is not a reseller")
 	}
 	updates := map[string]any{
-		"username":     username,
-		"usage_limit":  usageLimit,
+		"username":              username,
+		"usage_limit":           usageLimit,
+		"allowed_inbounds_mode": allowedInboundsMode,
+		"allowed_inbound_ids":   allowedInboundIds,
 	}
 	if password != "" {
 		hashed, err := crypto.HashPasswordAsBcrypt(password)

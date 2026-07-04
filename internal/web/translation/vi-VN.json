@@ -987,7 +987,12 @@
       "totalResellers": "Total Resellers",
       "activeResellers": "Active",
       "totalClients": "Total Clients",
-      "totalUsage": "Total Usage"
+      "totalUsage": "Total Usage",
+      "allowedInboundsMode": "Allowed Inbounds",
+      "inboundAll": "All Inbounds",
+      "inboundSelect": "Select Inbounds",
+      "selectInbounds": "Select Inbounds",
+      "selectInboundsPlaceholder": "Select inbounds this reseller can access"
     },
     "multiply": {
       "title": "Traffic Multiplier",

@@ -51,9 +51,11 @@ func (a *ResellerController) list(c *gin.Context) {
 }
 
 type addResellerForm struct {
-	Username   string  `form:"username" json:"username"`
-	Password   string  `form:"password" json:"password"`
-	UsageLimit float64 `form:"usageLimit" json:"usageLimit"`
+	Username            string  `form:"username" json:"username"`
+	Password            string  `form:"password" json:"password"`
+	UsageLimit          float64 `form:"usageLimit" json:"usageLimit"`
+	AllowedInboundsMode string  `form:"allowedInboundsMode" json:"allowedInboundsMode"`
+	AllowedInboundIds   []int   `form:"allowedInboundIds" json:"allowedInboundIds"`
 }
 
 func (a *ResellerController) add(c *gin.Context) {
@@ -62,7 +64,7 @@ func (a *ResellerController) add(c *gin.Context) {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
-	user, err := a.resellerService.CreateReseller(form.Username, form.Password, int64(form.UsageLimit))
+	user, err := a.resellerService.CreateReseller(form.Username, form.Password, int64(form.UsageLimit), form.AllowedInboundsMode, form.AllowedInboundIds)
 	if err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
@@ -71,9 +73,11 @@ func (a *ResellerController) add(c *gin.Context) {
 }
 
 type updateResellerForm struct {
-	Username   string  `form:"username" json:"username"`
-	Password   string  `form:"password" json:"password"`
-	UsageLimit float64 `form:"usageLimit" json:"usageLimit"`
+	Username            string  `form:"username" json:"username"`
+	Password            string  `form:"password" json:"password"`
+	UsageLimit          float64 `form:"usageLimit" json:"usageLimit"`
+	AllowedInboundsMode string  `form:"allowedInboundsMode" json:"allowedInboundsMode"`
+	AllowedInboundIds   []int   `form:"allowedInboundIds" json:"allowedInboundIds"`
 }
 
 func (a *ResellerController) update(c *gin.Context) {
@@ -87,7 +91,7 @@ func (a *ResellerController) update(c *gin.Context) {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
-	if err := a.resellerService.UpdateReseller(id, form.Username, form.Password, int64(form.UsageLimit)); err != nil {
+	if err := a.resellerService.UpdateReseller(id, form.Username, form.Password, int64(form.UsageLimit), form.AllowedInboundsMode, form.AllowedInboundIds); err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}

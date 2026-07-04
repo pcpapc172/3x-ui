@@ -36,15 +36,17 @@ const (
 
 // User represents a user account in the 3x-ui panel.
 type User struct {
-	Id         int    `json:"id" gorm:"primaryKey;autoIncrement"`
-	Username   string `json:"username"`
-	Password   string `json:"password"`
-	LoginEpoch int64  `json:"-" gorm:"default:0"`
-	Role       string `json:"role" gorm:"default:admin"`
-	OwnerId    int    `json:"ownerId" gorm:"default:0;index"`
-	UsageLimit int64  `json:"usageLimit" gorm:"default:0"`
-	UsageUp    int64  `json:"usageUp" gorm:"default:0"`
-	UsageDown  int64  `json:"usageDown" gorm:"default:0"`
+	Id                   int      `json:"id" gorm:"primaryKey;autoIncrement"`
+	Username             string   `json:"username"`
+	Password             string   `json:"password"`
+	LoginEpoch           int64    `json:"-" gorm:"default:0"`
+	Role                 string   `json:"role" gorm:"default:admin"`
+	OwnerId              int      `json:"ownerId" gorm:"default:0;index"`
+	UsageLimit           int64    `json:"usageLimit" gorm:"default:0"`
+	UsageUp              int64    `json:"usageUp" gorm:"default:0"`
+	UsageDown            int64    `json:"usageDown" gorm:"default:0"`
+	AllowedInboundsMode  string   `json:"allowedInboundsMode" gorm:"column:allowed_inbounds_mode;default:all" validate:"omitempty,oneof=all select"`
+	AllowedInboundIds    []int    `json:"allowedInboundIds" gorm:"serializer:json;column:allowed_inbound_ids"`
 }
 
 // Inbound represents an Xray inbound configuration with traffic statistics and settings.

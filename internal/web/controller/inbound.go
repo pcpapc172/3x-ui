@@ -87,7 +87,11 @@ func (a *InboundController) getInbounds(c *gin.Context) {
 	var inbounds []*model.Inbound
 	var err error
 	if user.Role == "reseller" {
-		inbounds, err = a.inboundService.GetAllInbounds()
+		if user.AllowedInboundsMode == "select" && len(user.AllowedInboundIds) > 0 {
+			inbounds, err = a.inboundService.GetInboundsByIds(user.AllowedInboundIds)
+		} else {
+			inbounds, err = a.inboundService.GetAllInbounds()
+		}
 	} else {
 		inbounds, err = a.inboundService.GetInbounds(user.Id)
 	}
@@ -105,7 +109,11 @@ func (a *InboundController) getInboundsSlim(c *gin.Context) {
 	var inbounds []*model.Inbound
 	var err error
 	if user.Role == "reseller" {
-		inbounds, err = a.inboundService.GetInboundsSlim(0)
+		if user.AllowedInboundsMode == "select" && len(user.AllowedInboundIds) > 0 {
+			inbounds, err = a.inboundService.GetInboundsSlimByIds(user.AllowedInboundIds)
+		} else {
+			inbounds, err = a.inboundService.GetInboundsSlim(0)
+		}
 	} else {
 		inbounds, err = a.inboundService.GetInboundsSlim(user.Id)
 	}
@@ -124,7 +132,11 @@ func (a *InboundController) getAllInboundLinks(c *gin.Context) {
 	var links []string
 	var err error
 	if user.Role == "reseller" {
-		links, err = a.inboundService.GetAllInboundLinks(resolveHost(c), 0)
+		if user.AllowedInboundsMode == "select" && len(user.AllowedInboundIds) > 0 {
+			links, err = a.inboundService.GetAllInboundLinksByIds(resolveHost(c), user.AllowedInboundIds)
+		} else {
+			links, err = a.inboundService.GetAllInboundLinks(resolveHost(c), 0)
+		}
 	} else {
 		links, err = a.inboundService.GetAllInboundLinks(resolveHost(c), user.Id)
 	}
@@ -143,7 +155,11 @@ func (a *InboundController) getInboundOptions(c *gin.Context) {
 	var options []service.InboundOption
 	var err error
 	if user.Role == "reseller" {
-		options, err = a.inboundService.GetInboundOptions(0)
+		if user.AllowedInboundsMode == "select" && len(user.AllowedInboundIds) > 0 {
+			options, err = a.inboundService.GetInboundOptionsByIds(user.AllowedInboundIds)
+		} else {
+			options, err = a.inboundService.GetInboundOptions(0)
+		}
 	} else {
 		options, err = a.inboundService.GetInboundOptions(user.Id)
 	}
