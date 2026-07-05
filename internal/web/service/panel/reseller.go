@@ -1,6 +1,7 @@
 package panel
 
 import (
+	"encoding/json"
 	"errors"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
@@ -96,11 +97,12 @@ func (s *ResellerService) UpdateReseller(id int, username, password string, usag
 	if user.Role != "reseller" {
 		return errors.New("user is not a reseller")
 	}
+	idsJSON, _ := json.Marshal(allowedInboundIds)
 	updates := map[string]any{
 		"username":              username,
 		"usage_limit":           usageLimit,
 		"allowed_inbounds_mode": allowedInboundsMode,
-		"allowed_inbound_ids":   allowedInboundIds,
+		"allowed_inbound_ids":   string(idsJSON),
 	}
 	if password != "" {
 		hashed, err := crypto.HashPasswordAsBcrypt(password)
