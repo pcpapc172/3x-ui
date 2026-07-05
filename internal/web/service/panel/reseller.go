@@ -183,6 +183,23 @@ func (s *ResellerService) GetResellerById(id int) (*model.User, error) {
 	return user, nil
 }
 
+func (s *ResellerService) ToggleEnableReseller(id int) (bool, error) {
+	db := database.GetDB()
+	user := &model.User{}
+	if err := db.First(user, id).Error; err != nil {
+		return false, err
+	}
+	if user.Role != "reseller" {
+		return false, errors.New("user is not a reseller")
+	}
+	newEpoch := int64(0)
+	if user.LoginEpoch >= 0 {
+		newEpoch = -1
+	}
+	db.Model(user).Update("login_epoch", newEpoch)
+	return newEpoch >= 0, nil
+}
+
 func (s *ResellerService) GetOverQuotaResellerIds(tx *gorm.DB) ([]int, error) {
 	if tx == nil {
 		db := database.GetDB()

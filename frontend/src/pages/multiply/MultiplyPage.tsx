@@ -7,6 +7,7 @@ import {
   ConfigProvider,
   InputNumber,
   Layout,
+  Modal,
   Popconfirm,
   Result,
   Row,
@@ -19,6 +20,7 @@ import {
 } from 'antd';
 import {
   DeleteOutlined,
+  EditOutlined,
   PlusOutlined,
   ApartmentOutlined,
   NumberOutlined,
@@ -57,6 +59,9 @@ export default function MultiplyPage() {
   const [fetchError, setFetchError] = useState('');
   const [selectedInbound, setSelectedInbound] = useState<number | null>(null);
   const [rate, setRate] = useState<number>(1);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<MultiplyEntry | null>(null);
+  const [editRate, setEditRate] = useState<number>(1);
 
   const pageClass = useMemo(() => {
     const classes = ['multiply-page'];
@@ -114,6 +119,25 @@ export default function MultiplyPage() {
     if (resp.success) fetchData();
   };
 
+  const handleEdit = (entry: MultiplyEntry) => {
+    setEditingEntry(entry);
+    setEditRate(entry.rate);
+    setEditModalOpen(true);
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editingEntry) return;
+    const resp = await HttpUtil.post('/panel/api/multiply/set', {
+      inboundId: editingEntry.inboundId,
+      rate: editRate,
+    });
+    if (resp.success) {
+      setEditModalOpen(false);
+      setEditingEntry(null);
+      fetchData();
+    }
+  };
+
   const columns = [
     {
       title: t('pages.multiply.inbound', 'Inbound'),
@@ -130,11 +154,14 @@ export default function MultiplyPage() {
     {
       title: '',
       key: 'actions',
-      width: 60,
+      width: 100,
       render: (_: unknown, record: MultiplyEntry) => (
-        <Popconfirm title={t('pages.multiply.removeConfirm', 'Remove this multiplier?')} onConfirm={() => handleDelete(record.id)}>
-          <Button size="small" danger icon={<DeleteOutlined />} />
-        </Popconfirm>
+        <Space>
+          <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
+          <Popconfirm title={t('pages.multiply.removeConfirm', 'Remove this multiplier?')} onConfirm={() => handleDelete(record.id)}>
+            <Button size="small" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </Space>
       ),
     },
   ];
@@ -237,6 +264,26 @@ export default function MultiplyPage() {
           </Layout.Content>
         </Layout>
       </Layout>
+
+      <Modal
+        title={t('pages.multiply.editMultiplier', 'Edit Multiplier')}
+        open={editModalOpen}
+        onOk={handleEditSubmit}
+        onCancel={() => { setEditModalOpen(false); setEditingEntry(null); }}
+        okText={t('update', 'Update')}
+      >
+        <div style={{ marginBottom: 8 }}>
+          <strong>{t('pages.multiply.inbound', 'Inbound')}:</strong> {editingEntry?.inboundTag || 'Unknown'}
+        </div>
+        <InputNumber
+          min={0.1}
+          step={0.1}
+          value={editRate}
+          onChange={(v) => setEditRate(v ?? 1)}
+          addonAfter="x"
+          style={{ width: '100%' }}
+        />
+      </Modal>
     </ConfigProvider>
   );
 }

@@ -74,6 +74,7 @@ export default function IndexPage() {
     latestVersion: '',
     updateAvailable: false,
   });
+  const [isAdmin, setIsAdmin] = useState(true);
 
   const basePath = window.X_UI_BASE_PATH || '';
 
@@ -102,6 +103,9 @@ export default function IndexPage() {
     HttpUtil.get<PanelUpdateInfo>('/panel/api/server/getPanelUpdateInfo').then((msg) => {
       if (msg?.success && msg.obj) setPanelUpdateInfo(msg.obj);
     });
+    HttpUtil.get<{ role: string }>('/panel/api/user/info', undefined, { silent: true }).then((resp) => {
+      if (resp.obj?.role) setIsAdmin(resp.obj.role === 'admin');
+    }).catch(() => {});
   }, []);
 
   const displayVersion = useMemo(
@@ -390,6 +394,7 @@ export default function IndexPage() {
                     </Card>
                   </Col>
 
+                  {isAdmin && (
                   <Col xs={24} lg={12}>
                     <Card
                       title={t('pages.index.ipAddresses')}
@@ -439,6 +444,7 @@ export default function IndexPage() {
                       </Row>
                     </Card>
                   </Col>
+                  )}
 
                   <Col xs={24} lg={12}>
                     <Card title={t('pages.index.connectionCount')} hoverable>

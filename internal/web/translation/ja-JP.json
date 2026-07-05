@@ -1004,7 +1004,8 @@
       "removeConfirm": "Remove this multiplier?",
       "totalMultipliers": "Total Multipliers",
       "maxRate": "Max Rate",
-      "avgRate": "Avg Rate"
+      "avgRate": "Avg Rate",
+      "editMultiplier": "Edit Multiplier"
     },
     "nodes": {
       "title": "ノード",

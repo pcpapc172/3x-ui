@@ -30,6 +30,7 @@ func (a *ResellerController) initRouter(g *gin.RouterGroup) {
 	g.POST("/update/:id", a.update)
 	g.POST("/del/:id", a.del)
 	g.POST("/resetUsage/:id", a.resetUsage)
+	g.POST("/toggleEnable/:id", a.toggleEnable)
 }
 
 func (a *ResellerController) requireAdmin(c *gin.Context) {
@@ -124,4 +125,18 @@ func (a *ResellerController) resetUsage(c *gin.Context) {
 	}
 	websocket.BroadcastInvalidate(websocket.MessageTypeInbounds)
 	jsonObj(c, gin.H{"reEnabled": affected}, nil)
+}
+
+func (a *ResellerController) toggleEnable(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	enabled, err := a.resellerService.ToggleEnableReseller(id)
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	jsonObj(c, gin.H{"enabled": enabled}, nil)
 }

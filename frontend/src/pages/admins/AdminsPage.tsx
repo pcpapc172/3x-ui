@@ -17,6 +17,7 @@ import {
   Space,
   Spin,
   Statistic,
+  Switch,
   Table,
   Tag,
   Tooltip,
@@ -81,6 +82,7 @@ export default function AdminsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingReseller, setEditingReseller] = useState<ResellerInfo | null>(null);
   const [inbounds, setInbounds] = useState<InboundOption[]>([]);
+  const [inboundMode, setInboundMode] = useState<string>('all');
   const [form] = Form.useForm();
 
   const pageClass = useMemo(() => {
@@ -139,6 +141,7 @@ export default function AdminsPage() {
 
   const handleAdd = () => {
     setEditingReseller(null);
+    setInboundMode('all');
     form.resetFields();
     form.setFieldsValue({ usageLimit: 0, allowedInboundsMode: 'all', allowedInboundIds: [] });
     setModalOpen(true);
@@ -146,11 +149,13 @@ export default function AdminsPage() {
 
   const handleEdit = (record: ResellerInfo) => {
     setEditingReseller(record);
+    const mode = record.allowedInboundsMode || 'all';
+    setInboundMode(mode);
     form.setFieldsValue({
       username: record.username,
       password: '',
       usageLimit: record.usageLimit / (1024 * 1024 * 1024),
-      allowedInboundsMode: record.allowedInboundsMode || 'all',
+      allowedInboundsMode: mode,
       allowedInboundIds: record.allowedInboundIds || [],
     });
     setModalOpen(true);
@@ -172,6 +177,18 @@ export default function AdminsPage() {
       const resp = await HttpUtil.post<Msg<{ reEnabled: number }>>(`/panel/api/resellers/resetUsage/${id}`);
       if (resp.success) {
         messageApi.success(`Reset usage, re-enabled ${resp.obj?.reEnabled ?? 0} clients`);
+        fetchResellers();
+      }
+    } catch {
+      // handled by HttpUtil
+    }
+  };
+
+  const handleToggleEnable = async (id: number, checked: boolean) => {
+    try {
+      const resp = await HttpUtil.post<Msg<{ enabled: boolean }>>(`/panel/api/resellers/toggleEnable/${id}`);
+      if (resp.success) {
+        messageApi.success(checked ? 'Reseller enabled' : 'Reseller disabled');
         fetchResellers();
       }
     } catch {
@@ -244,11 +261,21 @@ export default function AdminsPage() {
     {
       title: t('pages.settings.status', 'Status'),
       key: 'status',
+      width: 140,
       render: (_: unknown, record: ResellerInfo) => {
         const overQuota = record.usageLimit > 0 && (record.usageUp + record.usageDown) >= record.usageLimit;
-        return overQuota
-          ? <Tag color="error">{t('pages.settings.overQuota', 'Over Quota')}</Tag>
-          : <Tag color="success">{t('pages.settings.active', 'Active')}</Tag>;
+        return (
+          <Space size="small">
+            <Switch
+              size="small"
+              checked={record.enabled}
+              onChange={(checked) => handleToggleEnable(record.id, checked)}
+            />
+            {overQuota
+              ? <Tag color="error">{t('pages.settings.overQuota', 'Over Quota')}</Tag>
+              : <Tag color="success">{t('pages.settings.active', 'Active')}</Tag>}
+          </Space>
+        );
       },
     },
     {
@@ -391,29 +418,30 @@ export default function AdminsPage() {
             </Form.Item>
             <Form.Item name="allowedInboundsMode" label={t('pages.admins.allowedInboundsMode', 'Allowed Inbounds')}>
               <Select
+                onChange={(val) => {
+                  setInboundMode(val);
+                  if (val === 'all') {
+                    form.setFieldsValue({ allowedInboundIds: [] });
+                  }
+                }}
                 options={[
                   { value: 'all', label: t('pages.admins.inboundAll', 'All Inbounds') },
                   { value: 'select', label: t('pages.admins.inboundSelect', 'Select Inbounds') },
                 ]}
               />
             </Form.Item>
-            <Form.Item
-              noStyle
-              shouldUpdate={(prev, cur) => prev.allowedInboundsMode !== cur.allowedInboundsMode}
-            >
-              {({ getFieldValue }) => getFieldValue('allowedInboundsMode') === 'select' && (
-                <Form.Item name="allowedInboundIds" label={t('pages.admins.selectInbounds', 'Select Inbounds')}>
-                  <Select
-                    mode="multiple"
-                    placeholder={t('pages.admins.selectInboundsPlaceholder', 'Select inbounds this reseller can access')}
-                    options={inbounds.map((ib) => ({
-                      value: ib.id,
-                      label: `${ib.remark || ib.tag || ib.id} (${ib.protocol}:${ib.port})`,
-                    }))}
-                  />
-                </Form.Item>
-              )}
-            </Form.Item>
+            {inboundMode === 'select' && (
+              <Form.Item name="allowedInboundIds" label={t('pages.admins.selectInbounds', 'Select Inbounds')}>
+                <Select
+                  mode="multiple"
+                  placeholder={t('pages.admins.selectInboundsPlaceholder', 'Select inbounds this reseller can access')}
+                  options={inbounds.map((ib) => ({
+                    value: ib.id,
+                    label: `${ib.remark || ib.tag || ib.id} (${ib.protocol}:${ib.port})`,
+                  }))}
+                />
+              </Form.Item>
+            )}
           </Form>
         </Modal>
       </Layout>
