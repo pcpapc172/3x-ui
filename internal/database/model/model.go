@@ -46,7 +46,7 @@ type User struct {
 	UsageUp              int64    `json:"usageUp" gorm:"default:0"`
 	UsageDown            int64    `json:"usageDown" gorm:"default:0"`
 	AllowedInboundsMode  string   `json:"allowedInboundsMode" gorm:"column:allowed_inbounds_mode;default:all" validate:"omitempty,oneof=all select"`
-	AllowedInboundIds    []int    `json:"allowedInboundIds" gorm:"serializer:json;column:allowed_inbound_ids"`
+	AllowedInboundIds    []int    `json:"allowedInboundIds" gorm:"serializer:json;column:allowed_inbound_ids;default:[]"`
 }
 
 // Inbound represents an Xray inbound configuration with traffic statistics and settings.

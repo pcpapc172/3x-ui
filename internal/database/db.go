@@ -114,6 +114,9 @@ func initModels() error {
 	if err := normalizeInboundSubSortIndex(); err != nil {
 		return err
 	}
+	if err := migrateResellerAllowedInboundIds(); err != nil {
+		return err
+	}
 	if IsPostgres() {
 		if err := resyncPostgresSequences(db, models); err != nil {
 			log.Printf("Error resyncing postgres sequences: %v", err)
@@ -155,6 +158,17 @@ func dropLegacyForeignKeys() error {
 		log.Printf("Error dropping legacy foreign key fk_inbounds_client_stats: %v", err)
 		return err
 	}
+	return nil
+}
+
+// migrateResellerAllowedInboundIds fixes any rows where allowed_inbound_ids
+// contains a bare number (e.g. 0) instead of a valid JSON array.
+func migrateResellerAllowedInboundIds() error {
+	db := GetDB()
+	if !db.Migrator().HasColumn(&model.User{}, "allowed_inbound_ids") {
+		return nil
+	}
+	db.Exec("UPDATE users SET allowed_inbound_ids = '[]' WHERE allowed_inbound_ids IS NULL OR allowed_inbound_ids = '' OR allowed_inbound_ids NOT LIKE '[%'")
 	return nil
 }
 
