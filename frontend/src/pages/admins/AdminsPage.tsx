@@ -38,6 +38,7 @@ import {
 import { useTheme } from '@/hooks/useTheme';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import AppSidebar from '@/layouts/AppSidebar';
+import ClientTrafficCell from '@/components/clients/ClientTrafficCell';
 import { HttpUtil } from '@/utils';
 import type { Msg } from '@/utils';
 
@@ -241,22 +242,17 @@ export default function AdminsPage() {
       width: 80,
     },
     {
-      title: t('pages.inbounds.up', 'Upload'),
-      dataIndex: 'usageUp',
-      key: 'usageUp',
-      render: (v: number) => formatBytes(v),
-    },
-    {
-      title: t('pages.inbounds.down', 'Download'),
-      dataIndex: 'usageDown',
-      key: 'usageDown',
-      render: (v: number) => formatBytes(v),
-    },
-    {
-      title: t('pages.settings.limit', 'Limit'),
-      dataIndex: 'usageLimit',
-      key: 'usageLimit',
-      render: (v: number) => v === 0 ? t('pages.settings.unlimited', 'Unlimited') : formatBytes(v),
+      title: t('pages.clients.traffic', 'Traffic'),
+      key: 'traffic',
+      width: 200,
+      render: (_: unknown, record: ResellerInfo) => (
+        <ClientTrafficCell
+          up={record.usageUp}
+          down={record.usageDown}
+          total={record.usageLimit}
+          enabled={record.enabled}
+        />
+      ),
     },
     {
       title: t('pages.settings.status', 'Status'),
