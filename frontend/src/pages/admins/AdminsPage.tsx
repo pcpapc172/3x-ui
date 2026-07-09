@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Button,
   Card,
+  Checkbox,
   Col,
   ConfigProvider,
   Form,
@@ -84,6 +85,9 @@ export default function AdminsPage() {
   const [editingReseller, setEditingReseller] = useState<ResellerInfo | null>(null);
   const [inbounds, setInbounds] = useState<InboundOption[]>([]);
   const [inboundMode, setInboundMode] = useState<string>('all');
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletingReseller, setDeletingReseller] = useState<ResellerInfo | null>(null);
+  const [deleteClients, setDeleteClients] = useState(false);
   const [form] = Form.useForm();
 
   const pageClass = useMemo(() => {
@@ -162,10 +166,19 @@ export default function AdminsPage() {
     setModalOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDeleteClick = (record: ResellerInfo) => {
+    setDeletingReseller(record);
+    setDeleteClients(false);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingReseller) return;
     try {
-      const resp = await HttpUtil.post<Msg<unknown>>(`/panel/api/resellers/del/${id}`);
+      const resp = await HttpUtil.post<Msg<unknown>>(`/panel/api/resellers/del/${deletingReseller.id}?deleteClients=${deleteClients}`);
       if (resp.success) {
+        setDeleteModalOpen(false);
+        setDeletingReseller(null);
         fetchResellers();
       }
     } catch {
@@ -288,11 +301,9 @@ export default function AdminsPage() {
               <Button size="small" icon={<ReloadOutlined />} />
             </Tooltip>
           </Popconfirm>
-          <Popconfirm title={t('pages.admins.deleteConfirm', 'Delete this reseller?')} onConfirm={() => handleDelete(record.id)}>
-            <Tooltip title={t('delete', 'Delete')}>
-              <Button size="small" danger icon={<DeleteOutlined />} />
-            </Tooltip>
-          </Popconfirm>
+          <Tooltip title={t('delete', 'Delete')}>
+            <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDeleteClick(record)} />
+          </Tooltip>
         </Space>
       ),
     },
@@ -439,6 +450,23 @@ export default function AdminsPage() {
               </Form.Item>
             )}
           </Form>
+        </Modal>
+
+        <Modal
+          title={t('pages.admins.deleteReseller', 'Delete Reseller')}
+          open={deleteModalOpen}
+          onOk={handleDeleteConfirm}
+          onCancel={() => { setDeleteModalOpen(false); setDeletingReseller(null); }}
+          okText={t('delete', 'Delete')}
+          okButtonProps={{ danger: true }}
+        >
+          <p>{t('pages.admins.deleteConfirm', 'Are you sure you want to delete this reseller?')}</p>
+          {deletingReseller && (
+            <p><strong>{deletingReseller.username}</strong> ({deletingReseller.clientCount} {t('pages.clients.title', 'clients').toLowerCase()})</p>
+          )}
+          <Checkbox checked={deleteClients} onChange={(e) => setDeleteClients(e.target.checked)}>
+            {t('pages.admins.deleteClientsToo', 'Also delete all clients of this reseller')}
+          </Checkbox>
         </Modal>
       </Layout>
     </ConfigProvider>

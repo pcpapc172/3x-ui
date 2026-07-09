@@ -992,7 +992,9 @@
       "inboundAll": "All Inbounds",
       "inboundSelect": "Select Inbounds",
       "selectInbounds": "Select Inbounds",
-      "selectInboundsPlaceholder": "Select inbounds this reseller can access"
+      "selectInboundsPlaceholder": "Select inbounds this reseller can access",
+      "deleteReseller": "Delete Reseller",
+      "deleteClientsToo": "Also delete all clients of this reseller"
     },
     "multiply": {
       "title": "Traffic Multiplier",

@@ -105,7 +105,8 @@ func (a *ResellerController) del(c *gin.Context) {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
-	if err := a.resellerService.DeleteReseller(id); err != nil {
+	deleteClients := c.Query("deleteClients") == "true"
+	if err := a.resellerService.DeleteReseller(id, deleteClients); err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}

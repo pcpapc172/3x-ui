@@ -120,7 +120,7 @@ func (s *ResellerService) UpdateReseller(id int, username, password string, usag
 	return nil
 }
 
-func (s *ResellerService) DeleteReseller(id int) error {
+func (s *ResellerService) DeleteReseller(id int, deleteClients bool) error {
 	db := database.GetDB()
 	user := &model.User{}
 	if err := db.First(user, id).Error; err != nil {
@@ -128,6 +128,16 @@ func (s *ResellerService) DeleteReseller(id int) error {
 	}
 	if user.Role != "reseller" {
 		return errors.New("user is not a reseller")
+	}
+	if deleteClients {
+		var emails []string
+		db.Model(&model.ClientRecord{}).Where("owner_id = ?", id).Pluck("email", &emails)
+		if len(emails) > 0 {
+			db.Where("email IN ?", emails).Delete(&model.ClientRecord{})
+			db.Table("client_traffics").Where("email IN ?", emails).Delete(nil)
+			db.Where("client_id IN (SELECT id FROM clients WHERE owner_id = ?)", id).Delete(&model.ClientInbound{})
+			db.Where("owner_id = ?", id).Delete(&model.Client{})
+		}
 	}
 	return db.Delete(user).Error
 }
