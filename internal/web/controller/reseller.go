@@ -64,37 +64,28 @@ func (a *ResellerController) getClients(c *gin.Context) {
 	var records []model.ClientRecord
 	db.Where("owner_id = ?", id).Order("id ASC").Find(&records)
 
-	type clientWithTraffic struct {
-		model.ClientRecord
-		Up        int64  `json:"up"`
-		Down      int64  `json:"down"`
+	type clientTraffic struct {
+		Up         int64 `json:"up"`
+		Down       int64 `json:"down"`
 		LastOnline int64 `json:"lastOnline"`
-		Inbounds  []string `json:"inbounds"`
+	}
+	type clientWithAttachments struct {
+		model.ClientRecord
+		Traffic    clientTraffic `json:"traffic"`
+		InboundIds []int         `json:"inboundIds"`
 	}
 
-	result := make([]clientWithTraffic, 0, len(records))
+	result := make([]clientWithAttachments, 0, len(records))
 	for _, r := range records {
-		cwt := clientWithTraffic{ClientRecord: r}
+		cwt := clientWithAttachments{ClientRecord: r}
 
-		var traffic struct {
-			Up   int64
-			Down int64
-		}
-		db.Table("client_traffics").Where("email = ?", r.Email).Select("up, down").Scan(&traffic)
-		cwt.Up = traffic.Up
-		cwt.Down = traffic.Down
+		var t clientTraffic
+		db.Table("client_traffics").Where("email = ?", r.Email).
+			Select("COALESCE(SUM(up), 0) as up, COALESCE(SUM(down), 0) as down, COALESCE(MAX(last_online), 0) as last_online").
+			Scan(&t)
+		cwt.Traffic = clientTraffic{Up: t.Up, Down: t.Down, LastOnline: t.LastOnline}
 
-		var lastOnline int64
-		db.Table("client_traffics").Where("email = ?", r.Email).Select("last_online").Scan(&lastOnline)
-		cwt.LastOnline = lastOnline
-
-		var inboundIds []int
-		db.Model(&model.ClientInbound{}).Where("client_id = ?", r.Id).Pluck("inbound_id", &inboundIds)
-		if len(inboundIds) > 0 {
-			var tags []string
-			db.Model(&model.Inbound{}).Where("id IN ?", inboundIds).Pluck("remark", &tags)
-			cwt.Inbounds = tags
-		}
+		db.Model(&model.ClientInbound{}).Where("client_id = ?", r.Id).Pluck("inbound_id", &cwt.InboundIds)
 
 		result = append(result, cwt)
 	}

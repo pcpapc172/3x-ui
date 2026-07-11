@@ -66,8 +66,8 @@ func (s *ResellerService) CreateReseller(username, password string, usageLimit i
 	if allowedInboundsMode == "" {
 		allowedInboundsMode = "all"
 	}
-	if multiplier < 0 {
-		multiplier = 0
+	if multiplier < 1 {
+		multiplier = 1
 	}
 	db := database.GetDB()
 	var exists int64
@@ -103,8 +103,8 @@ func (s *ResellerService) UpdateReseller(id int, username, password string, usag
 	if user.Role != "reseller" {
 		return errors.New("user is not a reseller")
 	}
-	if multiplier < 0 {
-		multiplier = 0
+	if multiplier < 1 {
+		multiplier = 1
 	}
 	idsJSON, _ := json.Marshal(allowedInboundIds)
 	updates := map[string]any{

@@ -34,6 +34,9 @@ import {
   CheckCircleOutlined,
   ExclamationCircleOutlined,
   CloudDownloadOutlined,
+  QrcodeOutlined,
+  InfoCircleOutlined,
+  RetweetOutlined,
 } from '@ant-design/icons';
 
 import { useTheme } from '@/hooks/useTheme';
@@ -41,6 +44,7 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 import AppSidebar from '@/layouts/AppSidebar';
 import ClientTrafficCell from '@/components/clients/ClientTrafficCell';
 import InfinityIcon from '@/components/ui/InfinityIcon';
+import { SizeFormatter } from '@/utils';
 import { HttpUtil } from '@/utils';
 import type { Msg } from '@/utils';
 
@@ -65,10 +69,15 @@ interface ResellerClient {
   locked: boolean;
   totalGB: number;
   expiryTime: number;
-  up: number;
-  down: number;
-  lastOnline: number;
-  inbounds: string[];
+  subId: string;
+  comment: string;
+  group: string;
+  traffic: {
+    up: number;
+    down: number;
+    lastOnline: number;
+  };
+  inboundIds: number[];
   limitIp: number;
 }
 
@@ -108,6 +117,12 @@ export default function AdminsPage() {
   const [resellerClients, setResellerClients] = useState<Record<number, ResellerClient[]>>({});
   const [clientsLoading, setClientsLoading] = useState<Record<number, boolean>>({});
   const [form] = Form.useForm();
+
+  const inboundsById = useMemo(() => {
+    const out: Record<number, InboundOption> = {};
+    for (const ib of inbounds) out[ib.id] = ib;
+    return out;
+  }, [inbounds]);
 
   const pageClass = useMemo(() => {
     const classes = ['admins-page'];
@@ -281,53 +296,178 @@ export default function AdminsPage() {
     }
   };
 
+  const remainingLabel = (row: ResellerClient) => {
+    const total = row.totalGB || 0;
+    if (total <= 0) return '\u221E';
+    const used = (row.traffic?.up || 0) + (row.traffic?.down || 0);
+    const r = total - used;
+    return r > 0 ? SizeFormatter.sizeFormat(r) : '0';
+  };
+
+  const remainingColor = (row: ResellerClient) => {
+    const total = row.totalGB || 0;
+    if (total <= 0) return 'purple';
+    const used = (row.traffic?.up || 0) + (row.traffic?.down || 0);
+    const ratio = used / total;
+    if (ratio >= 1) return 'red';
+    if (ratio >= 0.85) return 'orange';
+    return 'green';
+  };
+
+  const expiryLabel = (row: ResellerClient) => {
+    if (!row.expiryTime) return '\u221E';
+    return new Date(row.expiryTime).toLocaleDateString();
+  };
+
+  const expiryRelative = (row: ResellerClient) => {
+    if (!row.expiryTime) return '';
+    const diff = row.expiryTime - Date.now();
+    if (diff <= 0) return '0d';
+    const days = Math.floor(diff / 86400000);
+    return `${days}d`;
+  };
+
+  const expiryColor = (row: ResellerClient) => {
+    if (!row.expiryTime) return 'purple';
+    const now = Date.now();
+    if (row.expiryTime <= now) return 'red';
+    if (row.expiryTime - now < 86400000 * 3) return 'orange';
+    return 'green';
+  };
+
+  const handleEditClient = (record: ResellerClient) => {
+    messageApi.info(t('pages.admins.editClientHint', 'Use the Clients page to edit this client'));
+  };
+
+  const handleDeleteClient = async (record: ResellerClient) => {
+    try {
+      const resp = await HttpUtil.post<Msg<unknown>>(`/panel/api/clients/del/${record.email}`);
+      if (resp.success) {
+        messageApi.success(t('pages.clients.toasts.deleted', 'Client deleted'));
+        if (deletingReseller) {
+          fetchClientsForReseller(deletingReseller.id);
+        }
+      }
+    } catch {
+      // handled by HttpUtil
+    }
+  };
+
   const clientColumns = [
     {
-      title: t('pages.clients.email', 'Email'),
-      dataIndex: 'email',
-      key: 'email',
-      ellipsis: true,
-    },
-    {
-      title: t('pages.settings.status', 'Status'),
-      key: 'status',
-      width: 100,
-      render: (_: unknown, record: ResellerClient) => {
-        if (record.locked) return <Tag color="error">{t('pages.clients.locked', 'Locked')}</Tag>;
-        if (!record.enable) return <Tag>{t('pages.clients.disabled', 'Disabled')}</Tag>;
-        const now = Date.now();
-        const isOnline = record.lastOnline > 0 && (now - record.lastOnline) < 5 * 60 * 1000;
-        return isOnline
-          ? <Tag color="success">{t('pages.clients.online', 'Online')}</Tag>
-          : <Tag>{t('pages.clients.offline', 'Offline')}</Tag>;
-      },
-    },
-    {
-      title: t('pages.clients.traffic', 'Traffic'),
-      key: 'traffic',
-      width: 200,
+      title: t('pages.clients.actions'),
+      key: 'actions',
+      width: 180,
       render: (_: unknown, record: ResellerClient) => (
-        <ClientTrafficCell up={record.up} down={record.down} total={record.totalGB} enabled={record.enable} />
+        <Space size={4}>
+          <Tooltip title={t('pages.clients.clientInfo')}>
+            <Button size="small" type="text" style={{ fontSize: 16 }} icon={<InfoCircleOutlined />} />
+          </Tooltip>
+          <Tooltip title={t('pages.inbounds.resetTraffic')}>
+            <Button size="small" type="text" style={{ fontSize: 16 }} icon={<RetweetOutlined />} />
+          </Tooltip>
+          <Tooltip title={t('edit')}>
+            <Button size="small" type="text" style={{ fontSize: 16 }} icon={<EditOutlined />} onClick={() => handleEditClient(record)} />
+          </Tooltip>
+          <Tooltip title={t('delete')}>
+            <Popconfirm title={t('pages.clients.deleteConfirmTitle', 'Delete client {email}?', { email: record.email })} onConfirm={() => handleDeleteClient(record)}>
+              <Button size="small" type="text" danger style={{ fontSize: 16 }} icon={<DeleteOutlined />} />
+            </Popconfirm>
+          </Tooltip>
+        </Space>
       ),
     },
     {
-      title: t('pages.clients.expiry', 'Expiry'),
-      key: 'expiry',
-      width: 120,
+      title: t('pages.clients.enabled'),
+      key: 'enable',
+      width: 80,
+      render: (_: unknown, record: ResellerClient) => (
+        <Switch checked={!!record.enable} size="small" />
+      ),
+    },
+    {
+      title: t('pages.clients.online'),
+      key: 'online',
+      width: 90,
       render: (_: unknown, record: ResellerClient) => {
-        if (!record.expiryTime) return <InfinityIcon />;
-        const diff = record.expiryTime - Date.now();
-        if (diff <= 0) return <Tag color="error">{t('pages.clients.expired', 'Expired')}</Tag>;
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        return <Tag color={days < 7 ? 'warning' : 'success'}>{t('pages.clients.inDays', { count: days })}</Tag>;
+        const now = Date.now();
+        const isOnline = record.traffic?.lastOnline > 0 && (now - record.traffic.lastOnline) < 5 * 60 * 1000;
+        if (record.locked) return <Tag color="red">{t('pages.clients.locked', 'Locked')}</Tag>;
+        if (record.enable && isOnline) return <Tag color="green">{t('pages.clients.online')}</Tag>;
+        if (!record.enable) return <Tag>{t('disabled')}</Tag>;
+        return <Tag>{t('pages.clients.offline')}</Tag>;
       },
     },
     {
-      title: t('pages.clients.inbounds', 'Inbounds'),
-      dataIndex: 'inbounds',
-      key: 'inbounds',
-      ellipsis: true,
-      render: (inbounds: string[]) => inbounds?.join(', ') || '-',
+      title: t('pages.clients.client'),
+      key: 'email',
+      width: 220,
+      render: (_: unknown, record: ResellerClient) => (
+        <div>
+          <div style={{ fontWeight: 500 }}>{record.email}</div>
+          {record.subId && <div style={{ fontSize: 12, color: 'var(--ant-color-text-secondary)' }}>{record.subId}</div>}
+          {record.comment && <div style={{ fontSize: 12, color: 'var(--ant-color-text-secondary)' }}>{record.comment}</div>}
+        </div>
+      ),
+    },
+    {
+      title: t('pages.clients.attachedInbounds'),
+      key: 'inboundIds',
+      width: 170,
+      render: (_: unknown, record: ResellerClient) => {
+        const ids = record.inboundIds || [];
+        if (ids.length === 0) return <span style={{ color: 'var(--ant-color-text-secondary)' }}>\u2014</span>;
+        const PROTO_COLORS: Record<string, string> = {
+          vless: 'blue', vmess: 'geekblue', trojan: 'volcano',
+          shadowsocks: 'magenta', hysteria: 'cyan', hysteria2: 'green',
+          wireguard: 'gold', http: 'purple', mixed: 'lime', tunnel: 'orange',
+        };
+        return (
+          <Space size={2} wrap>
+            {ids.slice(0, 2).map((id) => {
+              const ib = inboundsById[id];
+              const proto = (ib?.protocol || '').toLowerCase();
+              const color = PROTO_COLORS[proto] ?? 'default';
+              const label = ib?.remark || ib?.tag || String(id);
+              return <Tag key={id} color={color} style={{ margin: 1 }}>{label}</Tag>;
+            })}
+            {ids.length > 2 && <Tag style={{ margin: 1 }}>+{ids.length - 2}</Tag>}
+          </Space>
+        );
+      },
+    },
+    {
+      title: t('pages.clients.traffic'),
+      key: 'traffic',
+      width: 300,
+      render: (_: unknown, record: ResellerClient) => (
+        <div style={{ overflow: 'hidden' }}>
+          <ClientTrafficCell
+            up={record.traffic?.up}
+            down={record.traffic?.down}
+            total={record.totalGB}
+            enabled={record.enable}
+          />
+        </div>
+      ),
+    },
+    {
+      title: t('pages.clients.remaining'),
+      key: 'remaining',
+      width: 130,
+      render: (_: unknown, record: ResellerClient) => (
+        <Tag color={remainingColor(record)}>{remainingLabel(record)}</Tag>
+      ),
+    },
+    {
+      title: t('pages.clients.duration'),
+      key: 'expiryTime',
+      width: 130,
+      render: (_: unknown, record: ResellerClient) => (
+        <Tooltip title={expiryLabel(record)}>
+          <Tag color={expiryColor(record)}>{record.expiryTime ? expiryRelative(record) : '\u221E'}</Tag>
+        </Tooltip>
+      ),
     },
   ];
 

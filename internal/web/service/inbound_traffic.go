@@ -1105,12 +1105,12 @@ func (s *InboundService) updateResellerUsage(tx *gorm.DB, clientTraffics []*xray
 			return rate
 		}
 		var multiplier float64
-		if err := tx.Model(&model.User{}).Where("id = ? AND role = ?", ownerId, "reseller").Pluck("multiplier", &multiplier).Error; err == nil {
+		if err := tx.Model(&model.User{}).Where("id = ? AND role = ?", ownerId, "reseller").Pluck("multiplier", &multiplier).Error; err == nil && multiplier > 0 {
 			resellerMultiplierCache[ownerId] = multiplier
 			return multiplier
 		}
-		resellerMultiplierCache[ownerId] = 0
-		return 0
+		resellerMultiplierCache[ownerId] = 1
+		return 1
 	}
 
 	for _, ct := range clientTraffics {
@@ -1140,7 +1140,7 @@ func (s *InboundService) updateResellerUsage(tx *gorm.DB, clientTraffics []*xray
 		}
 
 		resellerRate := getResellerMultiplier(ownerId)
-		totalRate += resellerRate
+		totalRate *= resellerRate
 
 		multUp := int64(float64(ct.Up) * totalRate)
 		multDown := int64(float64(ct.Down) * totalRate)
