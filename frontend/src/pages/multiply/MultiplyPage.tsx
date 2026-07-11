@@ -24,6 +24,7 @@ import {
   PlusOutlined,
   ApartmentOutlined,
   NumberOutlined,
+  TeamOutlined,
 } from '@ant-design/icons';
 
 import { useTheme } from '@/hooks/useTheme';
@@ -62,6 +63,10 @@ export default function MultiplyPage() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<MultiplyEntry | null>(null);
   const [editRate, setEditRate] = useState<number>(1);
+  const [resellers, setResellers] = useState<{ id: number; username: string; multiplier: number }[]>([]);
+  const [resellerModalOpen, setResellerModalOpen] = useState(false);
+  const [editingReseller, setEditingReseller] = useState<{ id: number; username: string; multiplier: number } | null>(null);
+  const [resellerRate, setResellerRate] = useState<number>(0);
 
   const pageClass = useMemo(() => {
     const classes = ['multiply-page'];
@@ -85,12 +90,14 @@ export default function MultiplyPage() {
     setLoading(true);
     setFetchError('');
     try {
-      const [multResp, inbResp] = await Promise.all([
+      const [multResp, inbResp, resResp] = await Promise.all([
         HttpUtil.get<Msg<MultiplyEntry[]>>('/panel/api/multiply/list'),
         HttpUtil.get<Msg<InboundOption[]>>('/panel/api/inbounds/options'),
+        HttpUtil.get<Msg<{ id: number; username: string; multiplier: number }[]>>('/panel/api/resellers/list'),
       ]);
       if (multResp.success && multResp.obj) setEntries(multResp.obj);
       if (inbResp.success && inbResp.obj) setInbounds(inbResp.obj);
+      if (resResp.success && resResp.obj) setResellers(resResp.obj);
     } catch {
       setFetchError(t('somethingWentWrong'));
     } finally {
@@ -134,6 +141,27 @@ export default function MultiplyPage() {
     if (resp.success) {
       setEditModalOpen(false);
       setEditingEntry(null);
+      fetchData();
+    }
+  };
+
+  const handleResellerEdit = (reseller: { id: number; username: string; multiplier: number }) => {
+    setEditingReseller(reseller);
+    setResellerRate(reseller.multiplier);
+    setResellerModalOpen(true);
+  };
+
+  const handleResellerEditSubmit = async () => {
+    if (!editingReseller) return;
+    const resp = await HttpUtil.post(`/panel/api/resellers/update/${editingReseller.id}`, {
+      username: editingReseller.username,
+      password: '',
+      usageLimit: 0,
+      multiplier: resellerRate,
+    });
+    if (resp.success) {
+      setResellerModalOpen(false);
+      setEditingReseller(null);
       fetchData();
     }
   };
@@ -258,6 +286,47 @@ export default function MultiplyPage() {
                       />
                     </Card>
                   </Col>
+
+                  <Col span={24}>
+                    <Card
+                      size="small"
+                      hoverable
+                      title={t('pages.multiply.resellerMultiplier', 'Reseller Multiplier')}
+                      extra={
+                        <span style={{ color: 'var(--ant-color-text-secondary)', fontSize: 12 }}>
+                          {t('pages.multiply.resellerMultiplierDesc', 'Additional rate added on top of inbound multipliers')}
+                        </span>
+                      }
+                    >
+                      <Table
+                        dataSource={resellers}
+                        columns={[
+                          {
+                            title: t('pages.settings.username', 'Username'),
+                            dataIndex: 'username',
+                            key: 'username',
+                          },
+                          {
+                            title: t('pages.multiply.rate', 'Rate'),
+                            dataIndex: 'multiplier',
+                            key: 'multiplier',
+                            render: (r: number) => <strong>{r > 0 ? `+${r}x` : '0x'}</strong>,
+                          },
+                          {
+                            title: '',
+                            key: 'actions',
+                            width: 60,
+                            render: (_: unknown, record: { id: number; username: string; multiplier: number }) => (
+                              <Button size="small" icon={<EditOutlined />} onClick={() => handleResellerEdit(record)} />
+                            ),
+                          },
+                        ]}
+                        rowKey="id"
+                        pagination={false}
+                        size="small"
+                      />
+                    </Card>
+                  </Col>
                 </Row>
               )}
             </Spin>
@@ -283,6 +352,29 @@ export default function MultiplyPage() {
           addonAfter="x"
           style={{ width: '100%' }}
         />
+      </Modal>
+
+      <Modal
+        title={t('pages.multiply.editResellerMultiplier', 'Edit Reseller Multiplier')}
+        open={resellerModalOpen}
+        onOk={handleResellerEditSubmit}
+        onCancel={() => { setResellerModalOpen(false); setEditingReseller(null); }}
+        okText={t('update', 'Update')}
+      >
+        <div style={{ marginBottom: 8 }}>
+          <strong>{t('pages.settings.username', 'Username')}:</strong> {editingReseller?.username}
+        </div>
+        <InputNumber
+          min={0}
+          step={0.1}
+          value={resellerRate}
+          onChange={(v) => setResellerRate(v ?? 0)}
+          addonAfter="x"
+          style={{ width: '100%' }}
+        />
+        <div style={{ marginTop: 8, color: 'var(--ant-color-text-secondary)', fontSize: 12 }}>
+          {t('pages.multiply.resellerMultiplierHint', 'Set to 0 for no additional multiplier. This is added on top of inbound multipliers.')}
+        </div>
       </Modal>
     </ConfigProvider>
   );

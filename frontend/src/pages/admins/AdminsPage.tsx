@@ -40,6 +40,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import AppSidebar from '@/layouts/AppSidebar';
 import ClientTrafficCell from '@/components/clients/ClientTrafficCell';
+import InfinityIcon from '@/components/ui/InfinityIcon';
 import { HttpUtil } from '@/utils';
 import type { Msg } from '@/utils';
 
@@ -54,6 +55,21 @@ interface ResellerInfo {
   enabled: boolean;
   allowedInboundsMode: string;
   allowedInboundIds: number[];
+  multiplier: number;
+}
+
+interface ResellerClient {
+  id: number;
+  email: string;
+  enable: boolean;
+  locked: boolean;
+  totalGB: number;
+  expiryTime: number;
+  up: number;
+  down: number;
+  lastOnline: number;
+  inbounds: string[];
+  limitIp: number;
 }
 
 interface InboundOption {
@@ -88,6 +104,9 @@ export default function AdminsPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletingReseller, setDeletingReseller] = useState<ResellerInfo | null>(null);
   const [deleteClients, setDeleteClients] = useState(false);
+  const [expandedRowKeys, setExpandedRowKeys] = useState<number[]>([]);
+  const [resellerClients, setResellerClients] = useState<Record<number, ResellerClient[]>>({});
+  const [clientsLoading, setClientsLoading] = useState<Record<number, boolean>>({});
   const [form] = Form.useForm();
 
   const pageClass = useMemo(() => {
@@ -144,6 +163,30 @@ export default function AdminsPage() {
     fetchResellers();
   }, [fetchResellers]);
 
+  const fetchClientsForReseller = useCallback(async (resellerId: number) => {
+    setClientsLoading((prev) => ({ ...prev, [resellerId]: true }));
+    try {
+      const resp = await HttpUtil.get<Msg<ResellerClient[]>>(`/panel/api/resellers/${resellerId}/clients`);
+      if (resp.success && resp.obj) {
+        setResellerClients((prev) => ({ ...prev, [resellerId]: resp.obj }));
+      }
+    } catch {
+      // handled by HttpUtil
+    } finally {
+      setClientsLoading((prev) => ({ ...prev, [resellerId]: false }));
+    }
+  }, []);
+
+  const handleExpand = useCallback((expanded: boolean, record: ResellerInfo) => {
+    setExpandedRowKeys((prev) => {
+      const next = expanded ? [...prev, record.id] : prev.filter((k) => k !== record.id);
+      return next;
+    });
+    if (expanded && !resellerClients[record.id]) {
+      fetchClientsForReseller(record.id);
+    }
+  }, [resellerClients, fetchClientsForReseller]);
+
   const handleAdd = () => {
     setEditingReseller(null);
     setInboundMode('all');
@@ -162,6 +205,7 @@ export default function AdminsPage() {
       usageLimit: record.usageLimit / (1024 * 1024 * 1024),
       allowedInboundsMode: mode,
       allowedInboundIds: record.allowedInboundIds || [],
+      multiplier: record.multiplier || 0,
     });
     setModalOpen(true);
   };
@@ -220,6 +264,7 @@ export default function AdminsPage() {
         usageLimit: usageLimitBytes,
         allowedInboundsMode: values.allowedInboundsMode || 'all',
         allowedInboundIds: values.allowedInboundsMode === 'select' ? (values.allowedInboundIds || []) : [],
+        multiplier: values.multiplier || 0,
       };
       let resp: Msg<unknown>;
       if (editingReseller) {
@@ -235,6 +280,56 @@ export default function AdminsPage() {
       // validation or network error
     }
   };
+
+  const clientColumns = [
+    {
+      title: t('pages.clients.email', 'Email'),
+      dataIndex: 'email',
+      key: 'email',
+      ellipsis: true,
+    },
+    {
+      title: t('pages.settings.status', 'Status'),
+      key: 'status',
+      width: 100,
+      render: (_: unknown, record: ResellerClient) => {
+        if (record.locked) return <Tag color="error">{t('pages.clients.locked', 'Locked')}</Tag>;
+        if (!record.enable) return <Tag>{t('pages.clients.disabled', 'Disabled')}</Tag>;
+        const now = Date.now();
+        const isOnline = record.lastOnline > 0 && (now - record.lastOnline) < 5 * 60 * 1000;
+        return isOnline
+          ? <Tag color="success">{t('pages.clients.online', 'Online')}</Tag>
+          : <Tag>{t('pages.clients.offline', 'Offline')}</Tag>;
+      },
+    },
+    {
+      title: t('pages.clients.traffic', 'Traffic'),
+      key: 'traffic',
+      width: 200,
+      render: (_: unknown, record: ResellerClient) => (
+        <ClientTrafficCell up={record.up} down={record.down} total={record.totalGB} enabled={record.enable} />
+      ),
+    },
+    {
+      title: t('pages.clients.expiry', 'Expiry'),
+      key: 'expiry',
+      width: 120,
+      render: (_: unknown, record: ResellerClient) => {
+        if (!record.expiryTime) return <InfinityIcon />;
+        const diff = record.expiryTime - Date.now();
+        if (diff <= 0) return <Tag color="error">{t('pages.clients.expired', 'Expired')}</Tag>;
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        return <Tag color={days < 7 ? 'warning' : 'success'}>{t('pages.clients.inDays', { count: days })}</Tag>;
+      },
+    },
+    {
+      title: t('pages.clients.inbounds', 'Inbounds'),
+      dataIndex: 'inbounds',
+      key: 'inbounds',
+      ellipsis: true,
+      render: (inbounds: string[]) => inbounds?.join(', ') || '-',
+    },
+  ];
 
   const columns = [
     {
@@ -382,6 +477,26 @@ export default function AdminsPage() {
                         loading={loading}
                         pagination={false}
                         size="small"
+                        expandable={{
+                          expandedRowKeys,
+                          onExpand: handleExpand,
+                          expandedRowRender: (record) => {
+                            const clients = resellerClients[record.id] || [];
+                            const isLoading = clientsLoading[record.id];
+                            if (isLoading) return <Spin size="small" />;
+                            if (clients.length === 0) return <div style={{ padding: 16, color: 'var(--ant-color-text-secondary)' }}>{t('pages.admins.noClients', 'No clients')}</div>;
+                            return (
+                              <Table
+                                dataSource={clients}
+                                columns={clientColumns}
+                                rowKey="id"
+                                pagination={false}
+                                size="small"
+                                style={{ background: 'transparent' }}
+                              />
+                            );
+                          },
+                        }}
                       />
                     </Card>
                   </Col>
@@ -422,6 +537,9 @@ export default function AdminsPage() {
             </Form.Item>
             <Form.Item name="usageLimit" label={t('pages.admins.usageLimitGB', 'Usage Limit (GB)')}>
               <InputNumber min={0} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="multiplier" label={t('pages.admins.resellerMultiplier', 'Reseller Multiplier')} tooltip={t('pages.admins.resellerMultiplierTip', 'Additional multiplier added on top of inbound multipliers (0 = no additional)')}>
+              <InputNumber min={0} step={0.1} style={{ width: '100%' }} addonAfter="x" />
             </Form.Item>
             <Form.Item name="allowedInboundsMode" label={t('pages.admins.allowedInboundsMode', 'Allowed Inbounds')}>
               <Select

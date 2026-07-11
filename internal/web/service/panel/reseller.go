@@ -13,16 +13,17 @@ import (
 
 // ResellerInfo is the admin-facing projection of a reseller account.
 type ResellerInfo struct {
-	Id                   int    `json:"id"`
-	Username             string `json:"username"`
-	Role                 string `json:"role"`
-	UsageLimit           int64  `json:"usageLimit"`
-	UsageUp              int64  `json:"usageUp"`
-	UsageDown            int64  `json:"usageDown"`
-	ClientCount          int64  `json:"clientCount"`
-	Enabled              bool   `json:"enabled"`
-	AllowedInboundsMode  string `json:"allowedInboundsMode"`
-	AllowedInboundIds    []int  `json:"allowedInboundIds"`
+	Id                   int     `json:"id"`
+	Username             string  `json:"username"`
+	Role                 string  `json:"role"`
+	UsageLimit           int64   `json:"usageLimit"`
+	UsageUp              int64   `json:"usageUp"`
+	UsageDown            int64   `json:"usageDown"`
+	ClientCount          int64   `json:"clientCount"`
+	Enabled              bool    `json:"enabled"`
+	AllowedInboundsMode  string  `json:"allowedInboundsMode"`
+	AllowedInboundIds    []int   `json:"allowedInboundIds"`
+	Multiplier           float64 `json:"multiplier"`
 }
 
 // ResellerService provides CRUD operations for reseller accounts.
@@ -49,12 +50,13 @@ func (s *ResellerService) ListResellers() ([]ResellerInfo, error) {
 			Enabled:             u.LoginEpoch >= 0,
 			AllowedInboundsMode: u.AllowedInboundsMode,
 			AllowedInboundIds:   u.AllowedInboundIds,
+			Multiplier:          u.Multiplier,
 		})
 	}
 	return result, nil
 }
 
-func (s *ResellerService) CreateReseller(username, password string, usageLimit int64, allowedInboundsMode string, allowedInboundIds []int) (*model.User, error) {
+func (s *ResellerService) CreateReseller(username, password string, usageLimit int64, allowedInboundsMode string, allowedInboundIds []int, multiplier float64) (*model.User, error) {
 	if username == "" {
 		return nil, errors.New("username is required")
 	}
@@ -63,6 +65,9 @@ func (s *ResellerService) CreateReseller(username, password string, usageLimit i
 	}
 	if allowedInboundsMode == "" {
 		allowedInboundsMode = "all"
+	}
+	if multiplier < 0 {
+		multiplier = 0
 	}
 	db := database.GetDB()
 	var exists int64
@@ -81,6 +86,7 @@ func (s *ResellerService) CreateReseller(username, password string, usageLimit i
 		UsageLimit:          usageLimit,
 		AllowedInboundsMode: allowedInboundsMode,
 		AllowedInboundIds:   allowedInboundIds,
+		Multiplier:          multiplier,
 	}
 	if err := db.Create(user).Error; err != nil {
 		return nil, err
@@ -88,7 +94,7 @@ func (s *ResellerService) CreateReseller(username, password string, usageLimit i
 	return user, nil
 }
 
-func (s *ResellerService) UpdateReseller(id int, username, password string, usageLimit int64, allowedInboundsMode string, allowedInboundIds []int) error {
+func (s *ResellerService) UpdateReseller(id int, username, password string, usageLimit int64, allowedInboundsMode string, allowedInboundIds []int, multiplier float64) error {
 	db := database.GetDB()
 	user := &model.User{}
 	if err := db.First(user, id).Error; err != nil {
@@ -97,12 +103,16 @@ func (s *ResellerService) UpdateReseller(id int, username, password string, usag
 	if user.Role != "reseller" {
 		return errors.New("user is not a reseller")
 	}
+	if multiplier < 0 {
+		multiplier = 0
+	}
 	idsJSON, _ := json.Marshal(allowedInboundIds)
 	updates := map[string]any{
 		"username":              username,
 		"usage_limit":           usageLimit,
 		"allowed_inbounds_mode": allowedInboundsMode,
 		"allowed_inbound_ids":   string(idsJSON),
+		"multiplier":            multiplier,
 	}
 	if password != "" {
 		hashed, err := crypto.HashPasswordAsBcrypt(password)

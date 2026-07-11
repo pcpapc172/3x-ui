@@ -929,7 +929,11 @@
         "delOrphans": "{count} unattached clients deleted",
         "imported": "{count} clients imported",
         "importedMixed": "{ok} imported, {failed} skipped"
-      }
+      },
+      "locked": "Locked",
+      "disabled": "Disabled",
+      "expired": "Expired",
+      "inDays": "{count} days"
     },
     "groups": {
       "title": "Groups",
@@ -994,7 +998,10 @@
       "selectInbounds": "Select Inbounds",
       "selectInboundsPlaceholder": "Select inbounds this reseller can access",
       "deleteReseller": "Delete Reseller",
-      "deleteClientsToo": "Also delete all clients of this reseller"
+      "deleteClientsToo": "Also delete all clients of this reseller",
+      "resellerMultiplier": "Reseller Multiplier",
+      "resellerMultiplierTip": "Additional multiplier added on top of inbound multipliers (0 = no additional)",
+      "noClients": "No clients"
     },
     "multiply": {
       "title": "Traffic Multiplier",
@@ -1007,7 +1014,11 @@
       "totalMultipliers": "Total Multipliers",
       "maxRate": "Max Rate",
       "avgRate": "Avg Rate",
-      "editMultiplier": "Edit Multiplier"
+      "editMultiplier": "Edit Multiplier",
+      "resellerMultiplier": "Reseller Multiplier",
+      "resellerMultiplierDesc": "Additional rate added on top of inbound multipliers",
+      "editResellerMultiplier": "Edit Reseller Multiplier",
+      "resellerMultiplierHint": "Set to 0 for no additional multiplier. This is added on top of inbound multipliers."
     },
     "hosts": {
       "addHost": "Add Host",
