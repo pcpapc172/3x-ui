@@ -75,18 +75,55 @@ func (a *ResellerController) getClients(c *gin.Context) {
 		InboundIds []int         `json:"inboundIds"`
 	}
 
+	if len(records) == 0 {
+		jsonObj(c, []clientWithAttachments{}, nil)
+		return
+	}
+
+	clientIds := make([]int, 0, len(records))
+	emails := make([]string, 0, len(records))
+	for i := range records {
+		clientIds = append(clientIds, records[i].Id)
+		if records[i].Email != "" {
+			emails = append(emails, records[i].Email)
+		}
+	}
+
+	type clientInbound struct {
+		ClientId  int `gorm:"column:client_id"`
+		InboundId int `gorm:"column:inbound_id"`
+	}
+	attachments := make(map[int][]int, len(records))
+	var links []clientInbound
+	db.Where("client_id IN ?", clientIds).Find(&links)
+	for _, l := range links {
+		attachments[l.ClientId] = append(attachments[l.ClientId], l.InboundId)
+	}
+
+	type trafficRow struct {
+		Email      string `gorm:"column:email"`
+		Up         int64  `gorm:"column:up"`
+		Down       int64  `gorm:"column:down"`
+		LastOnline int64  `gorm:"column:last_online"`
+	}
+	trafficByEmail := make(map[string]clientTraffic, len(emails))
+	if len(emails) > 0 {
+		var trafficRows []trafficRow
+		db.Table("client_traffics").Where("email IN ?", emails).
+			Select("email, up, down, last_online").
+			Find(&trafficRows)
+		for _, tr := range trafficRows {
+			trafficByEmail[tr.Email] = clientTraffic{Up: tr.Up, Down: tr.Down, LastOnline: tr.LastOnline}
+		}
+	}
+
 	result := make([]clientWithAttachments, 0, len(records))
 	for _, r := range records {
-		cwt := clientWithAttachments{ClientRecord: r}
-
-		var t clientTraffic
-		db.Table("client_traffics").Where("email = ?", r.Email).
-			Select("COALESCE(SUM(up), 0) as up, COALESCE(SUM(down), 0) as down, COALESCE(MAX(last_online), 0) as last_online").
-			Scan(&t)
-		cwt.Traffic = clientTraffic{Up: t.Up, Down: t.Down, LastOnline: t.LastOnline}
-
-		db.Model(&model.ClientInbound{}).Where("client_id = ?", r.Id).Pluck("inbound_id", &cwt.InboundIds)
-
+		cwt := clientWithAttachments{
+			ClientRecord: r,
+			Traffic:      trafficByEmail[r.Email],
+			InboundIds:   attachments[r.Id],
+		}
 		result = append(result, cwt)
 	}
 	jsonObj(c, result, nil)
