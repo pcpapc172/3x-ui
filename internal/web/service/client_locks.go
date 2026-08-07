@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,12 +28,12 @@ var (
 
 func lockInbound(inboundId int) *sync.Mutex {
 	inboundMutationLocksMu.Lock()
-	defer inboundMutationLocksMu.Unlock()
 	m, ok := inboundMutationLocks[inboundId]
 	if !ok {
 		m = &sync.Mutex{}
 		inboundMutationLocks[inboundId] = m
 	}
+	inboundMutationLocksMu.Unlock()
 	m.Lock()
 	return m
 }
@@ -104,6 +105,19 @@ func tombstoneClientEmail(email string) {
 	}
 }
 
+func withdrawClientTombstones(emails ...string) {
+	if len(emails) == 0 {
+		return
+	}
+	recentlyDeletedMu.Lock()
+	defer recentlyDeletedMu.Unlock()
+	for _, email := range emails {
+		if email != "" {
+			delete(recentlyDeleted, email)
+		}
+	}
+}
+
 func tombstoneClientEmails(emails []string) {
 	if len(emails) == 0 {
 		return
@@ -139,6 +153,48 @@ func isClientEmailTombstoned(email string) bool {
 		return false
 	}
 	return true
+}
+
+// dedupeSettingsClients collapses duplicate same-email client entries inside a
+// settings JSON blob, keeping the first occurrence. Node snapshots produced by
+// builds without the addInboundClient duplicate guard can carry duplicates
+// (#5770); adopting them verbatim would copy the duplication into the central
+// inbound. Returns the filtered JSON and whether anything was removed.
+func dedupeSettingsClients(settings string) (string, bool) {
+	if settings == "" {
+		return settings, false
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(settings), &parsed); err != nil {
+		return settings, false
+	}
+	clients, _ := parsed["clients"].([]any)
+	if len(clients) < 2 {
+		return settings, false
+	}
+	seen := make(map[string]struct{}, len(clients))
+	kept := make([]any, 0, len(clients))
+	for _, c := range clients {
+		if cm, ok := c.(map[string]any); ok {
+			if email, _ := cm["email"].(string); email != "" {
+				key := strings.ToLower(email)
+				if _, dup := seen[key]; dup {
+					continue
+				}
+				seen[key] = struct{}{}
+			}
+		}
+		kept = append(kept, c)
+	}
+	if len(kept) == len(clients) {
+		return settings, false
+	}
+	parsed["clients"] = kept
+	b, err := json.MarshalIndent(parsed, "", "  ")
+	if err != nil {
+		return settings, false
+	}
+	return string(b), true
 }
 
 // stripTombstonedClients drops just-deleted client entries from a node

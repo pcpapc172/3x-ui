@@ -35,10 +35,24 @@ func (s *ResellerService) ListResellers() ([]ResellerInfo, error) {
 	if err := db.Where("role = ?", "reseller").Find(&users).Error; err != nil {
 		return nil, err
 	}
+	type ownerCount struct {
+		OwnerId int
+		Count   int64
+	}
+	var counts []ownerCount
+	if err := db.Model(&model.ClientRecord{}).
+		Select("owner_id", "COUNT(*) AS count").
+		Where("owner_id > 0").
+		Group("owner_id").
+		Find(&counts).Error; err != nil {
+		return nil, err
+	}
+	countByOwner := make(map[int]int64, len(counts))
+	for _, count := range counts {
+		countByOwner[count.OwnerId] = count.Count
+	}
 	result := make([]ResellerInfo, 0, len(users))
 	for _, u := range users {
-		var count int64
-		_ = db.Model(&model.ClientRecord{}).Where("owner_id = ?", u.Id).Count(&count).Error
 		result = append(result, ResellerInfo{
 			Id:                  u.Id,
 			Username:            u.Username,
@@ -46,7 +60,7 @@ func (s *ResellerService) ListResellers() ([]ResellerInfo, error) {
 			UsageLimit:          u.UsageLimit,
 			UsageUp:             u.UsageUp,
 			UsageDown:           u.UsageDown,
-			ClientCount:         count,
+			ClientCount:         countByOwner[u.Id],
 			Enabled:             u.LoginEpoch >= 0,
 			AllowedInboundsMode: u.AllowedInboundsMode,
 			AllowedInboundIds:   u.AllowedInboundIds,
