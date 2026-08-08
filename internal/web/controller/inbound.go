@@ -161,7 +161,10 @@ func (a *InboundController) getInboundOptions(c *gin.Context) {
 			options, err = a.inboundService.GetInboundOptions(0)
 		}
 	} else {
-		options, err = a.inboundService.GetInboundOptions(user.Id)
+		// Admins assign access across the whole panel. Do not scope this picker by
+		// the current admin's numeric ID: upgraded databases can contain inbounds
+		// owned by an older admin row, which made the reseller selector appear empty.
+		options, err = a.inboundService.GetInboundOptions(0)
 	}
 	if err != nil {
 		jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.obtain"), err)
