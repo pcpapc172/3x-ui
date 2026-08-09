@@ -24,7 +24,6 @@ import { useTheme } from '@/hooks/useTheme';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import AppSidebar from '@/layouts/AppSidebar';
 import { HttpUtil } from '@/utils';
-import type { Msg } from '@/utils';
 
 interface ResellerOverview {
   id: number;
@@ -64,7 +63,7 @@ export default function ResellerOverviewPage() {
   const fetchOverview = useCallback(async () => {
     setFetchError('');
     try {
-      const resp = await HttpUtil.get<Msg<ResellerOverview>>('/panel/api/user/overview');
+      const resp = await HttpUtil.get<ResellerOverview>('/panel/api/user/overview');
       if (resp.success && resp.obj) {
         setOverview(resp.obj);
       }

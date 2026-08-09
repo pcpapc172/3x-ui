@@ -2955,6 +2955,10 @@
       "description": "A separate HTTP/HTTPS server that serves proxy subscription links (standard, JSON, and Clash) to clients. The server listens on its own port (default 10882) and is configured in Settings → Subscription. Paths are configurable; defaults are shown below. All subscription endpoints set response headers for client apps to read traffic/expiry info."
     },
     {
+      "name": "Resellers",
+      "description": "Reseller accounts and their per-inbound traffic multipliers. Reseller CRUD (/panel/api/resellers/*) and the multiplier table (/panel/api/multiply/*) require an admin session; /panel/api/user/* returns the authenticated caller's own info and is available to any logged-in user, including resellers."
+    },
+    {
       "name": "WebSocket",
       "description": "Real-time status updates via WebSocket. Connect once at <code>ws://<panel>/ws</code> to receive a stream of JSON messages without polling. Requires an authenticated session cookie (Bearer token auth is not supported). Each message has a <code>type</code> field that identifies the payload shape."
     }
@@ -11305,6 +11309,661 @@
                       "type": "string"
                     },
                     "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/resellers/list": {
+      "get": {
+        "tags": [
+          "Resellers"
+        ],
+        "summary": "List every reseller account with usage totals, allowed-inbound scoping, and multiplier. Admin only.",
+        "operationId": "get_panel_api_resellers_list",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": [
+                    {
+                      "id": 5,
+                      "username": "reseller1",
+                      "role": "reseller",
+                      "usageLimit": 107374182400,
+                      "usageUp": 1073741824,
+                      "usageDown": 2147483648,
+                      "clientCount": 12,
+                      "enabled": true,
+                      "allowedInboundsMode": "all",
+                      "allowedInboundIds": [],
+                      "multiplier": 1
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/resellers/{id}/clients": {
+      "get": {
+        "tags": [
+          "Resellers"
+        ],
+        "summary": "List every client owned by a reseller, with traffic and attached inbound IDs. Admin only.",
+        "operationId": "get_panel_api_resellers_id_clients",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Reseller user ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": [
+                    {
+                      "id": 42,
+                      "email": "alice",
+                      "enable": true,
+                      "locked": false,
+                      "traffic": {
+                        "up": 1024,
+                        "down": 2048,
+                        "lastOnline": 1730000000000
+                      },
+                      "inboundIds": [
+                        1,
+                        2
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/resellers/add": {
+      "post": {
+        "tags": [
+          "Resellers"
+        ],
+        "summary": "Create a reseller account. Admin only.",
+        "operationId": "post_panel_api_resellers_add",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "description": ""
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": ""
+                  },
+                  "usageLimit": {
+                    "type": "integer",
+                    "description": "Total traffic quota in bytes; 0 = unlimited."
+                  },
+                  "allowedInboundsMode": {
+                    "type": "string",
+                    "description": "\"all\" or \"select\"."
+                  },
+                  "allowedInboundIds": {
+                    "type": "string",
+                    "description": "Inbound IDs the reseller may use when mode is \"select\"."
+                  },
+                  "multiplier": {
+                    "type": "integer",
+                    "description": "Traffic-accounting multiplier applied to this reseller's clients."
+                  }
+                },
+                "required": [
+                  "username",
+                  "password",
+                  "usageLimit",
+                  "allowedInboundsMode",
+                  "allowedInboundIds",
+                  "multiplier"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "id": 5,
+                    "username": "reseller1"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/resellers/update/{id}": {
+      "post": {
+        "tags": [
+          "Resellers"
+        ],
+        "summary": "Update a reseller account. Password is left unchanged when omitted. Admin only.",
+        "operationId": "post_panel_api_resellers_update_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "description": ""
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": ""
+                  },
+                  "usageLimit": {
+                    "type": "integer",
+                    "description": ""
+                  },
+                  "allowedInboundsMode": {
+                    "type": "string",
+                    "description": ""
+                  },
+                  "allowedInboundIds": {
+                    "type": "string",
+                    "description": ""
+                  },
+                  "multiplier": {
+                    "type": "integer",
+                    "description": ""
+                  }
+                },
+                "required": [
+                  "username",
+                  "usageLimit",
+                  "allowedInboundsMode",
+                  "allowedInboundIds",
+                  "multiplier"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "msg": "success"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/resellers/del/{id}": {
+      "post": {
+        "tags": [
+          "Resellers"
+        ],
+        "summary": "Delete a reseller account, optionally deleting its clients too. Admin only.",
+        "operationId": "post_panel_api_resellers_del_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "deleteClients",
+            "in": "query",
+            "required": false,
+            "description": "When \"true\", also deletes every client owned by this reseller.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "msg": "success"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/resellers/resetUsage/{id}": {
+      "post": {
+        "tags": [
+          "Resellers"
+        ],
+        "summary": "Reset a reseller's accumulated usage counters and re-enable any of its clients that were disabled for being over the reseller quota. Admin only.",
+        "operationId": "post_panel_api_resellers_resetUsage_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "reEnabled": 3
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/resellers/toggleEnable/{id}": {
+      "post": {
+        "tags": [
+          "Resellers"
+        ],
+        "summary": "Enable or disable a reseller account. Admin only.",
+        "operationId": "post_panel_api_resellers_toggleEnable_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "enabled": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/multiply/list": {
+      "get": {
+        "tags": [
+          "Resellers"
+        ],
+        "summary": "List every inbound's traffic multiplier. Admin only.",
+        "operationId": "get_panel_api_multiply_list",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": [
+                    {
+                      "id": 1,
+                      "inboundId": 3,
+                      "inboundTag": "inbound-443",
+                      "rate": 1.5
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/multiply/set": {
+      "post": {
+        "tags": [
+          "Resellers"
+        ],
+        "summary": "Create or update the traffic multiplier for an inbound. Admin only.",
+        "operationId": "post_panel_api_multiply_set",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "inboundId": {
+                    "type": "integer",
+                    "description": ""
+                  },
+                  "rate": {
+                    "type": "integer",
+                    "description": "Multiplier applied to traffic accounted on this inbound; values <= 0 are coerced to 1."
+                  }
+                },
+                "required": [
+                  "inboundId",
+                  "rate"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "msg": "success"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/multiply/del/{id}": {
+      "post": {
+        "tags": [
+          "Resellers"
+        ],
+        "summary": "Remove an inbound's traffic multiplier (reverts it to the default rate of 1). Admin only.",
+        "operationId": "post_panel_api_multiply_del_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "msg": "success"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/user/info": {
+      "get": {
+        "tags": [
+          "Resellers"
+        ],
+        "summary": "Return the authenticated caller's own role and usage info. Available to any logged-in user.",
+        "operationId": "get_panel_api_user_info",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "id": 5,
+                    "username": "reseller1",
+                    "role": "reseller",
+                    "usageLimit": 107374182400,
+                    "usageUp": 1073741824,
+                    "usageDown": 2147483648
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/user/overview": {
+      "get": {
+        "tags": [
+          "Resellers"
+        ],
+        "summary": "Return aggregated usage and client counts for the authenticated caller's own clients. Used by the reseller overview page.",
+        "operationId": "get_panel_api_user_overview",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "id": 5,
+                    "username": "reseller1",
+                    "role": "reseller",
+                    "usageLimit": 107374182400,
+                    "usageUp": 1073741824,
+                    "usageDown": 2147483648,
+                    "remaining": 104152956928,
+                    "clientCount": 12,
+                    "enabledCount": 11
                   }
                 }
               }

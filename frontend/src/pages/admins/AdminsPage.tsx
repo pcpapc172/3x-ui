@@ -34,7 +34,6 @@ import {
   CheckCircleOutlined,
   ExclamationCircleOutlined,
   CloudDownloadOutlined,
-  QrcodeOutlined,
   InfoCircleOutlined,
   RetweetOutlined,
 } from '@ant-design/icons';
@@ -43,7 +42,6 @@ import { useTheme } from '@/hooks/useTheme';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import AppSidebar from '@/layouts/AppSidebar';
 import ClientTrafficCell from '@/components/clients/ClientTrafficCell';
-import InfinityIcon from '@/components/ui/InfinityIcon';
 import { SizeFormatter } from '@/utils';
 import { HttpUtil } from '@/utils';
 import type { Msg } from '@/utils';
@@ -157,8 +155,8 @@ export default function AdminsPage() {
     setFetchError('');
     try {
       const [resp, inbResp] = await Promise.all([
-        HttpUtil.get<Msg<ResellerInfo[]>>('/panel/api/resellers/list'),
-        HttpUtil.get<Msg<InboundOption[]>>('/panel/api/inbounds/options'),
+        HttpUtil.get<ResellerInfo[]>('/panel/api/resellers/list'),
+        HttpUtil.get<InboundOption[]>('/panel/api/inbounds/options'),
       ]);
       if (resp.success && resp.obj) {
         setResellers(resp.obj);
@@ -181,7 +179,7 @@ export default function AdminsPage() {
   const fetchClientsForReseller = useCallback(async (resellerId: number) => {
     setClientsLoading((prev) => ({ ...prev, [resellerId]: true }));
     try {
-      const resp = await HttpUtil.get<Msg<ResellerClient[]>>(`/panel/api/resellers/${resellerId}/clients`);
+      const resp = await HttpUtil.get<ResellerClient[]>(`/panel/api/resellers/${resellerId}/clients`);
       if (resp.success && resp.obj) {
         setResellerClients((prev) => ({ ...prev, [resellerId]: resp.obj }));
       }
@@ -234,7 +232,7 @@ export default function AdminsPage() {
   const handleDeleteConfirm = async () => {
     if (!deletingReseller) return;
     try {
-      const resp = await HttpUtil.post<Msg<unknown>>(`/panel/api/resellers/del/${deletingReseller.id}?deleteClients=${deleteClients}`);
+      const resp = await HttpUtil.post<unknown>(`/panel/api/resellers/del/${deletingReseller.id}?deleteClients=${deleteClients}`);
       if (resp.success) {
         setDeleteModalOpen(false);
         setDeletingReseller(null);
@@ -247,7 +245,7 @@ export default function AdminsPage() {
 
   const handleResetUsage = async (id: number) => {
     try {
-      const resp = await HttpUtil.post<Msg<{ reEnabled: number }>>(`/panel/api/resellers/resetUsage/${id}`);
+      const resp = await HttpUtil.post<{ reEnabled: number }>(`/panel/api/resellers/resetUsage/${id}`);
       if (resp.success) {
         messageApi.success(`Reset usage, re-enabled ${resp.obj?.reEnabled ?? 0} clients`);
         fetchResellers();
@@ -259,7 +257,7 @@ export default function AdminsPage() {
 
   const handleToggleEnable = async (id: number, checked: boolean) => {
     try {
-      const resp = await HttpUtil.post<Msg<{ enabled: boolean }>>(`/panel/api/resellers/toggleEnable/${id}`);
+      const resp = await HttpUtil.post<{ enabled: boolean }>(`/panel/api/resellers/toggleEnable/${id}`);
       if (resp.success) {
         messageApi.success(checked ? 'Reseller enabled' : 'Reseller disabled');
         fetchResellers();
@@ -283,9 +281,9 @@ export default function AdminsPage() {
       };
       let resp: Msg<unknown>;
       if (editingReseller) {
-        resp = await HttpUtil.post<Msg<unknown>>(`/panel/api/resellers/update/${editingReseller.id}`, payload);
+        resp = await HttpUtil.post<unknown>(`/panel/api/resellers/update/${editingReseller.id}`, payload);
       } else {
-        resp = await HttpUtil.post<Msg<unknown>>('/panel/api/resellers/add', payload);
+        resp = await HttpUtil.post<unknown>('/panel/api/resellers/add', payload);
       }
       if (resp.success) {
         setModalOpen(false);
@@ -335,13 +333,13 @@ export default function AdminsPage() {
     return 'green';
   };
 
-  const handleEditClient = (record: ResellerClient) => {
+  const handleEditClient = (_record: ResellerClient) => {
     messageApi.info(t('pages.admins.editClientHint', 'Use the Clients page to edit this client'));
   };
 
   const handleDeleteClient = async (record: ResellerClient) => {
     try {
-      const resp = await HttpUtil.post<Msg<unknown>>(`/panel/api/clients/del/${record.email}`);
+      const resp = await HttpUtil.post<unknown>(`/panel/api/clients/del/${record.email}`);
       if (resp.success) {
         messageApi.success(t('pages.clients.toasts.deleted', 'Client deleted'));
         if (deletingReseller) {

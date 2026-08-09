@@ -1509,6 +1509,121 @@ export const sections: readonly Section[] = [
   },
 
   {
+    id: 'resellers',
+    title: 'Resellers',
+    description:
+      'Reseller accounts and their per-inbound traffic multipliers. Reseller CRUD (/panel/api/resellers/*) and the multiplier table (/panel/api/multiply/*) require an admin session; /panel/api/user/* returns the authenticated caller\'s own info and is available to any logged-in user, including resellers.',
+    endpoints: [
+      {
+        method: 'GET',
+        path: '/panel/api/resellers/list',
+        summary: 'List every reseller account with usage totals, allowed-inbound scoping, and multiplier. Admin only.',
+        response:
+          '{\n  "success": true,\n  "obj": [\n    {\n      "id": 5,\n      "username": "reseller1",\n      "role": "reseller",\n      "usageLimit": 107374182400,\n      "usageUp": 1073741824,\n      "usageDown": 2147483648,\n      "clientCount": 12,\n      "enabled": true,\n      "allowedInboundsMode": "all",\n      "allowedInboundIds": [],\n      "multiplier": 1\n    }\n  ]\n}',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/resellers/:id/clients',
+        summary: 'List every client owned by a reseller, with traffic and attached inbound IDs. Admin only.',
+        params: [{ name: 'id', in: 'path', type: 'integer', desc: 'Reseller user ID.' }],
+        response:
+          '{\n  "success": true,\n  "obj": [\n    {\n      "id": 42,\n      "email": "alice",\n      "enable": true,\n      "locked": false,\n      "traffic": { "up": 1024, "down": 2048, "lastOnline": 1730000000000 },\n      "inboundIds": [1, 2]\n    }\n  ]\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/resellers/add',
+        summary: 'Create a reseller account. Admin only.',
+        params: [
+          { name: 'username', in: 'body', type: 'string' },
+          { name: 'password', in: 'body', type: 'string' },
+          { name: 'usageLimit', in: 'body', type: 'integer', desc: 'Total traffic quota in bytes; 0 = unlimited.' },
+          { name: 'allowedInboundsMode', in: 'body', type: 'string', desc: '"all" or "select".' },
+          { name: 'allowedInboundIds', in: 'body', type: 'integer[]', desc: 'Inbound IDs the reseller may use when mode is "select".' },
+          { name: 'multiplier', in: 'body', type: 'number', desc: 'Traffic-accounting multiplier applied to this reseller\'s clients.' },
+        ],
+        response: '{\n  "success": true,\n  "obj": { "id": 5, "username": "reseller1" }\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/resellers/update/:id',
+        summary: 'Update a reseller account. Password is left unchanged when omitted. Admin only.',
+        params: [
+          { name: 'id', in: 'path', type: 'integer' },
+          { name: 'username', in: 'body', type: 'string' },
+          { name: 'password', in: 'body', type: 'string', optional: true },
+          { name: 'usageLimit', in: 'body', type: 'integer' },
+          { name: 'allowedInboundsMode', in: 'body', type: 'string' },
+          { name: 'allowedInboundIds', in: 'body', type: 'integer[]' },
+          { name: 'multiplier', in: 'body', type: 'number' },
+        ],
+        response: '{\n  "success": true,\n  "msg": "success"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/resellers/del/:id',
+        summary: 'Delete a reseller account, optionally deleting its clients too. Admin only.',
+        params: [
+          { name: 'id', in: 'path', type: 'integer' },
+          { name: 'deleteClients', in: 'query', type: 'boolean', optional: true, desc: 'When "true", also deletes every client owned by this reseller.' },
+        ],
+        response: '{\n  "success": true,\n  "msg": "success"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/resellers/resetUsage/:id',
+        summary: 'Reset a reseller\'s accumulated usage counters and re-enable any of its clients that were disabled for being over the reseller quota. Admin only.',
+        params: [{ name: 'id', in: 'path', type: 'integer' }],
+        response: '{\n  "success": true,\n  "obj": { "reEnabled": 3 }\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/resellers/toggleEnable/:id',
+        summary: 'Enable or disable a reseller account. Admin only.',
+        params: [{ name: 'id', in: 'path', type: 'integer' }],
+        response: '{\n  "success": true,\n  "obj": { "enabled": false }\n}',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/multiply/list',
+        summary: 'List every inbound\'s traffic multiplier. Admin only.',
+        response:
+          '{\n  "success": true,\n  "obj": [\n    { "id": 1, "inboundId": 3, "inboundTag": "inbound-443", "rate": 1.5 }\n  ]\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/multiply/set',
+        summary: 'Create or update the traffic multiplier for an inbound. Admin only.',
+        params: [
+          { name: 'inboundId', in: 'body', type: 'integer' },
+          { name: 'rate', in: 'body', type: 'number', desc: 'Multiplier applied to traffic accounted on this inbound; values <= 0 are coerced to 1.' },
+        ],
+        response: '{\n  "success": true,\n  "msg": "success"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/multiply/del/:id',
+        summary: 'Remove an inbound\'s traffic multiplier (reverts it to the default rate of 1). Admin only.',
+        params: [{ name: 'id', in: 'path', type: 'integer' }],
+        response: '{\n  "success": true,\n  "msg": "success"\n}',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/user/info',
+        summary: 'Return the authenticated caller\'s own role and usage info. Available to any logged-in user.',
+        response:
+          '{\n  "success": true,\n  "obj": { "id": 5, "username": "reseller1", "role": "reseller", "usageLimit": 107374182400, "usageUp": 1073741824, "usageDown": 2147483648 }\n}',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/user/overview',
+        summary: 'Return aggregated usage and client counts for the authenticated caller\'s own clients. Used by the reseller overview page.',
+        response:
+          '{\n  "success": true,\n  "obj": { "id": 5, "username": "reseller1", "role": "reseller", "usageLimit": 107374182400, "usageUp": 1073741824, "usageDown": 2147483648, "remaining": 104152956928, "clientCount": 12, "enabledCount": 11 }\n}',
+      },
+    ],
+  },
+
+  {
     id: 'websocket',
     title: 'WebSocket',
     description:

@@ -207,7 +207,7 @@ export default function AppSidebar() {
   const panelVersion = window.X_UI_CUR_VER || '';
 
   const tabs = useMemo<{ key: string; icon: IconName; title: string }[]>(() => {
-    const allTabs = [
+    const allTabs: { key: string; icon: IconName; title: string }[] = [
       { key: '/', icon: 'dashboard', title: t('menu.dashboard') },
       { key: '/reseller', icon: 'dashboard', title: t('pages.reseller.title', 'Reseller') },
       { key: '/inbounds', icon: 'inbound', title: t('menu.inbounds') },

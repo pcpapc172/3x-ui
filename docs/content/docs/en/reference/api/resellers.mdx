@@ -1,0 +1,108 @@
+---
+title: Resellers
+description: Reseller accounts and their per-inbound traffic multipliers.
+  Reseller CRUD (/panel/api/resellers/*) and the multiplier table
+  (/panel/api/multiply/*) require an admin session; /panel/api/user/* returns
+  the authenticated caller's own info and is available to any logged-in user,
+  including resellers.
+full: true
+_openapi:
+  preload:
+    - ./public/openapi.json
+  toc:
+    - depth: 2
+      title: List every reseller account with usage totals, allowed-inbound scoping,
+        and multiplier. Admin only.
+      url: '#list-every-reseller-account-with-usage-totals-allowed-inbound-scoping-and-multiplier-admin-only'
+    - depth: 2
+      title: List every client owned by a reseller, with traffic and attached inbound
+        IDs. Admin only.
+      url: '#list-every-client-owned-by-a-reseller-with-traffic-and-attached-inbound-ids-admin-only'
+    - depth: 2
+      title: Create a reseller account. Admin only.
+      url: '#create-a-reseller-account-admin-only'
+    - depth: 2
+      title: Update a reseller account. Password is left unchanged when omitted. Admin
+        only.
+      url: '#update-a-reseller-account-password-is-left-unchanged-when-omitted-admin-only'
+    - depth: 2
+      title: Delete a reseller account, optionally deleting its clients too. Admin
+        only.
+      url: '#delete-a-reseller-account-optionally-deleting-its-clients-too-admin-only'
+    - depth: 2
+      title: Reset a reseller's accumulated usage counters and re-enable any of its
+        clients that were disabled for being over the reseller quota. Admin
+        only.
+      url: '#reset-a-resellers-accumulated-usage-counters-and-re-enable-any-of-its-clients-that-were-disabled-for-being-over-the-reseller-quota-admin-only'
+    - depth: 2
+      title: Enable or disable a reseller account. Admin only.
+      url: '#enable-or-disable-a-reseller-account-admin-only'
+    - depth: 2
+      title: List every inbound's traffic multiplier. Admin only.
+      url: '#list-every-inbounds-traffic-multiplier-admin-only'
+    - depth: 2
+      title: Create or update the traffic multiplier for an inbound. Admin only.
+      url: '#create-or-update-the-traffic-multiplier-for-an-inbound-admin-only'
+    - depth: 2
+      title: Remove an inbound's traffic multiplier (reverts it to the default rate of
+        1). Admin only.
+      url: '#remove-an-inbounds-traffic-multiplier-reverts-it-to-the-default-rate-of-1-admin-only'
+    - depth: 2
+      title: Return the authenticated caller's own role and usage info. Available to
+        any logged-in user.
+      url: '#return-the-authenticated-callers-own-role-and-usage-info-available-to-any-logged-in-user'
+    - depth: 2
+      title: Return aggregated usage and client counts for the authenticated caller's
+        own clients. Used by the reseller overview page.
+      url: '#return-aggregated-usage-and-client-counts-for-the-authenticated-callers-own-clients-used-by-the-reseller-overview-page'
+  structuredData:
+    headings:
+      - content: List every reseller account with usage totals, allowed-inbound scoping,
+          and multiplier. Admin only.
+        id: list-every-reseller-account-with-usage-totals-allowed-inbound-scoping-and-multiplier-admin-only
+      - content: List every client owned by a reseller, with traffic and attached
+          inbound IDs. Admin only.
+        id: list-every-client-owned-by-a-reseller-with-traffic-and-attached-inbound-ids-admin-only
+      - content: Create a reseller account. Admin only.
+        id: create-a-reseller-account-admin-only
+      - content: Update a reseller account. Password is left unchanged when omitted.
+          Admin only.
+        id: update-a-reseller-account-password-is-left-unchanged-when-omitted-admin-only
+      - content: Delete a reseller account, optionally deleting its clients too. Admin
+          only.
+        id: delete-a-reseller-account-optionally-deleting-its-clients-too-admin-only
+      - content: Reset a reseller's accumulated usage counters and re-enable any of its
+          clients that were disabled for being over the reseller quota. Admin
+          only.
+        id: reset-a-resellers-accumulated-usage-counters-and-re-enable-any-of-its-clients-that-were-disabled-for-being-over-the-reseller-quota-admin-only
+      - content: Enable or disable a reseller account. Admin only.
+        id: enable-or-disable-a-reseller-account-admin-only
+      - content: List every inbound's traffic multiplier. Admin only.
+        id: list-every-inbounds-traffic-multiplier-admin-only
+      - content: Create or update the traffic multiplier for an inbound. Admin only.
+        id: create-or-update-the-traffic-multiplier-for-an-inbound-admin-only
+      - content: Remove an inbound's traffic multiplier (reverts it to the default rate
+          of 1). Admin only.
+        id: remove-an-inbounds-traffic-multiplier-reverts-it-to-the-default-rate-of-1-admin-only
+      - content: Return the authenticated caller's own role and usage info. Available to
+          any logged-in user.
+        id: return-the-authenticated-callers-own-role-and-usage-info-available-to-any-logged-in-user
+      - content: Return aggregated usage and client counts for the authenticated
+          caller's own clients. Used by the reseller overview page.
+        id: return-aggregated-usage-and-client-counts-for-the-authenticated-callers-own-clients-used-by-the-reseller-overview-page
+    contents: []
+---
+
+{/* This file was generated by Fumadocs. Do not edit this file directly. Any changes should be made by running the generation command again. */}
+
+export default function Layout(props) {
+  const { APIPage, OpenAPIPage } = props.components ?? {};
+  // "APIPage" is the old name from v10, this allows both for backward compatibility
+  const Comp = OpenAPIPage ?? APIPage;
+  return (
+    <>
+      {props.children}
+      <Comp document="./public/openapi.json" webhooks={[]} operations={[{"path":"/panel/api/resellers/list","method":"get"},{"path":"/panel/api/resellers/{id}/clients","method":"get"},{"path":"/panel/api/resellers/add","method":"post"},{"path":"/panel/api/resellers/update/{id}","method":"post"},{"path":"/panel/api/resellers/del/{id}","method":"post"},{"path":"/panel/api/resellers/resetUsage/{id}","method":"post"},{"path":"/panel/api/resellers/toggleEnable/{id}","method":"post"},{"path":"/panel/api/multiply/list","method":"get"},{"path":"/panel/api/multiply/set","method":"post"},{"path":"/panel/api/multiply/del/{id}","method":"post"},{"path":"/panel/api/user/info","method":"get"},{"path":"/panel/api/user/overview","method":"get"}]} showTitle />
+    </>
+  );
+}

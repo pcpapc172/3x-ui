@@ -6,6 +6,7 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/crypto"
 
 	"gorm.io/gorm"
@@ -13,17 +14,17 @@ import (
 
 // ResellerInfo is the admin-facing projection of a reseller account.
 type ResellerInfo struct {
-	Id                   int     `json:"id"`
-	Username             string  `json:"username"`
-	Role                 string  `json:"role"`
-	UsageLimit           int64   `json:"usageLimit"`
-	UsageUp              int64   `json:"usageUp"`
-	UsageDown            int64   `json:"usageDown"`
-	ClientCount          int64   `json:"clientCount"`
-	Enabled              bool    `json:"enabled"`
-	AllowedInboundsMode  string  `json:"allowedInboundsMode"`
-	AllowedInboundIds    []int   `json:"allowedInboundIds"`
-	Multiplier           float64 `json:"multiplier"`
+	Id                  int     `json:"id"`
+	Username            string  `json:"username"`
+	Role                string  `json:"role"`
+	UsageLimit          int64   `json:"usageLimit"`
+	UsageUp             int64   `json:"usageUp"`
+	UsageDown           int64   `json:"usageDown"`
+	ClientCount         int64   `json:"clientCount"`
+	Enabled             bool    `json:"enabled"`
+	AllowedInboundsMode string  `json:"allowedInboundsMode"`
+	AllowedInboundIds   []int   `json:"allowedInboundIds"`
+	Multiplier          float64 `json:"multiplier"`
 }
 
 // ResellerService provides CRUD operations for reseller accounts.
@@ -125,7 +126,9 @@ func (s *ResellerService) UpdateReseller(id int, username, password string, usag
 		return err
 	}
 	if usageLimit == 0 || (user.UsageUp+user.UsageDown) < usageLimit {
-		s.ReEnableResellerClients(id)
+		if rerr := s.ReEnableResellerClients(id); rerr != nil {
+			logger.Warning("UpdateReseller: re-enable clients failed for reseller", id, ":", rerr)
+		}
 	}
 	return nil
 }

@@ -24,14 +24,12 @@ import {
   PlusOutlined,
   ApartmentOutlined,
   NumberOutlined,
-  TeamOutlined,
 } from '@ant-design/icons';
 
 import { useTheme } from '@/hooks/useTheme';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import AppSidebar from '@/layouts/AppSidebar';
 import { HttpUtil } from '@/utils';
-import type { Msg } from '@/utils';
 
 interface MultiplyEntry {
   id: number;
@@ -52,7 +50,7 @@ export default function MultiplyPage() {
   const { t } = useTranslation();
   const { isDark, isUltra, antdThemeConfig } = useTheme();
   const { isMobile } = useMediaQuery();
-  const [messageApi, messageContextHolder] = message.useMessage();
+  const [, messageContextHolder] = message.useMessage();
   const [entries, setEntries] = useState<MultiplyEntry[]>([]);
   const [inbounds, setInbounds] = useState<InboundOption[]>([]);
   const [fetched, setFetched] = useState(false);
@@ -91,9 +89,9 @@ export default function MultiplyPage() {
     setFetchError('');
     try {
       const [multResp, inbResp, resResp] = await Promise.all([
-        HttpUtil.get<Msg<MultiplyEntry[]>>('/panel/api/multiply/list'),
-        HttpUtil.get<Msg<InboundOption[]>>('/panel/api/inbounds/options'),
-        HttpUtil.get<Msg<{ id: number; username: string; multiplier: number }[]>>('/panel/api/resellers/list'),
+        HttpUtil.get<MultiplyEntry[]>('/panel/api/multiply/list'),
+        HttpUtil.get<InboundOption[]>('/panel/api/inbounds/options'),
+        HttpUtil.get<{ id: number; username: string; multiplier: number }[]>('/panel/api/resellers/list'),
       ]);
       if (multResp.success && multResp.obj) setEntries(multResp.obj);
       if (inbResp.success && inbResp.obj) setInbounds(inbResp.obj);
