@@ -108,8 +108,6 @@
     "apiDocs": "API ドキュメント",
     "admins": "Admins",
     "multiply": "Multiply",
-    "logout": "ログアウト",
-    "link": "リンク管理",
     "donate": "寄付",
     "hosts": "ホスト",
     "docs": "ドキュメント",
@@ -853,10 +851,7 @@
         "imported": "{count} 件のクライアントをインポートしました",
         "importedMixed": "{ok} 件インポート、{failed} 件スキップ"
       },
-      "locked": "Locked",
-      "disabled": "Disabled",
-      "expired": "Expired",
-      "inDays": "{count} days"
+      "locked": "Locked"
     },
     "groups": {
       "name": "名前",
@@ -900,7 +895,6 @@
       "removeFromGroupResult": "{count} クライアントを {name} から外しました。"
     },
     "admins": {
-      "title": "Resellers",
       "resellers": "Resellers",
       "addReseller": "Add Reseller",
       "editReseller": "Edit Reseller",
@@ -926,12 +920,10 @@
       "noClients": "No clients"
     },
     "multiply": {
-      "title": "Traffic Multiplier",
       "trafficMultiplier": "Traffic Multiplier",
       "inbound": "Inbound",
       "rate": "Rate",
       "selectInbound": "Select inbound",
-      "add": "Add",
       "removeConfirm": "Remove this multiplier?",
       "totalMultipliers": "Total Multipliers",
       "maxRate": "Max Rate",

@@ -108,8 +108,6 @@
     "apiDocs": "Dokumentasi API",
     "admins": "Admins",
     "multiply": "Multiply",
-    "logout": "Keluar",
-    "link": "Kelola",
     "donate": "Donasi",
     "hosts": "Host",
     "docs": "Dokumentasi",
@@ -853,10 +851,7 @@
         "imported": "{count} klien diimpor",
         "importedMixed": "{ok} diimpor, {failed} dilewati"
       },
-      "locked": "Locked",
-      "disabled": "Disabled",
-      "expired": "Expired",
-      "inDays": "{count} days"
+      "locked": "Locked"
     },
     "groups": {
       "name": "Nama",
@@ -900,7 +895,6 @@
       "removeFromGroupResult": "{count} klien dihapus dari {name}."
     },
     "admins": {
-      "title": "Resellers",
       "resellers": "Resellers",
       "addReseller": "Add Reseller",
       "editReseller": "Edit Reseller",
@@ -926,12 +920,10 @@
       "noClients": "No clients"
     },
     "multiply": {
-      "title": "Traffic Multiplier",
       "trafficMultiplier": "Traffic Multiplier",
       "inbound": "Inbound",
       "rate": "Rate",
       "selectInbound": "Select inbound",
-      "add": "Add",
       "removeConfirm": "Remove this multiplier?",
       "totalMultipliers": "Total Multipliers",
       "maxRate": "Max Rate",

@@ -108,8 +108,6 @@
     "apiDocs": "مستندات API",
     "admins": "Admins",
     "multiply": "Multiply",
-    "logout": "خروج",
-    "link": "مدیریت",
     "donate": "حمایت مالی",
     "hosts": "میزبان‌ها",
     "docs": "مستندات",
@@ -853,10 +851,7 @@
         "imported": "{count} کلاینت وارد شد",
         "importedMixed": "{ok} وارد شد، {failed} رد شد"
       },
-      "locked": "Locked",
-      "disabled": "Disabled",
-      "expired": "Expired",
-      "inDays": "{count} days"
+      "locked": "Locked"
     },
     "groups": {
       "name": "نام",
@@ -900,7 +895,6 @@
       "removeFromGroupResult": "{count} کاربر از {name} حذف شد."
     },
     "admins": {
-      "title": "Resellers",
       "resellers": "Resellers",
       "addReseller": "Add Reseller",
       "editReseller": "Edit Reseller",
@@ -926,12 +920,10 @@
       "noClients": "No clients"
     },
     "multiply": {
-      "title": "Traffic Multiplier",
       "trafficMultiplier": "Traffic Multiplier",
       "inbound": "Inbound",
       "rate": "Rate",
       "selectInbound": "Select inbound",
-      "add": "Add",
       "removeConfirm": "Remove this multiplier?",
       "totalMultipliers": "Total Multipliers",
       "maxRate": "Max Rate",

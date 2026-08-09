@@ -108,8 +108,6 @@
     "apiDocs": "Документация API",
     "admins": "Admins",
     "multiply": "Multiply",
-    "logout": "Выход",
-    "link": "Управление",
     "donate": "Поддержать",
     "hosts": "Хосты",
     "docs": "Документация",
@@ -853,10 +851,7 @@
         "imported": "Импортировано клиентов: {count}",
         "importedMixed": "Импортировано: {ok}, пропущено: {failed}"
       },
-      "locked": "Locked",
-      "disabled": "Disabled",
-      "expired": "Expired",
-      "inDays": "{count} days"
+      "locked": "Locked"
     },
     "groups": {
       "name": "Имя",
@@ -900,7 +895,6 @@
       "removeFromGroupResult": "Удалено {count} клиент(ов) из {name}."
     },
     "admins": {
-      "title": "Resellers",
       "resellers": "Resellers",
       "addReseller": "Add Reseller",
       "editReseller": "Edit Reseller",
@@ -926,12 +920,10 @@
       "noClients": "No clients"
     },
     "multiply": {
-      "title": "Traffic Multiplier",
       "trafficMultiplier": "Traffic Multiplier",
       "inbound": "Inbound",
       "rate": "Rate",
       "selectInbound": "Select inbound",
-      "add": "Add",
       "removeConfirm": "Remove this multiplier?",
       "totalMultipliers": "Total Multipliers",
       "maxRate": "Max Rate",

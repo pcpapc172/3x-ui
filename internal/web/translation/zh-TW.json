@@ -108,8 +108,6 @@
     "apiDocs": "API 文件",
     "admins": "Admins",
     "multiply": "Multiply",
-    "logout": "退出登入",
-    "link": "管理",
     "donate": "捐贈",
     "hosts": "Hosts",
     "docs": "文件",
@@ -853,10 +851,7 @@
         "imported": "已匯入 {count} 個客戶端",
         "importedMixed": "已匯入 {ok} 個，跳過 {failed} 個"
       },
-      "locked": "Locked",
-      "disabled": "Disabled",
-      "expired": "Expired",
-      "inDays": "{count} days"
+      "locked": "Locked"
     },
     "groups": {
       "name": "名稱",
@@ -900,7 +895,6 @@
       "removeFromGroupResult": "已從 {name} 移除 {count} 個客戶端。"
     },
     "admins": {
-      "title": "Resellers",
       "resellers": "Resellers",
       "addReseller": "Add Reseller",
       "editReseller": "Edit Reseller",
@@ -926,12 +920,10 @@
       "noClients": "No clients"
     },
     "multiply": {
-      "title": "Traffic Multiplier",
       "trafficMultiplier": "Traffic Multiplier",
       "inbound": "Inbound",
       "rate": "Rate",
       "selectInbound": "Select inbound",
-      "add": "Add",
       "removeConfirm": "Remove this multiplier?",
       "totalMultipliers": "Total Multipliers",
       "maxRate": "Max Rate",

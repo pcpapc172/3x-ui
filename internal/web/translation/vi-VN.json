@@ -108,8 +108,6 @@
     "apiDocs": "Tài liệu API",
     "admins": "Admins",
     "multiply": "Multiply",
-    "logout": "Đăng xuất",
-    "link": "Quản lý",
     "donate": "Quyên góp",
     "hosts": "Hosts",
     "docs": "Tài liệu",
@@ -853,10 +851,7 @@
         "imported": "Đã nhập {count} khách hàng",
         "importedMixed": "Đã nhập {ok}, bỏ qua {failed}"
       },
-      "locked": "Locked",
-      "disabled": "Disabled",
-      "expired": "Expired",
-      "inDays": "{count} days"
+      "locked": "Locked"
     },
     "groups": {
       "name": "Tên",
@@ -900,7 +895,6 @@
       "removeFromGroupResult": "Đã xóa {count} client khỏi {name}."
     },
     "admins": {
-      "title": "Resellers",
       "resellers": "Resellers",
       "addReseller": "Add Reseller",
       "editReseller": "Edit Reseller",
@@ -926,12 +920,10 @@
       "noClients": "No clients"
     },
     "multiply": {
-      "title": "Traffic Multiplier",
       "trafficMultiplier": "Traffic Multiplier",
       "inbound": "Inbound",
       "rate": "Rate",
       "selectInbound": "Select inbound",
-      "add": "Add",
       "removeConfirm": "Remove this multiplier?",
       "totalMultipliers": "Total Multipliers",
       "maxRate": "Max Rate",

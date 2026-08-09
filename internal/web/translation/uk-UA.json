@@ -108,8 +108,6 @@
     "apiDocs": "Документація API",
     "admins": "Admins",
     "multiply": "Multiply",
-    "logout": "Вийти",
-    "link": "Керувати",
     "donate": "Підтримати",
     "hosts": "Хости",
     "docs": "Документація",
@@ -853,10 +851,7 @@
         "imported": "Імпортовано клієнтів: {count}",
         "importedMixed": "Імпортовано: {ok}, пропущено: {failed}"
       },
-      "locked": "Locked",
-      "disabled": "Disabled",
-      "expired": "Expired",
-      "inDays": "{count} days"
+      "locked": "Locked"
     },
     "groups": {
       "name": "Назва",
@@ -900,7 +895,6 @@
       "removeFromGroupResult": "Видалено {count} клієнт(ів) з {name}."
     },
     "admins": {
-      "title": "Resellers",
       "resellers": "Resellers",
       "addReseller": "Add Reseller",
       "editReseller": "Edit Reseller",
@@ -926,12 +920,10 @@
       "noClients": "No clients"
     },
     "multiply": {
-      "title": "Traffic Multiplier",
       "trafficMultiplier": "Traffic Multiplier",
       "inbound": "Inbound",
       "rate": "Rate",
       "selectInbound": "Select inbound",
-      "add": "Add",
       "removeConfirm": "Remove this multiplier?",
       "totalMultipliers": "Total Multipliers",
       "maxRate": "Max Rate",
