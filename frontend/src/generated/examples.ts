@@ -247,6 +247,7 @@ export const EXAMPLES: Record<string, unknown> = {
     "id": "",
     "keepAlive": 0,
     "limitIp": 0,
+    "ownerId": 0,
     "password": "",
     "preSharedKey": "",
     "privateKey": "",
@@ -280,6 +281,8 @@ export const EXAMPLES: Record<string, unknown> = {
     "id": 0,
     "keepAlive": 0,
     "limitIp": 0,
+    "locked": false,
+    "ownerId": 0,
     "password": "",
     "preSharedKey": "",
     "privateKey": "",
@@ -655,8 +658,18 @@ export const EXAMPLES: Record<string, unknown> = {
     "value": ""
   },
   "User": {
+    "allowedInboundIds": [
+      0
+    ],
+    "allowedInboundsMode": "all",
     "id": 0,
+    "multiplier": 0,
+    "ownerId": 0,
     "password": "",
+    "role": "",
+    "usageDown": 0,
+    "usageLimit": 0,
+    "usageUp": 0,
     "username": ""
   }
 };

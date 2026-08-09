@@ -255,6 +255,7 @@ export interface Client {
   id?: string;
   keepAlive?: number;
   limitIp: number;
+  ownerId: number;
   password?: string;
   preSharedKey?: string;
   privateKey?: string;
@@ -290,6 +291,8 @@ export interface ClientRecord {
   id: number;
   keepAlive: number;
   limitIp: number;
+  locked: boolean;
+  ownerId: number;
   password: string;
   preSharedKey: string;
   privateKey: string;
@@ -638,8 +641,16 @@ export interface Setting {
 }
 
 export interface User {
+  allowedInboundIds: number[];
+  allowedInboundsMode: string;
   id: number;
+  multiplier: number;
+  ownerId: number;
   password: string;
+  role: string;
+  usageDown: number;
+  usageLimit: number;
+  usageUp: number;
   username: string;
 }
 

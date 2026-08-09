@@ -1047,6 +1047,9 @@ export const SCHEMAS: Record<string, unknown> = {
         "description": "IP limit for this client",
         "type": "integer"
       },
+      "ownerId": {
+        "type": "integer"
+      },
       "password": {
         "description": "Client password",
         "type": "string"
@@ -1107,6 +1110,7 @@ export const SCHEMAS: Record<string, unknown> = {
       "enable",
       "expiryTime",
       "limitIp",
+      "ownerId",
       "reset",
       "security",
       "subId",
@@ -1182,6 +1186,12 @@ export const SCHEMAS: Record<string, unknown> = {
       "limitIp": {
         "type": "integer"
       },
+      "locked": {
+        "type": "boolean"
+      },
+      "ownerId": {
+        "type": "integer"
+      },
       "password": {
         "type": "string"
       },
@@ -1237,6 +1247,8 @@ export const SCHEMAS: Record<string, unknown> = {
       "id",
       "keepAlive",
       "limitIp",
+      "locked",
+      "ownerId",
       "password",
       "preSharedKey",
       "privateKey",
@@ -2802,19 +2814,61 @@ export const SCHEMAS: Record<string, unknown> = {
   "User": {
     "description": "User represents a user account in the 3x-ui panel.",
     "properties": {
+      "allowedInboundIds": {
+        "items": {
+          "type": "integer"
+        },
+        "type": "array"
+      },
+      "allowedInboundsMode": {
+        "enum": [
+          "all",
+          "select"
+        ],
+        "type": "string"
+      },
       "id": {
+        "type": "integer"
+      },
+      "multiplier": {
+        "type": "number"
+      },
+      "ownerId": {
         "type": "integer"
       },
       "password": {
         "type": "string"
+      },
+      "role": {
+        "type": "string"
+      },
+      "usageDown": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "usageLimit": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "usageUp": {
+        "format": "int64",
+        "type": "integer"
       },
       "username": {
         "type": "string"
       }
     },
     "required": [
+      "allowedInboundIds",
+      "allowedInboundsMode",
       "id",
+      "multiplier",
+      "ownerId",
       "password",
+      "role",
+      "usageDown",
+      "usageLimit",
+      "usageUp",
       "username"
     ],
     "type": "object"

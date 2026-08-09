@@ -271,6 +271,7 @@ export const ClientSchema = z.object({
   id: z.string().optional(),
   keepAlive: z.number().int().optional(),
   limitIp: z.number().int(),
+  ownerId: z.number().int(),
   password: z.string().optional(),
   preSharedKey: z.string().optional(),
   privateKey: z.string().optional(),
@@ -308,6 +309,8 @@ export const ClientRecordSchema = z.object({
   id: z.number().int(),
   keepAlive: z.number().int(),
   limitIp: z.number().int(),
+  locked: z.boolean(),
+  ownerId: z.number().int(),
   password: z.string(),
   preSharedKey: z.string(),
   privateKey: z.string(),
@@ -676,8 +679,16 @@ export const SettingSchema = z.object({
 export type Setting = z.infer<typeof SettingSchema>;
 
 export const UserSchema = z.object({
+  allowedInboundIds: z.array(z.number().int()),
+  allowedInboundsMode: z.enum(['all', 'select']),
   id: z.number().int(),
+  multiplier: z.number(),
+  ownerId: z.number().int(),
   password: z.string(),
+  role: z.string(),
+  usageDown: z.number().int(),
+  usageLimit: z.number().int(),
+  usageUp: z.number().int(),
   username: z.string(),
 });
 export type User = z.infer<typeof UserSchema>;
