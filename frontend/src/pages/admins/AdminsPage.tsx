@@ -181,7 +181,8 @@ export default function AdminsPage() {
     try {
       const resp = await HttpUtil.get<ResellerClient[]>(`/panel/api/resellers/${resellerId}/clients`);
       if (resp.success && resp.obj) {
-        setResellerClients((prev) => ({ ...prev, [resellerId]: resp.obj }));
+        const clients = resp.obj;
+        setResellerClients((prev) => ({ ...prev, [resellerId]: clients }));
       }
     } catch {
       // handled by HttpUtil
