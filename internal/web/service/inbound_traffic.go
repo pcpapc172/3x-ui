@@ -1303,8 +1303,8 @@ func (s *InboundService) disableResellerOverQuotaClients(tx *gorm.DB) (bool, int
 		}
 	}
 
-	if p != nil && len(localTargets) > 0 {
-		_ = s.xrayApi.Init(p.GetAPIPort())
+	if process := currentXrayProcess(); process != nil && len(localTargets) > 0 {
+		_ = s.xrayApi.Init(process.GetAPIPort())
 		for _, t := range localTargets {
 			if err1 := s.xrayApi.RemoveUser(t.Tag, t.Email); err1 != nil {
 				needRestart = true
