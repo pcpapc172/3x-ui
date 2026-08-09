@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
-const outDir = path.resolve(__dirname, '../internal/web/dist');
+const outDir = path.resolve(import.meta.dirname, '../internal/web/dist');
 const BACKEND_TARGET = 'http://localhost:2053';
 
 function resolveDBPath() {
@@ -12,12 +12,12 @@ function resolveDBPath() {
   if (envFolder) {
     const abs = path.isAbsolute(envFolder)
       ? envFolder
-      : path.resolve(__dirname, '..', envFolder);
+      : path.resolve(import.meta.dirname, '..', envFolder);
     return path.join(abs, 'x-ui.db');
   }
-  const repoSubDB = path.resolve(__dirname, '..', 'x-ui', 'x-ui.db');
+  const repoSubDB = path.resolve(import.meta.dirname, '..', 'x-ui', 'x-ui.db');
   if (fs.existsSync(repoSubDB)) return repoSubDB;
-  const repoDB = path.resolve(__dirname, '..', 'x-ui.db');
+  const repoDB = path.resolve(import.meta.dirname, '..', 'x-ui.db');
   if (fs.existsSync(repoDB)) return repoDB;
   return '/etc/x-ui/x-ui.db';
 }
@@ -54,7 +54,7 @@ function refreshBasePath() {
 
 function readPanelVersion() {
   try {
-    const versionFile = path.resolve(__dirname, '..', 'config', 'version');
+    const versionFile = path.resolve(import.meta.dirname, '..', 'config', 'version');
     return fs.readFileSync(versionFile, 'utf8').trim();
   } catch (_e) {
     return '';
@@ -77,41 +77,14 @@ function injectBasePathPlugin() {
   };
 }
 
-// es-toolkit's `./compat/*` exports map only declares a CJS condition, so deep
-// imports like `es-toolkit/compat/get` resolve to a CJS shim. That shim uses a
-// `require_X.Y` pattern that Vite's optimizer and Rolldown both mishandle
-// (TypeError: require_isUnsafeProperty is not a function). The ESM build at
-// `dist/compat/<category>/<name>.mjs` is fine but only carries a named export,
-// while consumers like recharts use default imports — so emit a virtual module
-// that re-exports the named symbol as default.
-const ES_TOOLKIT_COMPAT_DIRS = ['array', 'function', 'math', 'object', 'predicate', 'string', 'util'];
-const ES_TOOLKIT_SHIM_PREFIX = '\0es-toolkit-compat:';
-
-function findEsToolkitCompatMjs(name) {
-  for (const sub of ES_TOOLKIT_COMPAT_DIRS) {
-    const candidate = path.resolve(__dirname, 'node_modules/es-toolkit/dist/compat', sub, `${name}.mjs`);
-    if (fs.existsSync(candidate)) return candidate;
-  }
-  return null;
-}
-
-function esToolkitCompatEsmResolver() {
+// Cloudflare Rocket Loader rewrites script tags and runs bundles through its
+// own loader, breaking ES-module semantics; data-cfasync="false" opts out.
+function rocketLoaderOptOutPlugin() {
   return {
-    name: 'es-toolkit-compat-esm',
-    enforce: 'pre',
-    resolveId(id) {
-      const m = id.match(/^es-toolkit\/compat\/(.+)$/);
-      if (!m) return null;
-      if (!findEsToolkitCompatMjs(m[1])) return null;
-      return ES_TOOLKIT_SHIM_PREFIX + m[1];
-    },
-    load(id) {
-      if (!id.startsWith(ES_TOOLKIT_SHIM_PREFIX)) return null;
-      const name = id.slice(ES_TOOLKIT_SHIM_PREFIX.length);
-      const target = findEsToolkitCompatMjs(name);
-      if (!target) return null;
-      const url = target.replace(/\\/g, '/');
-      return `import { ${name} } from ${JSON.stringify(url)};\nexport { ${name} };\nexport default ${name};\n`;
+    name: 'xui-rocket-loader-opt-out',
+    apply: 'build',
+    transformIndexHtml(html) {
+      return html.replaceAll('<script ', '<script data-cfasync="false" ');
     },
   };
 }
@@ -179,15 +152,10 @@ function makeBackendProxy(target) {
 }
 
 export default defineConfig({
-  plugins: [esToolkitCompatEsmResolver(), react(), injectBasePathPlugin()],
+  plugins: [react(), injectBasePathPlugin(), rocketLoaderOptOutPlugin()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, 'src'),
-    },
-  },
-  optimizeDeps: {
-    rolldownOptions: {
-      plugins: [esToolkitCompatEsmResolver()],
+      '@': path.resolve(import.meta.dirname, 'src'),
     },
   },
   experimental: {
@@ -203,14 +171,20 @@ export default defineConfig({
   build: {
     outDir,
     emptyOutDir: true,
-    sourcemap: true,
+    // Everything in outDir is embedded into the Go binary via embed.FS, so
+    // production sourcemaps (~18MB across 112 files, 72% of dist) ship inside
+    // every release build. Nothing consumes them there; `npm run dev` serves
+    // its own maps regardless of this setting. To debug a minified bundle
+    // (including the XUI_DEBUG serve-from-disk path), build once with
+    // XUI_SOURCEMAP=true — no tracked-file edit to accidentally commit.
+    sourcemap: process.env.XUI_SOURCEMAP === 'true',
     target: 'es2020',
     chunkSizeWarningLimit: 1500,
     rollupOptions: {
       input: {
-        index: path.resolve(__dirname, 'index.html'),
-        login: path.resolve(__dirname, 'login.html'),
-        subpage: path.resolve(__dirname, 'subpage.html'),
+        index: path.resolve(import.meta.dirname, 'index.html'),
+        login: path.resolve(import.meta.dirname, 'login.html'),
+        subpage: path.resolve(import.meta.dirname, 'subpage.html'),
       },
       output: {
         manualChunks(id) {
@@ -249,13 +223,8 @@ export default defineConfig({
             || id.includes('/node_modules/swagger-ui/')
             || id.includes('/node_modules/swagger-client/')
           ) return 'vendor-swagger';
-          if (
-            id.includes('/node_modules/recharts/')
-            || id.includes('/node_modules/victory-vendor/')
-            || id.includes('/node_modules/d3-')
-          ) return 'vendor-recharts';
+          if (id.includes('/node_modules/uplot/')) return 'vendor-uplot';
           if (id.includes('dayjs')) return 'vendor-dayjs';
-          if (id.includes('axios')) return 'vendor-axios';
           return 'vendor';
         },
       },

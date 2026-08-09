@@ -51,6 +51,7 @@ func (a *ClientController) initRouter(g *gin.RouterGroup) {
 	g.GET("/list", a.list)
 	g.GET("/list/paged", a.listPaged)
 	g.GET("/get/:email", a.get)
+	g.GET("/get/tgId/:tgId", a.getByTgId)
 	g.GET("/traffic/:email", a.getTrafficByEmail)
 	g.GET("/subLinks/:subId", a.getSubLinks)
 	g.GET("/links/:email", a.getClientLinks)
@@ -119,27 +120,18 @@ func (a *ClientController) listPaged(c *gin.Context) {
 	jsonObj(c, resp, nil)
 }
 
-func (a *ClientController) get(c *gin.Context) {
-	email := c.Param("email")
-	rec, err := a.clientService.GetRecordByEmail(nil, email)
-	if err != nil {
-		jsonMsg(c, I18nWeb(c, "get"), err)
-		return
-	}
+func (a *ClientController) buildClientPayload(rec *model.ClientRecord) (gin.H, error) {
 	inboundIds, err := a.clientService.GetInboundIdsForRecord(rec.Id)
 	if err != nil {
-		jsonMsg(c, I18nWeb(c, "get"), err)
-		return
+		return nil, err
 	}
 	externalLinks, err := a.clientService.GetExternalLinksForRecord(rec.Id)
 	if err != nil {
-		jsonMsg(c, I18nWeb(c, "get"), err)
-		return
+		return nil, err
 	}
 	flow, err := a.clientService.EffectiveFlow(nil, rec.Id)
 	if err != nil {
-		jsonMsg(c, I18nWeb(c, "get"), err)
-		return
+		return nil, err
 	}
 	rec.Flow = flow
 
@@ -152,10 +144,56 @@ func (a *ClientController) get(c *gin.Context) {
 	}
 
 	var usedTraffic int64
-	if t, tErr := a.inboundService.GetClientTrafficByEmail(email); tErr == nil && t != nil {
+	if t, tErr := a.inboundService.GetClientTrafficByEmail(rec.Email); tErr == nil && t != nil {
 		usedTraffic = t.Up + t.Down
 	}
-	jsonObj(c, gin.H{"client": rec, "inboundIds": inboundIds, "externalLinks": externalLinks, "usedTraffic": usedTraffic, "ownerId": rec.OwnerId, "ownerName": ownerName}, nil)
+	return gin.H{
+		"client":        rec,
+		"inboundIds":    inboundIds,
+		"externalLinks": externalLinks,
+		"usedTraffic":   usedTraffic,
+		"ownerId":       rec.OwnerId,
+		"ownerName":     ownerName,
+	}, nil
+}
+
+func (a *ClientController) get(c *gin.Context) {
+	email := c.Param("email")
+	rec, err := a.clientService.GetRecordByEmail(nil, email)
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.obtain"), err)
+		return
+	}
+	payload, err := a.buildClientPayload(rec)
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.obtain"), err)
+		return
+	}
+	jsonObj(c, payload, nil)
+}
+
+func (a *ClientController) getByTgId(c *gin.Context) {
+	tgIdStr := c.Param("tgId")
+	tgId, err := strconv.ParseInt(tgIdStr, 10, 64)
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.obtain"), err)
+		return
+	}
+	records, err := a.clientService.GetRecordsByTgID(tgId)
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.obtain"), err)
+		return
+	}
+	results := make([]gin.H, 0, len(records))
+	for _, rec := range records {
+		payload, err := a.buildClientPayload(rec)
+		if err != nil {
+			jsonMsg(c, I18nWeb(c, "get"), err)
+			return
+		}
+		results = append(results, payload)
+	}
+	jsonObj(c, results, nil)
 }
 
 func (a *ClientController) create(c *gin.Context) {
