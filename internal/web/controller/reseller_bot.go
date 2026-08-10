@@ -107,14 +107,33 @@ func (a *ResellerBotController) listPlans(c *gin.Context) {
 	jsonObj(c, plans, nil)
 }
 
+type setPlanForm struct {
+	Id           int    `form:"id" json:"id"`
+	Name         string `form:"name" json:"name"`
+	TrafficGB    int64  `form:"trafficGB" json:"trafficGB"`
+	DurationDays int    `form:"durationDays" json:"durationDays"`
+	PriceToman   int64  `form:"priceToman" json:"priceToman"`
+	InboundIds   []int  `form:"inboundIds" json:"inboundIds"`
+	Enabled      bool   `form:"enabled" json:"enabled"`
+}
+
 func (a *ResellerBotController) setPlan(c *gin.Context) {
 	user := session.GetLoginUser(c)
-	var plan model.BotPlan
-	if err := c.ShouldBind(&plan); err != nil {
+	var form setPlanForm
+	if err := c.ShouldBind(&form); err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
-	plan.OwnerId = user.Id
+	plan := model.BotPlan{
+		Id:           form.Id,
+		OwnerId:      user.Id,
+		Name:         form.Name,
+		TrafficGB:    form.TrafficGB,
+		DurationDays: form.DurationDays,
+		PriceToman:   form.PriceToman,
+		InboundIds:   form.InboundIds,
+		Enabled:      form.Enabled,
+	}
 	if err := a.botService.SavePlan(&plan); err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
@@ -146,14 +165,31 @@ func (a *ResellerBotController) listPaymentMethods(c *gin.Context) {
 	jsonObj(c, methods, nil)
 }
 
+type setPaymentMethodForm struct {
+	Id         int    `form:"id" json:"id"`
+	Type       string `form:"type" json:"type"`
+	Label      string `form:"label" json:"label"`
+	Value      string `form:"value" json:"value"`
+	HolderName string `form:"holderName" json:"holderName"`
+	Enabled    bool   `form:"enabled" json:"enabled"`
+}
+
 func (a *ResellerBotController) setPaymentMethod(c *gin.Context) {
 	user := session.GetLoginUser(c)
-	var method model.BotPaymentMethod
-	if err := c.ShouldBind(&method); err != nil {
+	var form setPaymentMethodForm
+	if err := c.ShouldBind(&form); err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
-	method.OwnerId = user.Id
+	method := model.BotPaymentMethod{
+		Id:         form.Id,
+		OwnerId:    user.Id,
+		Type:       form.Type,
+		Label:      form.Label,
+		Value:      form.Value,
+		HolderName: form.HolderName,
+		Enabled:    form.Enabled,
+	}
 	if err := a.botService.SavePaymentMethod(&method); err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
