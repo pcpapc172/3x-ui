@@ -13,11 +13,16 @@ import (
 )
 
 func (inst *botInstance) notifyBuyerApproved(order *model.BotOrder, email string) {
-	inst.send(order.BuyerTgId, fmt.Sprintf("%s\n\n%s: %s", t("botshop.orderApproved"), t("botshop.yourClient"), email))
+	lang := inst.customerLang(order.BuyerTgId, order.BuyerUsername)
+	if email == "" {
+		return // topup: settleOrder already messaged the buyer via redeemSuccess-style text
+	}
+	inst.send(order.BuyerTgId, t(lang, "orderApproved", email))
 }
 
 func (inst *botInstance) notifyBuyerRejected(order *model.BotOrder) {
-	inst.send(order.BuyerTgId, t("botshop.orderRejected"))
+	lang := inst.customerLang(order.BuyerTgId, order.BuyerUsername)
+	inst.send(order.BuyerTgId, t(lang, "orderRejected"))
 }
 
 func (inst *botInstance) notifyOwnerPendingReview(orderID int) {
@@ -25,7 +30,7 @@ func (inst *botInstance) notifyOwnerPendingReview(orderID int) {
 	if err != nil || cfg.OwnerChatId == 0 {
 		return
 	}
-	inst.send(cfg.OwnerChatId, fmt.Sprintf("%s #%d", t("botshop.newOrderPendingReview"), orderID))
+	inst.send(cfg.OwnerChatId, fmt.Sprintf("%s #%d", t(langFA, "newOrderPendingReview"), orderID))
 }
 
 // NotifyOrderApproved messages the buyer through the owner's bot after an
@@ -43,6 +48,21 @@ func NotifyOrderRejected(order *model.BotOrder) {
 	if inst, ok := GetManager().instanceFor(order.OwnerId); ok {
 		inst.notifyBuyerRejected(order)
 	}
+}
+
+// NotifyAutoRenewResult messages the buyer after the auto-renew cron job
+// attempts their subscription, success or failure (insufficient balance).
+func NotifyAutoRenewResult(ownerId int, buyerTgId int64, renewed bool) {
+	inst, ok := GetManager().instanceFor(ownerId)
+	if !ok {
+		return
+	}
+	lang := inst.customerLang(buyerTgId, "")
+	key := "autoRenewFailedBalance"
+	if renewed {
+		key = "autoRenewSucceeded"
+	}
+	inst.send(buyerTgId, t(lang, key))
 }
 
 // FetchProofPhoto streams a payment-proof photo live from Telegram by

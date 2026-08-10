@@ -7,8 +7,6 @@ import (
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
-	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
-	"github.com/mhsanaei/3x-ui/v3/internal/web/locale"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service/panel"
 
 	"github.com/mymmrac/telego"
@@ -18,12 +16,6 @@ import (
 
 var botSvc = &panel.BotService{}
 
-const bytesPerGB = 1024 * 1024 * 1024
-
-func t(key string, params ...string) string {
-	return locale.I18n(locale.Bot, key, params...)
-}
-
 func registerHandlers(h *th.BotHandler, inst *botInstance) {
 	h.HandleMessage(inst.handleStart, th.CommandEqual("start"))
 	h.HandleMessage(inst.handleOrdersCommand, th.CommandEqual("orders"))
@@ -32,51 +24,29 @@ func registerHandlers(h *th.BotHandler, inst *botInstance) {
 	h.HandleMessage(inst.handleMessage, th.AnyMessage())
 }
 
-func (inst *botInstance) send(chatID int64, text string, markup ...telego.ReplyMarkup) {
-	params := &telego.SendMessageParams{ChatID: tu.ID(chatID), Text: text, ParseMode: "HTML"}
-	if len(markup) > 0 {
-		params.ReplyMarkup = markup[0]
+// customerLang resolves the buyer's chosen language, defaulting to Persian
+// for a brand-new contact (matches BotCustomer.Language's "" == unset
+// convention) — used by every buyer-facing callback/message handler.
+func (inst *botInstance) customerLang(buyerTgID int64, buyerUsername string) string {
+	customer, err := botSvc.GetOrCreateCustomer(inst.ownerId, buyerTgID, buyerUsername)
+	if err != nil || customer.Language == "" {
+		return langFA
 	}
-	_, _ = inst.bot.SendMessage(context.Background(), params)
-}
-
-func (inst *botInstance) handleStart(_ *th.Context, message telego.Message) error {
-	inst.states.clear(message.Chat.ID)
-	plans, err := botSvc.ListPlans(inst.ownerId)
-	if err != nil {
-		inst.send(message.Chat.ID, t("botshop.error"))
-		return nil
-	}
-	var rows [][]telego.InlineKeyboardButton
-	for _, p := range plans {
-		if !p.Enabled {
-			continue
-		}
-		label := fmt.Sprintf("%s — %s / %dd — %d Toman", p.Name, common.FormatTraffic(p.TrafficGB*bytesPerGB), p.DurationDays, p.PriceToman)
-		rows = append(rows, tu.InlineKeyboardRow(
-			tu.InlineKeyboardButton(label).WithCallbackData("p:"+strconv.Itoa(p.Id)),
-		))
-	}
-	if len(rows) == 0 {
-		inst.send(message.Chat.ID, t("botshop.noPlans"))
-		return nil
-	}
-	inst.send(message.Chat.ID, t("botshop.welcome"), tu.InlineKeyboard(rows...))
-	return nil
+	return customer.Language
 }
 
 func (inst *botInstance) handleLinkCommand(_ *th.Context, message telego.Message) error {
 	fields := strings.Fields(message.Text)
 	if len(fields) < 2 {
-		inst.send(message.Chat.ID, t("botshop.linkUsage"))
+		inst.send(message.Chat.ID, t(langFA, "linkUsage"))
 		return nil
 	}
 	ok, err := botSvc.VerifyLinkCode(inst.ownerId, fields[1], message.Chat.ID)
 	if err != nil || !ok {
-		inst.send(message.Chat.ID, t("botshop.linkFailed"))
+		inst.send(message.Chat.ID, t(langFA, "linkFailed"))
 		return nil
 	}
-	inst.send(message.Chat.ID, t("botshop.linkSuccess"))
+	inst.send(message.Chat.ID, t(langFA, "linkSuccess"))
 	return nil
 }
 
@@ -84,17 +54,21 @@ func (inst *botInstance) handleOrdersCommand(_ *th.Context, message telego.Messa
 	if !isOwnerChat(inst.ownerId, message.Chat.ID) {
 		return nil
 	}
-	orders, err := botSvc.ListOrders(inst.ownerId, "pending_review")
+	orders, err := botSvc.ListOrders(inst.ownerId, model.BotOrderPendingReview)
 	if err != nil || len(orders) == 0 {
-		inst.send(message.Chat.ID, t("botshop.noPendingOrders"))
+		inst.send(message.Chat.ID, t(langFA, "noPendingOrders"))
 		return nil
 	}
 	for _, o := range orders {
 		plan, _ := botSvc.GetPlan(inst.ownerId, o.PlanId)
-		summary := fmt.Sprintf("#%d — @%s\n%s\nProof: %s", o.Id, o.BuyerUsername, plan.Name, orderProofSummary(o))
+		planName := kindLabel(langFA, o.Kind)
+		if plan != nil {
+			planName = plan.Name
+		}
+		summary := fmt.Sprintf("#%d — @%s\n%s\nProof: %s", o.Id, o.BuyerUsername, planName, orderProofSummary(o))
 		markup := tu.InlineKeyboard(tu.InlineKeyboardRow(
-			tu.InlineKeyboardButton(t("botshop.approve")).WithCallbackData("a:"+strconv.Itoa(o.Id)),
-			tu.InlineKeyboardButton(t("botshop.reject")).WithCallbackData("r:"+strconv.Itoa(o.Id)),
+			tu.InlineKeyboardButton(t(langFA, "approve")).WithCallbackData("a:"+strconv.Itoa(o.Id)),
+			tu.InlineKeyboardButton(t(langFA, "reject")).WithCallbackData("r:"+strconv.Itoa(o.Id)),
 		))
 		if o.ProofTgFileId != "" {
 			_, _ = inst.bot.SendPhoto(context.Background(), &telego.SendPhotoParams{
@@ -123,84 +97,83 @@ func (inst *botInstance) handleCallback(_ *th.Context, query telego.CallbackQuer
 		return nil
 	}
 	chatID := query.Message.GetChat().ID
+	buyerID, buyerUsername := query.From.ID, query.From.Username
 	parts := strings.SplitN(query.Data, ":", 3)
 	if len(parts) < 2 {
 		return nil
 	}
+	lang := inst.customerLang(buyerID, buyerUsername)
 
 	switch parts[0] {
-	case "p":
-		inst.handleSelectPlan(chatID, parts[1])
-	case "m":
+	case "lang":
+		inst.handleSelectLanguage(chatID, buyerID, buyerUsername, parts[1])
+	case "buy":
+		inst.handleBuyPlan(chatID, buyerID, buyerUsername, parts[1], lang)
+	case "inv":
 		if len(parts) < 3 {
 			return nil
 		}
-		inst.handleSelectPaymentMethod(chatID, query.From.ID, query.From.Username, parts[1], parts[2])
+		switch parts[1] {
+		case "view":
+			if id, err := strconv.Atoi(parts[2]); err == nil {
+				inst.sendInvoiceCard(chatID, id, lang)
+			}
+		case "pay":
+			inst.handleInvoicePayStart(chatID, parts[2], lang)
+		case "disc":
+			inst.handleInvoiceDiscountPrompt(chatID, parts[2], lang)
+		case "cancel":
+			inst.handleInvoiceCancel(chatID, parts[2], lang)
+		}
+	case "disc":
+		if len(parts) < 3 || parts[1] != "skip" {
+			return nil
+		}
+		inst.handleDiscountCode(chatID, parts[2], "", lang)
+	case "pm":
+		if len(parts) < 3 {
+			return nil
+		}
+		inst.handleChoosePaymentMethod(chatID, parts[1], parts[2], lang)
+	case "pmwallet":
+		inst.handlePayFromWallet(chatID, parts[1], lang)
+	case "sub":
+		if len(parts) < 3 {
+			return nil
+		}
+		switch parts[1] {
+		case "view":
+			if id, err := strconv.Atoi(parts[2]); err == nil {
+				inst.sendSubscriptionDetail(chatID, id, lang)
+			}
+		case "configs":
+			inst.handleGetConfigs(chatID, parts[2], lang)
+		case "revoke":
+			inst.handleRevokePrompt(chatID, parts[2], lang)
+		case "revokeconfirm":
+			inst.handleRevokeConfirm(chatID, parts[2], lang)
+		case "renew":
+			inst.handleRenew(chatID, buyerID, buyerUsername, parts[2], lang)
+		case "autorenew":
+			inst.handleToggleAutoRenew(chatID, parts[2], lang)
+		}
+	case "acct":
+		switch parts[1] {
+		case "topup":
+			inst.handleTopupPrompt(chatID, lang)
+		case "redeem":
+			inst.handleRedeemPrompt(chatID, lang)
+		case "notif":
+			inst.handleToggleNotifications(chatID, buyerID, buyerUsername, lang)
+		case "referral":
+			inst.sendReferralInfo(chatID, buyerID, buyerUsername, lang)
+		}
 	case "a":
 		inst.handleApprove(chatID, parts[1])
 	case "r":
 		inst.handleReject(chatID, parts[1])
 	}
 	return nil
-}
-
-func (inst *botInstance) handleSelectPlan(chatID int64, planIDStr string) {
-	planID, err := strconv.Atoi(planIDStr)
-	if err != nil {
-		return
-	}
-	plan, err := botSvc.GetPlan(inst.ownerId, planID)
-	if err != nil {
-		inst.send(chatID, t("botshop.error"))
-		return
-	}
-	methods, err := botSvc.ListPaymentMethods(inst.ownerId)
-	if err != nil {
-		inst.send(chatID, t("botshop.error"))
-		return
-	}
-	var rows [][]telego.InlineKeyboardButton
-	for _, m := range methods {
-		if !m.Enabled {
-			continue
-		}
-		rows = append(rows, tu.InlineKeyboardRow(
-			tu.InlineKeyboardButton(m.Label).WithCallbackData(fmt.Sprintf("m:%d:%d", plan.Id, m.Id)),
-		))
-	}
-	if len(rows) == 0 {
-		inst.send(chatID, t("botshop.noPaymentMethods"))
-		return
-	}
-	inst.send(chatID, t("botshop.choosePayment"), tu.InlineKeyboard(rows...))
-}
-
-func (inst *botInstance) handleSelectPaymentMethod(chatID, buyerTgID int64, buyerUsername, planIDStr, methodIDStr string) {
-	planID, err := strconv.Atoi(planIDStr)
-	if err != nil {
-		return
-	}
-	methodID, err := strconv.Atoi(methodIDStr)
-	if err != nil {
-		return
-	}
-	method, err := botSvc.GetPaymentMethod(inst.ownerId, methodID)
-	if err != nil {
-		inst.send(chatID, t("botshop.error"))
-		return
-	}
-	order, err := botSvc.CreateOrder(inst.ownerId, planID, buyerTgID, buyerUsername, methodID)
-	if err != nil {
-		inst.send(chatID, t("botshop.error"))
-		return
-	}
-	instructions := fmt.Sprintf("%s\n%s: %s", t("botshop.payInstructions"), method.Label, method.Value)
-	if method.HolderName != "" {
-		instructions += "\n" + method.HolderName
-	}
-	instructions += "\n\n" + t("botshop.sendProof")
-	inst.send(chatID, instructions)
-	inst.states.set(chatID, "awaiting_proof:"+strconv.Itoa(order.Id))
 }
 
 func (inst *botInstance) handleApprove(chatID int64, orderIDStr string) {
@@ -213,10 +186,10 @@ func (inst *botInstance) handleApprove(chatID int64, orderIDStr string) {
 	}
 	order, email, err := botSvc.ApproveOrder(orderID, inst.ownerId)
 	if err != nil {
-		inst.send(chatID, t("botshop.approveFailed")+": "+err.Error())
+		inst.send(chatID, t(langFA, "approveFailed")+": "+err.Error())
 		return
 	}
-	inst.send(chatID, t("botshop.approved"))
+	inst.send(chatID, t(langFA, "approved"))
 	inst.notifyBuyerApproved(order, email)
 }
 
@@ -230,31 +203,38 @@ func (inst *botInstance) handleReject(chatID int64, orderIDStr string) {
 	}
 	order, err := botSvc.RejectOrder(orderID, inst.ownerId, "")
 	if err != nil {
-		inst.send(chatID, t("botshop.rejectFailed"))
+		inst.send(chatID, t(langFA, "rejectFailed"))
 		return
 	}
-	inst.send(chatID, t("botshop.rejected"))
+	inst.send(chatID, t(langFA, "rejected"))
 	inst.notifyBuyerRejected(order)
 }
 
+// handleMessage dispatches a plain text/photo message by the buyer's
+// in-flight multi-step state (proof/discount/top-up/redeem), falling back to
+// the persistent main-menu button text when there's no state in progress.
 func (inst *botInstance) handleMessage(_ *th.Context, message telego.Message) error {
+	if message.From == nil {
+		return nil
+	}
+	lang := inst.customerLang(message.From.ID, message.From.Username)
 	state, ok := inst.states.get(message.Chat.ID)
-	if !ok || !strings.HasPrefix(state, "awaiting_proof:") {
-		return nil
+	if ok {
+		switch {
+		case strings.HasPrefix(state, "awaiting_proof:"):
+			inst.handleProofMessage(message, strings.TrimPrefix(state, "awaiting_proof:"), lang)
+			return nil
+		case strings.HasPrefix(state, "awaiting_discount:"):
+			inst.handleDiscountCode(message.Chat.ID, strings.TrimPrefix(state, "awaiting_discount:"), strings.TrimSpace(message.Text), lang)
+			return nil
+		case state == "awaiting_topup_amount":
+			inst.handleTopupAmount(message, lang)
+			return nil
+		case state == "awaiting_redeem_code":
+			inst.handleRedeemCode(message, lang)
+			return nil
+		}
 	}
-	orderID, err := strconv.Atoi(strings.TrimPrefix(state, "awaiting_proof:"))
-	if err != nil {
-		return nil
-	}
-	var fileID string
-	if len(message.Photo) > 0 {
-		fileID = message.Photo[len(message.Photo)-1].FileID
-	}
-	if err := botSvc.SubmitProof(orderID, message.Text, fileID); err != nil {
-		return nil
-	}
-	inst.states.clear(message.Chat.ID)
-	inst.send(message.Chat.ID, t("botshop.proofReceived"))
-	inst.notifyOwnerPendingReview(orderID)
+	inst.handleMenuText(message, lang)
 	return nil
 }
