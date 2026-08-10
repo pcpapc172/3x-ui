@@ -59,7 +59,11 @@ func FetchProofPhoto(ownerId int, fileId string) (io.ReadCloser, string, error) 
 		return nil, "", err
 	}
 	url := bot.FileDownloadURL(file.FilePath)
-	resp, err := http.Get(url) //nolint:gosec // URL is built by telego from Telegram's own API response, not user input.
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+	if err != nil {
+		return nil, "", err
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, "", err
 	}
