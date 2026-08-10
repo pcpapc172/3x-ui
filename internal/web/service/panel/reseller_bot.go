@@ -8,7 +8,6 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/random"
-	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 
 	"gorm.io/gorm"
 )
@@ -36,7 +35,22 @@ func (s *BotService) GetConfig(ownerId int) (*model.BotConfig, error) {
 	return cfg, err
 }
 
-func (s *BotService) SaveConfig(ownerId int, token string, enabled bool, welcomeMessage string) (*model.BotConfig, error) {
+// BotConfigInput carries the owner-editable Setup-tab fields, including the
+// wallet/referral knobs that make the referral system "fully configurable".
+type BotConfigInput struct {
+	Token           string
+	Enabled         bool
+	WelcomeMessage  string
+	WalletEnabled   bool
+	ReferralEnabled bool
+	ReferralKind    string
+	ReferralValue   int64
+	ReferralTrigger string
+	SupportText     string
+	TutorialText    string
+}
+
+func (s *BotService) SaveConfig(ownerId int, in BotConfigInput) (*model.BotConfig, error) {
 	db := database.GetDB()
 	cfg := &model.BotConfig{}
 	err := db.Where("owner_id = ?", ownerId).First(cfg).Error
@@ -48,12 +62,31 @@ func (s *BotService) SaveConfig(ownerId int, token string, enabled bool, welcome
 	} else if err != nil {
 		return nil, err
 	}
-	updates := map[string]any{
-		"enabled":         enabled,
-		"welcome_message": welcomeMessage,
+	if in.ReferralKind == "" {
+		in.ReferralKind = "flat"
 	}
-	if token != "" {
-		updates["token"] = token
+	if in.ReferralTrigger == "" {
+		in.ReferralTrigger = "first_purchase"
+	}
+	if in.ReferralKind != "flat" && in.ReferralKind != "percent" {
+		return nil, errors.New("referral kind must be flat or percent")
+	}
+	if in.ReferralTrigger != "first_purchase" && in.ReferralTrigger != "every_purchase" {
+		return nil, errors.New("referral trigger must be first_purchase or every_purchase")
+	}
+	updates := map[string]any{
+		"enabled":          in.Enabled,
+		"welcome_message":  in.WelcomeMessage,
+		"wallet_enabled":   in.WalletEnabled,
+		"referral_enabled": in.ReferralEnabled,
+		"referral_kind":    in.ReferralKind,
+		"referral_value":   in.ReferralValue,
+		"referral_trigger": in.ReferralTrigger,
+		"support_text":     in.SupportText,
+		"tutorial_text":    in.TutorialText,
+	}
+	if in.Token != "" {
+		updates["token"] = in.Token
 	}
 	if err := db.Model(cfg).Updates(updates).Error; err != nil {
 		return nil, err
@@ -123,6 +156,14 @@ func (s *BotService) SavePlan(plan *model.BotPlan) error {
 		return errors.New("at least one inbound is required")
 	}
 	db := database.GetDB()
+	if plan.IsTrial {
+		// At most one trial plan per owner — demote any other.
+		if err := db.Model(&model.BotPlan{}).
+			Where("owner_id = ? AND id <> ? AND is_trial = ?", plan.OwnerId, plan.Id, true).
+			Update("is_trial", false).Error; err != nil {
+			return err
+		}
+	}
 	if plan.Id == 0 {
 		return db.Create(plan).Error
 	}
@@ -135,6 +176,7 @@ func (s *BotService) SavePlan(plan *model.BotPlan) error {
 		"inbound_ids":   string(idsJSON),
 		"enabled":       plan.Enabled,
 		"sort_order":    plan.SortOrder,
+		"is_trial":      plan.IsTrial,
 	}).Error
 }
 
@@ -179,154 +221,6 @@ func (s *BotService) DeletePaymentMethod(ownerId, id int) error {
 	return database.GetDB().Where("id = ? AND owner_id = ?", id, ownerId).Delete(&model.BotPaymentMethod{}).Error
 }
 
-func (s *BotService) ListOrders(ownerId int, status string) ([]model.BotOrder, error) {
-	q := database.GetDB().Where("owner_id = ?", ownerId)
-	if status != "" {
-		q = q.Where("status = ?", status)
-	}
-	var orders []model.BotOrder
-	err := q.Order("created_at DESC").Find(&orders).Error
-	return orders, err
-}
-
-func (s *BotService) GetOrder(ownerId, id int) (*model.BotOrder, error) {
-	order := &model.BotOrder{}
-	err := database.GetDB().Where("id = ? AND owner_id = ?", id, ownerId).First(order).Error
-	return order, err
-}
-
-// CreateOrder is called from the bot's buyer flow once a plan and payment
-// method have both been chosen.
-func (s *BotService) CreateOrder(ownerId, planId int, buyerTgId int64, buyerUsername string, paymentMethodId int) (*model.BotOrder, error) {
-	order := &model.BotOrder{
-		OwnerId:         ownerId,
-		PlanId:          planId,
-		BuyerTgId:       buyerTgId,
-		BuyerUsername:   buyerUsername,
-		PaymentMethodId: paymentMethodId,
-		Status:          model.BotOrderPendingPayment,
-	}
-	if err := database.GetDB().Create(order).Error; err != nil {
-		return nil, err
-	}
-	return order, nil
-}
-
-// SubmitProof records the buyer's payment proof (text and/or a Telegram
-// photo file_id) and moves the order into the review queue.
-func (s *BotService) SubmitProof(orderId int, proofText, proofTgFileId string) error {
-	result := database.GetDB().Model(&model.BotOrder{}).
-		Where("id = ? AND status = ?", orderId, model.BotOrderPendingPayment).
-		Updates(map[string]any{
-			"status":           model.BotOrderPendingReview,
-			"proof_text":       proofText,
-			"proof_tg_file_id": proofTgFileId,
-		})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return errors.New("order is not awaiting payment")
-	}
-	return nil
-}
-
-// ApproveOrder validates the plan is still within the owner's allowed
-// inbounds and usage quota, provisions the client, and marks the order
-// approved. Returns the generated client email so the caller can message it
-// to the buyer.
-func (s *BotService) ApproveOrder(orderId, reviewerId int) (*model.BotOrder, string, error) {
-	db := database.GetDB()
-	order := &model.BotOrder{}
-	if err := db.First(order, orderId).Error; err != nil {
-		return nil, "", err
-	}
-	if order.Status != model.BotOrderPendingReview {
-		return nil, "", errors.New("order is not pending review")
-	}
-	plan := &model.BotPlan{}
-	if err := db.First(plan, order.PlanId).Error; err != nil {
-		return nil, "", err
-	}
-	owner := &model.User{}
-	if err := db.First(owner, order.OwnerId).Error; err != nil {
-		return nil, "", err
-	}
-	if owner.Role == "reseller" && owner.AllowedInboundsMode == "select" {
-		allowed := make(map[int]bool, len(owner.AllowedInboundIds))
-		for _, id := range owner.AllowedInboundIds {
-			allowed[id] = true
-		}
-		for _, id := range plan.InboundIds {
-			if !allowed[id] {
-				return nil, "", errors.New("plan references an inbound no longer allowed for this reseller")
-			}
-		}
-	}
-	if owner.UsageLimit > 0 && owner.UsageUp+owner.UsageDown >= owner.UsageLimit {
-		return nil, "", errors.New("reseller is over their usage quota, cannot approve new orders")
-	}
-
-	email := "bot-" + random.NumLower(10)
-	client := model.Client{
-		Email:      email,
-		Enable:     true,
-		TotalGB:    plan.TrafficGB * bytesPerGB,
-		ExpiryTime: -(int64(plan.DurationDays) * msPerDay),
-		OwnerId:    order.OwnerId,
-	}
-	inboundSvc := &service.InboundService{}
-	clientSvc := &service.ClientService{}
-	if _, err := clientSvc.Create(inboundSvc, &service.ClientCreatePayload{
-		Client:     client,
-		InboundIds: plan.InboundIds,
-	}); err != nil {
-		return nil, "", err
-	}
-
-	now := time.Now().UnixMilli()
-	if err := db.Model(order).Updates(map[string]any{
-		"status":       model.BotOrderApproved,
-		"client_email": email,
-		"reviewed_at":  now,
-		"reviewed_by":  reviewerId,
-	}).Error; err != nil {
-		return nil, "", err
-	}
-	order.Status = model.BotOrderApproved
-	order.ClientEmail = email
-	return order, email, nil
-}
-
-func (s *BotService) RejectOrder(orderId, reviewerId int, reason string) (*model.BotOrder, error) {
-	db := database.GetDB()
-	order := &model.BotOrder{}
-	if err := db.First(order, orderId).Error; err != nil {
-		return nil, err
-	}
-	if order.Status != model.BotOrderPendingReview {
-		return nil, errors.New("order is not pending review")
-	}
-	now := time.Now().UnixMilli()
-	if err := db.Model(order).Updates(map[string]any{
-		"status":        model.BotOrderRejected,
-		"reject_reason": reason,
-		"reviewed_at":   now,
-		"reviewed_by":   reviewerId,
-	}).Error; err != nil {
-		return nil, err
-	}
-	order.Status = model.BotOrderRejected
-	order.RejectReason = reason
-	return order, nil
-}
-
-// ExpireStalePendingOrders marks pending_payment orders older than the TTL
-// as expired — the buyer picked a plan/method but never sent proof.
-func (s *BotService) ExpireStalePendingOrders() (int64, error) {
-	cutoff := time.Now().Add(-staleOrderTTL).UnixMilli()
-	result := database.GetDB().Model(&model.BotOrder{}).
-		Where("status = ? AND created_at < ?", model.BotOrderPendingPayment, cutoff).
-		Update("status", model.BotOrderExpired)
-	return result.RowsAffected, result.Error
-}
+// Order lifecycle (ListOrders/GetOrder/CreateOrder variants/SubmitProof/
+// CancelOrder/ApproveOrder/RejectOrder/ExpireStalePendingOrders) lives in
+// reseller_bot_orders.go.

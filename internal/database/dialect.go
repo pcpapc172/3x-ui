@@ -1,6 +1,11 @@
 package database
 
-import "fmt"
+import (
+	"fmt"
+
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+)
 
 // TrafficMax caps every traffic counter safely below math.MaxInt64 (~9.22e18)
 // so that one more delta can never overflow int64. SQLite silently promotes an
@@ -35,6 +40,16 @@ func GreatestExpr(a, b string) string {
 		return fmt.Sprintf("GREATEST(%s::bigint, %s::bigint)", a, b)
 	}
 	return fmt.Sprintf("MAX(%s, %s)", a, b)
+}
+
+// LockForUpdate applies row-level locking on Postgres to serialize
+// read-then-write balance mutations. SQLite has no "SELECT ... FOR UPDATE"
+// syntax, but a transaction already serializes writers at the DB level.
+func LockForUpdate(tx *gorm.DB) *gorm.DB {
+	if IsPostgres() {
+		return tx.Clauses(clause.Locking{Strength: "UPDATE"})
+	}
+	return tx
 }
 
 func ClientTrafficEnableMergeExpr() string {
