@@ -21,6 +21,7 @@ var resellerAllowedPrefixes = []string{
 	"panel/api/inbounds/allLinks",
 	"panel/api/inbounds/get/",
 	"panel/api/clients/",
+	"panel/api/bot/",
 }
 
 func RBACMiddleware() gin.HandlerFunc {

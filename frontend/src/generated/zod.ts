@@ -257,6 +257,58 @@ export const ApiTokenViewSchema = z.object({
 });
 export type ApiTokenView = z.infer<typeof ApiTokenViewSchema>;
 
+export const BotConfigSchema = z.object({
+  botUsername: z.string(),
+  enabled: z.boolean(),
+  id: z.number().int(),
+  ownerId: z.number().int(),
+  welcomeMessage: z.string(),
+});
+export type BotConfig = z.infer<typeof BotConfigSchema>;
+
+export const BotOrderSchema = z.object({
+  buyerTgId: z.number().int(),
+  buyerUsername: z.string(),
+  clientEmail: z.string(),
+  createdAt: z.number().int(),
+  id: z.number().int(),
+  ownerId: z.number().int(),
+  paymentMethodId: z.number().int(),
+  planId: z.number().int(),
+  proofText: z.string(),
+  proofTgFileId: z.string(),
+  rejectReason: z.string(),
+  reviewedAt: z.number().int(),
+  reviewedBy: z.number().int(),
+  status: z.string(),
+});
+export type BotOrder = z.infer<typeof BotOrderSchema>;
+
+export const BotPaymentMethodSchema = z.object({
+  enabled: z.boolean(),
+  holderName: z.string(),
+  id: z.number().int(),
+  label: z.string(),
+  ownerId: z.number().int(),
+  sortOrder: z.number().int(),
+  type: z.enum(['card', 'crypto']),
+  value: z.string(),
+});
+export type BotPaymentMethod = z.infer<typeof BotPaymentMethodSchema>;
+
+export const BotPlanSchema = z.object({
+  durationDays: z.number().int(),
+  enabled: z.boolean(),
+  id: z.number().int(),
+  inboundIds: z.array(z.number().int()),
+  name: z.string(),
+  ownerId: z.number().int(),
+  priceToman: z.number().int(),
+  sortOrder: z.number().int(),
+  trafficGB: z.number().int(),
+});
+export type BotPlan = z.infer<typeof BotPlanSchema>;
+
 export const ClientSchema = z.object({
   adTag: z.string().optional(),
   allowedIPs: z.array(z.string()).optional(),

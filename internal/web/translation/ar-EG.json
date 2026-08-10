@@ -113,7 +113,8 @@
     "docs": "التوثيق",
     "openMenu": "فتح القائمة",
     "pinSidebar": "تثبيت الشريط الجانبي",
-    "unpinSidebar": "إلغاء تثبيت الشريط الجانبي"
+    "unpinSidebar": "إلغاء تثبيت الشريط الجانبي",
+    "telegramBot": "Telegram Bot"
   },
   "pages": {
     "login": {
@@ -1893,6 +1894,48 @@
       "totalClients": "Total Clients",
       "activeClients": "Active Clients",
       "quotaUsed": "Quota Used"
+    },
+    "telegramBot": {
+      "tabSetup": "Setup",
+      "tabPlans": "Plans",
+      "tabPaymentMethods": "Payment Methods",
+      "tabOrders": "Orders",
+      "token": "Bot Token",
+      "tokenPlaceholder": "From @BotFather",
+      "welcomeMessage": "Welcome Message",
+      "saved": "Bot settings saved",
+      "linked": "Linked",
+      "notLinked": "Not linked",
+      "linkOwnerChat": "Link your Telegram chat for order notifications",
+      "getLinkCode": "Get link code",
+      "linkInstructions": "Send this to your bot:",
+      "presets": "Presets",
+      "addPlan": "Add Plan",
+      "editPlan": "Edit Plan",
+      "deletePlanConfirm": "Delete this plan?",
+      "planName": "Name",
+      "planTraffic": "Traffic / Duration",
+      "planTrafficGB": "Traffic (GB)",
+      "planDuration": "Duration (days)",
+      "planPrice": "Price (Toman)",
+      "planInbounds": "Inbounds",
+      "addMethod": "Add Payment Method",
+      "editMethod": "Edit Payment Method",
+      "deleteMethodConfirm": "Delete this payment method?",
+      "methodType": "Type",
+      "methodCard": "Card to Card",
+      "methodCrypto": "Crypto",
+      "methodLabel": "Label",
+      "methodLabelPlaceholder": "e.g. Bank Melli",
+      "methodValue": "Value",
+      "methodValuePlaceholder": "Card number or wallet address",
+      "methodHolder": "Holder Name",
+      "orderBuyer": "Buyer",
+      "orderStatus": "Status",
+      "orderProof": "Proof",
+      "orderCreated": "Created",
+      "orderApproved": "Order approved",
+      "rejectOrderConfirm": "Reject this order?"
     }
   },
   "tgbot": {
@@ -2089,5 +2132,29 @@
     "statusFailed": "فشل",
     "statusDown": "غير متصل",
     "statusUp": "متصل"
+  },
+  "botshop": {
+    "welcome": "Welcome! Choose a plan to get started:",
+    "noPlans": "No plans are available right now.",
+    "noPaymentMethods": "No payment methods are available right now.",
+    "choosePayment": "Choose a payment method:",
+    "payInstructions": "Please send the amount to:",
+    "sendProof": "After paying, send a screenshot or the transaction/tracking code here.",
+    "proofReceived": "Thanks! Your payment is now pending review.",
+    "newOrderPendingReview": "New order pending review",
+    "approve": "Approve",
+    "reject": "Reject",
+    "approved": "Order approved.",
+    "rejected": "Order rejected.",
+    "approveFailed": "Could not approve this order",
+    "rejectFailed": "Could not reject this order.",
+    "orderApproved": "Your order was approved!",
+    "yourClient": "Your client",
+    "orderRejected": "Your order was rejected. Please contact the seller.",
+    "noPendingOrders": "No orders are pending review.",
+    "linkUsage": "Usage: /link <code>",
+    "linkFailed": "Invalid or expired code.",
+    "linkSuccess": "Linked! You will now receive order notifications here.",
+    "error": "Something went wrong. Please try again."
   }
 }

@@ -241,6 +241,54 @@ export interface ApiTokenView {
   token?: string;
 }
 
+export interface BotConfig {
+  botUsername: string;
+  enabled: boolean;
+  id: number;
+  ownerId: number;
+  welcomeMessage: string;
+}
+
+export interface BotOrder {
+  buyerTgId: number;
+  buyerUsername: string;
+  clientEmail: string;
+  createdAt: number;
+  id: number;
+  ownerId: number;
+  paymentMethodId: number;
+  planId: number;
+  proofText: string;
+  proofTgFileId: string;
+  rejectReason: string;
+  reviewedAt: number;
+  reviewedBy: number;
+  status: string;
+}
+
+export interface BotPaymentMethod {
+  enabled: boolean;
+  holderName: string;
+  id: number;
+  label: string;
+  ownerId: number;
+  sortOrder: number;
+  type: string;
+  value: string;
+}
+
+export interface BotPlan {
+  durationDays: number;
+  enabled: boolean;
+  id: number;
+  inboundIds: number[];
+  name: string;
+  ownerId: number;
+  priceToman: number;
+  sortOrder: number;
+  trafficGB: number;
+}
+
 export interface Client {
   adTag?: string;
   allowedIPs?: string[];

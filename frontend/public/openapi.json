@@ -1015,6 +1015,194 @@
         ],
         "type": "object"
       },
+      "BotConfig": {
+        "description": "BotConfig is one owner's (reseller or admin) Telegram sales-bot registration.",
+        "properties": {
+          "botUsername": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "ownerId": {
+            "type": "integer"
+          },
+          "welcomeMessage": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "botUsername",
+          "enabled",
+          "id",
+          "ownerId",
+          "welcomeMessage"
+        ],
+        "type": "object"
+      },
+      "BotOrder": {
+        "description": "BotOrder is one buyer's purchase attempt, from plan selection through manual\npayment review to (on approval) the client it provisioned.",
+        "properties": {
+          "buyerTgId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "buyerUsername": {
+            "type": "string"
+          },
+          "clientEmail": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "ownerId": {
+            "type": "integer"
+          },
+          "paymentMethodId": {
+            "type": "integer"
+          },
+          "planId": {
+            "type": "integer"
+          },
+          "proofText": {
+            "type": "string"
+          },
+          "proofTgFileId": {
+            "type": "string"
+          },
+          "rejectReason": {
+            "type": "string"
+          },
+          "reviewedAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "reviewedBy": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "buyerTgId",
+          "buyerUsername",
+          "clientEmail",
+          "createdAt",
+          "id",
+          "ownerId",
+          "paymentMethodId",
+          "planId",
+          "proofText",
+          "proofTgFileId",
+          "rejectReason",
+          "reviewedAt",
+          "reviewedBy",
+          "status"
+        ],
+        "type": "object"
+      },
+      "BotPaymentMethod": {
+        "description": "BotPaymentMethod is a card-to-card or crypto payment destination an owner accepts.",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "holderName": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "ownerId": {
+            "type": "integer"
+          },
+          "sortOrder": {
+            "type": "integer"
+          },
+          "type": {
+            "enum": [
+              "card",
+              "crypto"
+            ],
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "holderName",
+          "id",
+          "label",
+          "ownerId",
+          "sortOrder",
+          "type",
+          "value"
+        ],
+        "type": "object"
+      },
+      "BotPlan": {
+        "description": "BotPlan is a traffic/duration/price package an owner sells through their bot.",
+        "properties": {
+          "durationDays": {
+            "type": "integer"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "inboundIds": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "name": {
+            "type": "string"
+          },
+          "ownerId": {
+            "type": "integer"
+          },
+          "priceToman": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "sortOrder": {
+            "type": "integer"
+          },
+          "trafficGB": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "durationDays",
+          "enabled",
+          "id",
+          "inboundIds",
+          "name",
+          "ownerId",
+          "priceToman",
+          "sortOrder",
+          "trafficGB"
+        ],
+        "type": "object"
+      },
       "Client": {
         "description": "Client represents a client configuration for Xray inbounds with traffic limits and settings.",
         "properties": {
@@ -2957,6 +3145,10 @@
     {
       "name": "Resellers",
       "description": "Reseller accounts and their per-inbound traffic multipliers. Reseller CRUD (/panel/api/resellers/*) and the multiplier table (/panel/api/multiply/*) require an admin session; /panel/api/user/* returns the authenticated caller's own info and is available to any logged-in user, including resellers."
+    },
+    {
+      "name": "Telegram Sales Bot",
+      "description": "Self-service configuration for a per-owner Telegram bot that sells plans to buyers, with manual payment review (card-to-card, crypto). Every endpoint is scoped to the authenticated caller's own bot — there is no admin-only variant. Available to any logged-in user, including resellers."
     },
     {
       "name": "WebSocket",
@@ -11964,6 +12156,712 @@
                     "remaining": 104152956928,
                     "clientCount": 12,
                     "enabledCount": 11
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/bot/config": {
+      "get": {
+        "tags": [
+          "Telegram Sales Bot"
+        ],
+        "summary": "Get the caller's bot configuration. Never returns the token itself; hasToken indicates whether one is set.",
+        "operationId": "get_panel_api_bot_config",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "enabled": true,
+                    "botUsername": "my_shop_bot",
+                    "welcomeMessage": "Welcome!",
+                    "linked": true,
+                    "hasToken": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Telegram Sales Bot"
+        ],
+        "summary": "Set or update the bot token, enabled state, and welcome message. Starts or stops the bot instance to match. Omit token to leave the existing one unchanged.",
+        "operationId": "post_panel_api_bot_config",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "Bot token from @BotFather. Omit to keep the current token."
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "description": ""
+                  },
+                  "welcomeMessage": {
+                    "type": "string",
+                    "description": ""
+                  }
+                },
+                "required": [
+                  "enabled"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "msg": "success"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/bot/config/link-code": {
+      "post": {
+        "tags": [
+          "Telegram Sales Bot"
+        ],
+        "summary": "Mint a one-time code. Send it to your own bot as \"/link &lt;code&gt;\" to register your chat as the order-review target.",
+        "operationId": "post_panel_api_bot_config_link_code",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "code": "aB3xQ9kZ"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/bot/plans/list": {
+      "get": {
+        "tags": [
+          "Telegram Sales Bot"
+        ],
+        "summary": "List the caller's bot plans (traffic/duration/price packages).",
+        "operationId": "get_panel_api_bot_plans_list",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": [
+                    {
+                      "id": 1,
+                      "ownerId": 5,
+                      "name": "30GB / 30 days",
+                      "trafficGB": 30,
+                      "durationDays": 30,
+                      "priceToman": 250000,
+                      "inboundIds": [
+                        1,
+                        2
+                      ],
+                      "enabled": true,
+                      "sortOrder": 0
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/bot/plans/set": {
+      "post": {
+        "tags": [
+          "Telegram Sales Bot"
+        ],
+        "summary": "Create (omit id) or update (include id) a plan. inboundIds must be a subset of the caller's allowed inbounds when their allowedInboundsMode is \"select\".",
+        "operationId": "post_panel_api_bot_plans_set",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "description": ""
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": ""
+                  },
+                  "trafficGB": {
+                    "type": "integer",
+                    "description": ""
+                  },
+                  "durationDays": {
+                    "type": "integer",
+                    "description": ""
+                  },
+                  "priceToman": {
+                    "type": "integer",
+                    "description": ""
+                  },
+                  "inboundIds": {
+                    "type": "string",
+                    "description": ""
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "description": ""
+                  }
+                },
+                "required": [
+                  "name",
+                  "trafficGB",
+                  "durationDays",
+                  "priceToman",
+                  "inboundIds",
+                  "enabled"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "msg": "success"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/bot/plans/del/{id}": {
+      "post": {
+        "tags": [
+          "Telegram Sales Bot"
+        ],
+        "summary": "Delete one of the caller's plans.",
+        "operationId": "post_panel_api_bot_plans_del_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "msg": "success"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/bot/payment-methods/list": {
+      "get": {
+        "tags": [
+          "Telegram Sales Bot"
+        ],
+        "summary": "List the caller's accepted payment methods (card-to-card or crypto).",
+        "operationId": "get_panel_api_bot_payment_methods_list",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": [
+                    {
+                      "id": 1,
+                      "ownerId": 5,
+                      "type": "card",
+                      "label": "Bank Melli",
+                      "value": "6037-xxxx-xxxx-1234",
+                      "holderName": "Ali R.",
+                      "enabled": true,
+                      "sortOrder": 0
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/bot/payment-methods/set": {
+      "post": {
+        "tags": [
+          "Telegram Sales Bot"
+        ],
+        "summary": "Create (omit id) or update (include id) a payment method.",
+        "operationId": "post_panel_api_bot_payment_methods_set",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "description": ""
+                  },
+                  "type": {
+                    "type": "string",
+                    "description": "\"card\" or \"crypto\"."
+                  },
+                  "label": {
+                    "type": "string",
+                    "description": ""
+                  },
+                  "value": {
+                    "type": "string",
+                    "description": "Card number or crypto wallet address."
+                  },
+                  "holderName": {
+                    "type": "string",
+                    "description": ""
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "description": ""
+                  }
+                },
+                "required": [
+                  "type",
+                  "label",
+                  "value",
+                  "enabled"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "msg": "success"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/bot/payment-methods/del/{id}": {
+      "post": {
+        "tags": [
+          "Telegram Sales Bot"
+        ],
+        "summary": "Delete one of the caller's payment methods.",
+        "operationId": "post_panel_api_bot_payment_methods_del_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "msg": "success"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/bot/orders/list": {
+      "get": {
+        "tags": [
+          "Telegram Sales Bot"
+        ],
+        "summary": "List the caller's bot orders, newest first.",
+        "operationId": "get_panel_api_bot_orders_list",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Filter by pending_payment, pending_review, approved, rejected, or expired.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": [
+                    {
+                      "id": 9,
+                      "ownerId": 5,
+                      "planId": 1,
+                      "buyerTgId": 123456789,
+                      "buyerUsername": "buyer1",
+                      "paymentMethodId": 1,
+                      "status": "pending_review",
+                      "proofText": "trx a1b2c3",
+                      "clientEmail": "",
+                      "createdAt": 1735689600000
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/bot/orders/approve/{id}": {
+      "post": {
+        "tags": [
+          "Telegram Sales Bot"
+        ],
+        "summary": "Approve a pending_review order: provisions a client (email auto-generated) under the caller's account with the plan's traffic/duration, then notifies the buyer via the bot.",
+        "operationId": "post_panel_api_bot_orders_approve_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "clientEmail": "bot-a1b2c3d4e5"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "success": false,
+                  "msg": "plan references an inbound no longer allowed for this reseller"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/bot/orders/reject/{id}": {
+      "post": {
+        "tags": [
+          "Telegram Sales Bot"
+        ],
+        "summary": "Reject a pending_review order and notify the buyer.",
+        "operationId": "post_panel_api_bot_orders_reject_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "description": ""
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "msg": "success"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/bot/orders/{id}/proof-photo": {
+      "get": {
+        "tags": [
+          "Telegram Sales Bot"
+        ],
+        "summary": "Stream the buyer's submitted payment-proof photo (fetched live from Telegram by file_id, never stored locally). 404 if the order has no photo proof.",
+        "operationId": "get_panel_api_bot_orders_id_proof_photo",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
                   }
                 }
               }

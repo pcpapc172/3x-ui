@@ -989,6 +989,194 @@ export const SCHEMAS: Record<string, unknown> = {
     ],
     "type": "object"
   },
+  "BotConfig": {
+    "description": "BotConfig is one owner's (reseller or admin) Telegram sales-bot registration.",
+    "properties": {
+      "botUsername": {
+        "type": "string"
+      },
+      "enabled": {
+        "type": "boolean"
+      },
+      "id": {
+        "type": "integer"
+      },
+      "ownerId": {
+        "type": "integer"
+      },
+      "welcomeMessage": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "botUsername",
+      "enabled",
+      "id",
+      "ownerId",
+      "welcomeMessage"
+    ],
+    "type": "object"
+  },
+  "BotOrder": {
+    "description": "BotOrder is one buyer's purchase attempt, from plan selection through manual\npayment review to (on approval) the client it provisioned.",
+    "properties": {
+      "buyerTgId": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "buyerUsername": {
+        "type": "string"
+      },
+      "clientEmail": {
+        "type": "string"
+      },
+      "createdAt": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "id": {
+        "type": "integer"
+      },
+      "ownerId": {
+        "type": "integer"
+      },
+      "paymentMethodId": {
+        "type": "integer"
+      },
+      "planId": {
+        "type": "integer"
+      },
+      "proofText": {
+        "type": "string"
+      },
+      "proofTgFileId": {
+        "type": "string"
+      },
+      "rejectReason": {
+        "type": "string"
+      },
+      "reviewedAt": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "reviewedBy": {
+        "type": "integer"
+      },
+      "status": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "buyerTgId",
+      "buyerUsername",
+      "clientEmail",
+      "createdAt",
+      "id",
+      "ownerId",
+      "paymentMethodId",
+      "planId",
+      "proofText",
+      "proofTgFileId",
+      "rejectReason",
+      "reviewedAt",
+      "reviewedBy",
+      "status"
+    ],
+    "type": "object"
+  },
+  "BotPaymentMethod": {
+    "description": "BotPaymentMethod is a card-to-card or crypto payment destination an owner accepts.",
+    "properties": {
+      "enabled": {
+        "type": "boolean"
+      },
+      "holderName": {
+        "type": "string"
+      },
+      "id": {
+        "type": "integer"
+      },
+      "label": {
+        "type": "string"
+      },
+      "ownerId": {
+        "type": "integer"
+      },
+      "sortOrder": {
+        "type": "integer"
+      },
+      "type": {
+        "enum": [
+          "card",
+          "crypto"
+        ],
+        "type": "string"
+      },
+      "value": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "enabled",
+      "holderName",
+      "id",
+      "label",
+      "ownerId",
+      "sortOrder",
+      "type",
+      "value"
+    ],
+    "type": "object"
+  },
+  "BotPlan": {
+    "description": "BotPlan is a traffic/duration/price package an owner sells through their bot.",
+    "properties": {
+      "durationDays": {
+        "type": "integer"
+      },
+      "enabled": {
+        "type": "boolean"
+      },
+      "id": {
+        "type": "integer"
+      },
+      "inboundIds": {
+        "items": {
+          "type": "integer"
+        },
+        "type": "array"
+      },
+      "name": {
+        "type": "string"
+      },
+      "ownerId": {
+        "type": "integer"
+      },
+      "priceToman": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "sortOrder": {
+        "type": "integer"
+      },
+      "trafficGB": {
+        "format": "int64",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "durationDays",
+      "enabled",
+      "id",
+      "inboundIds",
+      "name",
+      "ownerId",
+      "priceToman",
+      "sortOrder",
+      "trafficGB"
+    ],
+    "type": "object"
+  },
   "Client": {
     "description": "Client represents a client configuration for Xray inbounds with traffic limits and settings.",
     "properties": {

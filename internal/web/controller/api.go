@@ -115,6 +115,9 @@ func (a *APIController) initRouter(g *gin.RouterGroup) {
 	// Multiply (admin-only)
 	NewMultiplyController(api)
 
+	// Reseller sales bot (self-service, any logged-in user)
+	NewResellerBotController(api)
+
 	// Extra routes
 	api.POST("/backuptotgbot", a.BackuptoTgbot)
 
