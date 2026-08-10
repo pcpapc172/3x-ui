@@ -9,6 +9,7 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
+	"github.com/mhsanaei/3x-ui/v3/internal/util/jalali"
 	"github.com/mhsanaei/3x-ui/v3/internal/xray"
 )
 
@@ -400,77 +401,8 @@ func jalaliExpireDateLabel(expiryMs int64) string {
 		return ""
 	}
 	t := time.Unix(expiryMs/1000, 0).In(time.Local)
-	y, m, d := gregorianToJalali(t.Year(), int(t.Month()), t.Day())
+	y, m, d := jalali.ToJalali(t.Year(), int(t.Month()), t.Day())
 	return fmt.Sprintf("%d/%02d/%02d", y, m, d)
-}
-
-// gregorianToJalali converts a Gregorian date to Jalali (Solar Hijri) date.
-// Uses a reference-date approach: counts days from a known reference point
-// (2024-01-01 = 1402-10-11 JAL) and walks the Jalali calendar forward/backward.
-func gregorianToJalali(gy, gm, gd int) (jy, jm, jd int) {
-	// Compute Julian Day Number for the input Gregorian date
-	a := (14 - gm) / 12
-	y := gy + 4800 - a
-	m := gm + 12*a - 3
-	jdn := gd + (153*m+2)/5 + 365*y + y/4 - y/100 + y/400 - 32045
-
-	// Reference: 2024-01-01 = JDN 2460311 = 1402-10-11 JAL
-	refJDN := 2460311
-	days := int64(jdn - refJDN)
-	jy, jm, jd = 1402, 10, 11
-
-	// Walk forward
-	for days > 0 {
-		remaining := int64(jalaliMonthDays(jy, jm) - jd + 1)
-		if days < remaining {
-			jd += int(days)
-			return
-		}
-		days -= remaining
-		jm++
-		if jm > 12 {
-			jm = 1
-			jy++
-		}
-		jd = 1
-	}
-	// Walk backward
-	for days < 0 {
-		jd += int(days)
-		for jd < 1 {
-			jm--
-			if jm < 1 {
-				jm = 12
-				jy--
-			}
-			jd += jalaliMonthDays(jy, jm)
-		}
-		days = 0
-	}
-	return
-}
-
-func jalaliMonthDays(y, m int) int {
-	if m <= 6 {
-		return 31
-	}
-	if m <= 11 {
-		return 30
-	}
-	if isJalaliLeap(y) {
-		return 30
-	}
-	return 29
-}
-
-// isJalaliLeap reports whether the given Jalali year is a leap year.
-// The leap pattern repeats every 33 years with 8 leap years.
-func isJalaliLeap(y int) bool {
-	switch y % 33 {
-	case 1, 5, 9, 13, 17, 22, 26, 30:
-		return true
-	}
-	return false
 }
 
 // statsForClient returns the client's live traffic record, or a minimal one
