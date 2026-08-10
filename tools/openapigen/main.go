@@ -43,6 +43,11 @@ func run(root, outDir string) error {
 				"BotPlan",
 				"BotPaymentMethod",
 				"BotOrder",
+				"BotCustomer",
+				"BotDiscountCode",
+				"BotRedeemCode",
+				"BotSubscription",
+				"BotWalletTransaction",
 			),
 			AliasAllow: setOf("Protocol"),
 			Overrides: map[string][]walkOverride{

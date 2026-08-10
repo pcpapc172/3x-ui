@@ -1013,14 +1013,24 @@ type InboundMultiplier struct {
 
 // BotConfig is one owner's (reseller or admin) Telegram sales-bot registration.
 type BotConfig struct {
-	Id             int    `json:"id" gorm:"primaryKey;autoIncrement"`
-	OwnerId        int    `json:"ownerId" gorm:"uniqueIndex"`
-	Token          string `json:"-" gorm:"column:token"`
-	Enabled        bool   `json:"enabled" gorm:"default:false"`
-	BotUsername    string `json:"botUsername"`
-	LinkCode       string `json:"-" gorm:"column:link_code"`
-	OwnerChatId    int64  `json:"-" gorm:"column:owner_chat_id;default:0"`
-	WelcomeMessage string `json:"welcomeMessage"`
+	Id              int    `json:"id" gorm:"primaryKey;autoIncrement"`
+	OwnerId         int    `json:"ownerId" gorm:"uniqueIndex"`
+	Token           string `json:"-" gorm:"column:token"`
+	Enabled         bool   `json:"enabled" gorm:"default:false"`
+	BotUsername     string `json:"botUsername"`
+	LinkCode        string `json:"-" gorm:"column:link_code"`
+	OwnerChatId     int64  `json:"-" gorm:"column:owner_chat_id;default:0"`
+	WelcomeMessage  string `json:"welcomeMessage"`
+	WalletEnabled   bool   `json:"walletEnabled" gorm:"default:false"`
+	ReferralEnabled bool   `json:"referralEnabled" gorm:"default:false"`
+	// ReferralKind: "flat" (ReferralValue Toman per qualifying referral) or
+	// "percent" (ReferralValue percent of the referred purchase).
+	ReferralKind  string `json:"referralKind" gorm:"default:flat" validate:"omitempty,oneof=flat percent"`
+	ReferralValue int64  `json:"referralValue" gorm:"default:0"`
+	// ReferralTrigger: "first_purchase" credits the referrer once; "every_purchase" credits on every referred order.
+	ReferralTrigger string `json:"referralTrigger" gorm:"default:first_purchase" validate:"omitempty,oneof=first_purchase every_purchase"`
+	SupportText     string `json:"supportText"`
+	TutorialText    string `json:"tutorialText"`
 }
 
 func (BotConfig) TableName() string { return "bot_configs" }
@@ -1036,6 +1046,9 @@ type BotPlan struct {
 	InboundIds   []int  `json:"inboundIds" gorm:"serializer:json;column:inbound_ids"`
 	Enabled      bool   `json:"enabled" gorm:"default:true"`
 	SortOrder    int    `json:"sortOrder" gorm:"default:0"`
+	// IsTrial marks the (at most one, enforced in BotService.SavePlan) plan
+	// offered free via "Get free trial", gated by BotCustomer.TrialUsed.
+	IsTrial bool `json:"isTrial" gorm:"default:false"`
 }
 
 func (BotPlan) TableName() string { return "bot_plans" }
@@ -1054,6 +1067,83 @@ type BotPaymentMethod struct {
 
 func (BotPaymentMethod) TableName() string { return "bot_payment_methods" }
 
+// BotCustomer is one buyer's persistent profile with a given owner's bot:
+// language choice, wallet balance and referral standing survive across orders.
+type BotCustomer struct {
+	Id            int    `json:"id" gorm:"primaryKey;autoIncrement"`
+	OwnerId       int    `json:"ownerId" gorm:"uniqueIndex:idx_bot_customer_owner_buyer"`
+	BuyerTgId     int64  `json:"buyerTgId" gorm:"uniqueIndex:idx_bot_customer_owner_buyer"`
+	BuyerUsername string `json:"buyerUsername"`
+	// Language is "" until the buyer picks one on their first /start (the
+	// bot then shows the language picker); callers should treat "" as "fa".
+	Language             string `json:"language"`
+	WalletBalanceToman   int64  `json:"walletBalanceToman" gorm:"default:0"`
+	ReferralCode         string `json:"referralCode" gorm:"uniqueIndex"`
+	ReferredByCustomerId int    `json:"referredByCustomerId" gorm:"default:0"`
+	NotificationsEnabled bool   `json:"notificationsEnabled" gorm:"default:true"`
+	TrialUsed            bool   `json:"trialUsed" gorm:"default:false"`
+	CreatedAt            int64  `json:"createdAt" gorm:"autoCreateTime:milli"`
+}
+
+func (BotCustomer) TableName() string { return "bot_customers" }
+
+// Bot wallet ledger entry kinds.
+const (
+	BotWalletTxTopup         = "topup"
+	BotWalletTxPurchase      = "purchase"
+	BotWalletTxReferralBonus = "referral_bonus"
+	BotWalletTxRedeem        = "redeem"
+	BotWalletTxRefund        = "refund"
+	BotWalletTxAdminAdjust   = "admin_adjust"
+)
+
+// BotWalletTransaction is one ledger entry backing a BotCustomer's wallet
+// balance; the balance is only ever mutated alongside a new row here.
+type BotWalletTransaction struct {
+	Id                int    `json:"id" gorm:"primaryKey;autoIncrement"`
+	OwnerId           int    `json:"ownerId" gorm:"index"`
+	CustomerId        int    `json:"customerId" gorm:"index"`
+	Kind              string `json:"kind"`
+	AmountToman       int64  `json:"amountToman"`
+	BalanceAfterToman int64  `json:"balanceAfterToman"`
+	RelatedOrderId    int    `json:"relatedOrderId" gorm:"default:0"`
+	Note              string `json:"note"`
+	CreatedAt         int64  `json:"createdAt" gorm:"autoCreateTime:milli"`
+}
+
+func (BotWalletTransaction) TableName() string { return "bot_wallet_transactions" }
+
+// BotDiscountCode reduces a purchase/renewal invoice's price.
+type BotDiscountCode struct {
+	Id        int    `json:"id" gorm:"primaryKey;autoIncrement"`
+	OwnerId   int    `json:"ownerId" gorm:"uniqueIndex:idx_bot_discount_owner_code"`
+	Code      string `json:"code" gorm:"uniqueIndex:idx_bot_discount_owner_code"`
+	Kind      string `json:"kind" validate:"required,oneof=percent fixed"`
+	Value     int64  `json:"value"`
+	MaxUses   int    `json:"maxUses" gorm:"default:0"`
+	UsedCount int    `json:"usedCount" gorm:"default:0"`
+	PlanIds   []int  `json:"planIds" gorm:"serializer:json;column:plan_ids"`
+	ExpiresAt int64  `json:"expiresAt" gorm:"default:0"`
+	Enabled   bool   `json:"enabled" gorm:"default:true"`
+}
+
+func (BotDiscountCode) TableName() string { return "bot_discount_codes" }
+
+// BotRedeemCode credits a buyer's wallet directly (a gift code), distinct
+// from BotDiscountCode which only reduces an invoice's price.
+type BotRedeemCode struct {
+	Id          int    `json:"id" gorm:"primaryKey;autoIncrement"`
+	OwnerId     int    `json:"ownerId" gorm:"uniqueIndex:idx_bot_redeem_owner_code"`
+	Code        string `json:"code" gorm:"uniqueIndex:idx_bot_redeem_owner_code"`
+	AmountToman int64  `json:"amountToman"`
+	MaxUses     int    `json:"maxUses" gorm:"default:0"`
+	UsedCount   int    `json:"usedCount" gorm:"default:0"`
+	ExpiresAt   int64  `json:"expiresAt" gorm:"default:0"`
+	Enabled     bool   `json:"enabled" gorm:"default:true"`
+}
+
+func (BotRedeemCode) TableName() string { return "bot_redeem_codes" }
+
 // Bot order lifecycle states.
 const (
 	BotOrderPendingPayment = "pending_payment"
@@ -1061,28 +1151,65 @@ const (
 	BotOrderApproved       = "approved"
 	BotOrderRejected       = "rejected"
 	BotOrderExpired        = "expired"
+	BotOrderCanceled       = "canceled"
+)
+
+// Bot order kinds — what an approval actually does.
+const (
+	BotOrderKindPurchase = "purchase"
+	BotOrderKindRenewal  = "renewal"
+	BotOrderKindTopup    = "topup"
 )
 
 // BotOrder is one buyer's purchase attempt, from plan selection through manual
 // payment review to (on approval) the client it provisioned.
 type BotOrder struct {
-	Id              int    `json:"id" gorm:"primaryKey;autoIncrement"`
-	OwnerId         int    `json:"ownerId" gorm:"index"`
-	PlanId          int    `json:"planId" gorm:"index"`
-	BuyerTgId       int64  `json:"buyerTgId" gorm:"index"`
-	BuyerUsername   string `json:"buyerUsername"`
-	PaymentMethodId int    `json:"paymentMethodId"`
-	Status          string `json:"status" gorm:"index;default:pending_payment"`
-	ProofText       string `json:"proofText"`
-	ProofTgFileId   string `json:"proofTgFileId" gorm:"column:proof_tg_file_id"`
-	ClientEmail     string `json:"clientEmail"`
-	RejectReason    string `json:"rejectReason"`
-	CreatedAt       int64  `json:"createdAt" gorm:"autoCreateTime:milli"`
-	ReviewedAt      int64  `json:"reviewedAt"`
-	ReviewedBy      int    `json:"reviewedBy"`
+	Id      int `json:"id" gorm:"primaryKey;autoIncrement"`
+	OwnerId int `json:"ownerId" gorm:"index"`
+	PlanId  int `json:"planId" gorm:"index"`
+	// SubscriptionId is set only for Kind==BotOrderKindRenewal — which
+	// existing BotSubscription/client to extend, instead of provisioning new.
+	SubscriptionId      int    `json:"subscriptionId" gorm:"default:0"`
+	BuyerTgId           int64  `json:"buyerTgId" gorm:"index"`
+	BuyerUsername       string `json:"buyerUsername"`
+	PaymentMethodId     int    `json:"paymentMethodId"`
+	Status              string `json:"status" gorm:"index;default:pending_payment"`
+	Kind                string `json:"kind" gorm:"default:purchase"`
+	ProofText           string `json:"proofText"`
+	ProofTgFileId       string `json:"proofTgFileId" gorm:"column:proof_tg_file_id"`
+	ClientEmail         string `json:"clientEmail"`
+	RejectReason        string `json:"rejectReason"`
+	DiscountCodeId      int    `json:"discountCodeId" gorm:"default:0"`
+	DiscountAmountToman int64  `json:"discountAmountToman" gorm:"default:0"`
+	FinalAmountToman    int64  `json:"finalAmountToman" gorm:"default:0"`
+	PayFromWallet       bool   `json:"payFromWallet" gorm:"default:false"`
+	PublicToken         string `json:"publicToken" gorm:"uniqueIndex"`
+	TransactionRef      string `json:"transactionRef"`
+	PaidAt              int64  `json:"paidAt" gorm:"default:0"`
+	CreatedAt           int64  `json:"createdAt" gorm:"autoCreateTime:milli"`
+	ReviewedAt          int64  `json:"reviewedAt"`
+	ReviewedBy          int    `json:"reviewedBy"`
 }
 
 func (BotOrder) TableName() string { return "bot_orders" }
+
+// BotSubscription is one provisioned client (created on first approval, not
+// duplicated by renewals) — the anchor for "my subscriptions" and auto-renew.
+type BotSubscription struct {
+	Id               int    `json:"id" gorm:"primaryKey;autoIncrement"`
+	OwnerId          int    `json:"ownerId" gorm:"index"`
+	CustomerId       int    `json:"customerId" gorm:"index"`
+	ClientEmail      string `json:"clientEmail" gorm:"uniqueIndex"`
+	PlanId           int    `json:"planId"`
+	AutoRenewEnabled bool   `json:"autoRenewEnabled" gorm:"default:false"`
+	// LastAutoRenewAttempt bounds the auto-renew cron to one attempt (success
+	// or failure) per subscription per day, so a persistently low wallet
+	// balance can't spam the buyer every cron tick.
+	LastAutoRenewAttempt int64 `json:"lastAutoRenewAttempt" gorm:"default:0"`
+	CreatedAt            int64 `json:"createdAt" gorm:"autoCreateTime:milli"`
+}
+
+func (BotSubscription) TableName() string { return "bot_subscriptions" }
 
 type InboundFallback struct {
 	Id        int    `json:"id" gorm:"primaryKey;autoIncrement"`
