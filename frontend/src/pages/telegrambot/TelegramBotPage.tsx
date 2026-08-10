@@ -17,6 +17,7 @@ import {
   Select,
   Space,
   Spin,
+  Statistic,
   Switch,
   Table,
   Tabs,
@@ -26,12 +27,15 @@ import {
 } from 'antd';
 import {
   CheckOutlined,
+  ClockCircleOutlined,
   CloseOutlined,
   CopyOutlined,
   DeleteOutlined,
   EditOutlined,
   PlusOutlined,
   RobotOutlined,
+  UnorderedListOutlined,
+  WalletOutlined,
 } from '@ant-design/icons';
 
 import { useTheme } from '@/hooks/useTheme';
@@ -86,6 +90,11 @@ interface InboundOption {
   tag?: string;
   protocol?: string;
   port?: number;
+}
+
+function basePath(): string {
+  const raw = (typeof window !== 'undefined' && window.X_UI_BASE_PATH) || '';
+  return raw.replace(/\/+$/, '');
 }
 
 const PLAN_PRESETS = [
@@ -144,6 +153,12 @@ export default function TelegramBotPage() {
     if (isUltra) classes.push('is-ultra');
     return classes.join(' ');
   }, [isDark, isUltra]);
+
+  const stats = useMemo(() => ({
+    plans: plans.length,
+    methods: paymentMethods.length,
+    pendingReview: orders.filter((o) => o.status === 'pending_review').length,
+  }), [plans, paymentMethods, orders]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -279,16 +294,23 @@ export default function TelegramBotPage() {
   };
 
   const planColumns = [
-    { title: t('pages.telegramBot.planName', 'Name'), dataIndex: 'name', key: 'name' },
+    {
+      title: t('pages.telegramBot.planName', 'Name'),
+      dataIndex: 'name',
+      key: 'name',
+      sorter: (a: BotPlan, b: BotPlan) => a.name.localeCompare(b.name),
+    },
     {
       title: t('pages.telegramBot.planTraffic', 'Traffic / Duration'),
       key: 'traffic',
+      sorter: (a: BotPlan, b: BotPlan) => a.trafficGB - b.trafficGB,
       render: (_: unknown, record: BotPlan) => `${record.trafficGB}GB / ${record.durationDays}d`,
     },
     {
       title: t('pages.telegramBot.planPrice', 'Price'),
       dataIndex: 'priceToman',
       key: 'priceToman',
+      sorter: (a: BotPlan, b: BotPlan) => a.priceToman - b.priceToman,
       render: (v: number) => `${v.toLocaleString()} Toman`,
     },
     {
@@ -301,6 +323,7 @@ export default function TelegramBotPage() {
       title: t('enabled', 'Enabled'),
       dataIndex: 'enabled',
       key: 'enabled',
+      sorter: (a: BotPlan, b: BotPlan) => Number(a.enabled) - Number(b.enabled),
       render: (v: boolean) => (v ? <CheckOutlined style={{ color: 'var(--ant-color-success)' }} /> : <CloseOutlined style={{ color: 'var(--ant-color-text-quaternary)' }} />),
     },
     {
@@ -319,8 +342,19 @@ export default function TelegramBotPage() {
   ];
 
   const methodColumns = [
-    { title: t('pages.telegramBot.methodType', 'Type'), dataIndex: 'type', key: 'type', render: (v: string) => <Tag>{v}</Tag> },
-    { title: t('pages.telegramBot.methodLabel', 'Label'), dataIndex: 'label', key: 'label' },
+    {
+      title: t('pages.telegramBot.methodType', 'Type'),
+      dataIndex: 'type',
+      key: 'type',
+      sorter: (a: BotPaymentMethod, b: BotPaymentMethod) => a.type.localeCompare(b.type),
+      render: (v: string) => <Tag color={v === 'crypto' ? 'gold' : 'blue'}>{v}</Tag>,
+    },
+    {
+      title: t('pages.telegramBot.methodLabel', 'Label'),
+      dataIndex: 'label',
+      key: 'label',
+      sorter: (a: BotPaymentMethod, b: BotPaymentMethod) => a.label.localeCompare(b.label),
+    },
     { title: t('pages.telegramBot.methodValue', 'Value'), dataIndex: 'value', key: 'value' },
     { title: t('pages.telegramBot.methodHolder', 'Holder'), dataIndex: 'holderName', key: 'holderName' },
     {
@@ -339,12 +373,13 @@ export default function TelegramBotPage() {
   ];
 
   const orderColumns = [
-    { title: '#', dataIndex: 'id', key: 'id', width: 60 },
+    { title: '#', dataIndex: 'id', key: 'id', width: 60, sorter: (a: BotOrder, b: BotOrder) => a.id - b.id },
     { title: t('pages.telegramBot.orderBuyer', 'Buyer'), dataIndex: 'buyerUsername', key: 'buyerUsername', render: (v: string) => (v ? `@${v}` : '-') },
     {
       title: t('pages.telegramBot.orderStatus', 'Status'),
       dataIndex: 'status',
       key: 'status',
+      sorter: (a: BotOrder, b: BotOrder) => a.status.localeCompare(b.status),
       render: (v: string) => <Tag color={STATUS_COLORS[v] || 'default'}>{v}</Tag>,
     },
     {
@@ -352,7 +387,7 @@ export default function TelegramBotPage() {
       key: 'proof',
       render: (_: unknown, record: BotOrder) =>
         record.proofTgFileId ? (
-          <Image src={`/panel/api/bot/orders/${record.id}/proof-photo`} width={48} />
+          <Image src={`${basePath()}/panel/api/bot/orders/${record.id}/proof-photo`} width={48} />
         ) : (
           <Typography.Text ellipsis style={{ maxWidth: 160, display: 'inline-block' }}>{record.proofText || '-'}</Typography.Text>
         ),
@@ -361,6 +396,8 @@ export default function TelegramBotPage() {
       title: t('pages.telegramBot.orderCreated', 'Created'),
       dataIndex: 'createdAt',
       key: 'createdAt',
+      sorter: (a: BotOrder, b: BotOrder) => a.createdAt - b.createdAt,
+      defaultSortOrder: 'descend' as const,
       render: (v: number) => (v ? new Date(v).toLocaleString() : '-'),
     },
     {
@@ -386,44 +423,60 @@ export default function TelegramBotPage() {
       key: 'setup',
       label: t('pages.telegramBot.tabSetup', 'Setup'),
       children: (
-        <Card size="small" hoverable>
-          <Space direction="vertical" style={{ width: '100%' }} size="middle">
-            <div>
-              <div style={{ marginBottom: 4 }}>{t('pages.telegramBot.token', 'Bot Token')}</div>
-              <Input.Password
-                placeholder={config?.hasToken ? t('pages.admins.leaveBlank', 'Leave blank to keep current') : t('pages.telegramBot.tokenPlaceholder', 'From @BotFather')}
-                value={tokenInput}
-                onChange={(e) => setTokenInput(e.target.value)}
-              />
-            </div>
-            <Space align="center">
-              <Switch checked={enabledInput} onChange={setEnabledInput} />
-              <span>{t('enabled', 'Enabled')}</span>
-              {config?.botUsername && <Tag>@{config.botUsername}</Tag>}
-              {config?.linked ? (
-                <Tag color="green">{t('pages.telegramBot.linked', 'Linked')}</Tag>
-              ) : (
-                <Tag color="orange">{t('pages.telegramBot.notLinked', 'Not linked')}</Tag>
-              )}
-            </Space>
-            <div>
-              <div style={{ marginBottom: 4 }}>{t('pages.telegramBot.welcomeMessage', 'Welcome Message')}</div>
-              <Input.TextArea rows={2} value={welcomeInput} onChange={(e) => setWelcomeInput(e.target.value)} />
-            </div>
-            <Button type="primary" loading={savingConfig} onClick={handleSaveConfig}>{t('save', 'Save')}</Button>
-
-            <Card size="small" type="inner" title={t('pages.telegramBot.linkOwnerChat', 'Link your Telegram chat for order notifications')}>
-              <Space direction="vertical">
-                <Button icon={<CopyOutlined />} onClick={handleGenerateLinkCode}>{t('pages.telegramBot.getLinkCode', 'Get link code')}</Button>
-                {linkCode && (
-                  <Typography.Text>
-                    {t('pages.telegramBot.linkInstructions', 'Send this to your bot:')} <Typography.Text code copyable>{`/link ${linkCode}`}</Typography.Text>
-                  </Typography.Text>
-                )}
+        <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 16]}>
+          <Col xs={24} md={12}>
+            <Card
+              size="small"
+              hoverable
+              title={t('pages.telegramBot.connection', 'Connection')}
+              extra={
+                <Space size={4}>
+                  {config?.botUsername && <Tag>@{config.botUsername}</Tag>}
+                  {config?.linked ? (
+                    <Tag color="green">{t('pages.telegramBot.linked', 'Linked')}</Tag>
+                  ) : (
+                    <Tag color="orange">{t('pages.telegramBot.notLinked', 'Not linked')}</Tag>
+                  )}
+                </Space>
+              }
+            >
+              <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                <div>
+                  <div style={{ marginBottom: 4 }}>{t('pages.telegramBot.token', 'Bot Token')}</div>
+                  <Input.Password
+                    placeholder={config?.hasToken ? t('pages.admins.leaveBlank', 'Leave blank to keep current') : t('pages.telegramBot.tokenPlaceholder', 'From @BotFather')}
+                    value={tokenInput}
+                    onChange={(e) => setTokenInput(e.target.value)}
+                  />
+                </div>
+                <Space align="center">
+                  <Switch checked={enabledInput} onChange={setEnabledInput} />
+                  <span>{t('enabled', 'Enabled')}</span>
+                </Space>
+                <Button type="primary" loading={savingConfig} onClick={handleSaveConfig} block>
+                  {t('save', 'Save')}
+                </Button>
               </Space>
             </Card>
-          </Space>
-        </Card>
+          </Col>
+          <Col xs={24} md={12}>
+            <Space direction="vertical" style={{ width: '100%' }} size={isMobile ? 8 : 16}>
+              <Card size="small" hoverable title={t('pages.telegramBot.welcomeMessage', 'Welcome Message')}>
+                <Input.TextArea rows={3} value={welcomeInput} onChange={(e) => setWelcomeInput(e.target.value)} />
+              </Card>
+              <Card size="small" hoverable title={t('pages.telegramBot.linkOwnerChat', 'Link your Telegram chat for order notifications')}>
+                <Space direction="vertical">
+                  <Button icon={<CopyOutlined />} onClick={handleGenerateLinkCode}>{t('pages.telegramBot.getLinkCode', 'Get link code')}</Button>
+                  {linkCode && (
+                    <Typography.Text>
+                      {t('pages.telegramBot.linkInstructions', 'Send this to your bot:')} <Typography.Text code copyable>{`/link ${linkCode}`}</Typography.Text>
+                    </Typography.Text>
+                  )}
+                </Space>
+              </Card>
+            </Space>
+          </Col>
+        </Row>
       ),
     },
     {
@@ -483,6 +536,34 @@ export default function TelegramBotPage() {
                 />
               ) : (
                 <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 12]}>
+                  <Col span={24}>
+                    <Card size="small" hoverable className="summary-card">
+                      <Row gutter={[16, isMobile ? 16 : 12]}>
+                        <Col xs={12} sm={12} md={8}>
+                          <Statistic
+                            title={t('pages.telegramBot.tabPlans', 'Plans')}
+                            value={stats.plans}
+                            prefix={<UnorderedListOutlined />}
+                          />
+                        </Col>
+                        <Col xs={12} sm={12} md={8}>
+                          <Statistic
+                            title={t('pages.telegramBot.tabPaymentMethods', 'Payment Methods')}
+                            value={stats.methods}
+                            prefix={<WalletOutlined />}
+                          />
+                        </Col>
+                        <Col xs={24} sm={24} md={8}>
+                          <Statistic
+                            title={t('pages.telegramBot.pendingReview', 'Pending Review')}
+                            value={stats.pendingReview}
+                            prefix={<ClockCircleOutlined />}
+                            valueStyle={stats.pendingReview > 0 ? { color: 'var(--ant-color-warning)' } : undefined}
+                          />
+                        </Col>
+                      </Row>
+                    </Card>
+                  </Col>
                   <Col span={24}>
                     <Tabs items={tabItems} tabBarExtraContent={<RobotOutlined />} />
                   </Col>

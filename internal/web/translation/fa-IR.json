@@ -1935,7 +1935,9 @@
       "orderProof": "رسید",
       "orderCreated": "تاریخ ثبت",
       "orderApproved": "سفارش تأیید شد",
-      "rejectOrderConfirm": "این سفارش رد شود؟"
+      "rejectOrderConfirm": "این سفارش رد شود؟",
+      "connection": "اتصال",
+      "pendingReview": "در انتظار بررسی"
     }
   },
   "tgbot": {

@@ -1935,7 +1935,9 @@
       "orderProof": "Proof",
       "orderCreated": "Created",
       "orderApproved": "Order approved",
-      "rejectOrderConfirm": "Reject this order?"
+      "rejectOrderConfirm": "Reject this order?",
+      "connection": "Connection",
+      "pendingReview": "Pending Review"
     }
   },
   "tgbot": {
