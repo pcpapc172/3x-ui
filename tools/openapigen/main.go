@@ -39,6 +39,10 @@ func run(root, outDir string) error {
 				"ClientInbound",
 				"InboundFallback",
 				"Host",
+				"BotConfig",
+				"BotPlan",
+				"BotPaymentMethod",
+				"BotOrder",
 			),
 			AliasAllow: setOf("Protocol"),
 			Overrides: map[string][]walkOverride{

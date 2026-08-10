@@ -1011,6 +1011,79 @@ type InboundMultiplier struct {
 	Rate      float64 `json:"rate" gorm:"default:1"`
 }
 
+// BotConfig is one owner's (reseller or admin) Telegram sales-bot registration.
+type BotConfig struct {
+	Id             int    `json:"id" gorm:"primaryKey;autoIncrement"`
+	OwnerId        int    `json:"ownerId" gorm:"uniqueIndex"`
+	Token          string `json:"-" gorm:"column:token"`
+	Enabled        bool   `json:"enabled" gorm:"default:false"`
+	BotUsername    string `json:"botUsername"`
+	LinkCode       string `json:"-" gorm:"column:link_code"`
+	OwnerChatId    int64  `json:"-" gorm:"column:owner_chat_id;default:0"`
+	WelcomeMessage string `json:"welcomeMessage"`
+}
+
+func (BotConfig) TableName() string { return "bot_configs" }
+
+// BotPlan is a traffic/duration/price package an owner sells through their bot.
+type BotPlan struct {
+	Id           int    `json:"id" gorm:"primaryKey;autoIncrement"`
+	OwnerId      int    `json:"ownerId" gorm:"index"`
+	Name         string `json:"name"`
+	TrafficGB    int64  `json:"trafficGB" gorm:"column:traffic_gb"`
+	DurationDays int    `json:"durationDays"`
+	PriceToman   int64  `json:"priceToman"`
+	InboundIds   []int  `json:"inboundIds" gorm:"serializer:json;column:inbound_ids"`
+	Enabled      bool   `json:"enabled" gorm:"default:true"`
+	SortOrder    int    `json:"sortOrder" gorm:"default:0"`
+}
+
+func (BotPlan) TableName() string { return "bot_plans" }
+
+// BotPaymentMethod is a card-to-card or crypto payment destination an owner accepts.
+type BotPaymentMethod struct {
+	Id         int    `json:"id" gorm:"primaryKey;autoIncrement"`
+	OwnerId    int    `json:"ownerId" gorm:"index"`
+	Type       string `json:"type" validate:"required,oneof=card crypto"`
+	Label      string `json:"label"`
+	Value      string `json:"value"`
+	HolderName string `json:"holderName"`
+	Enabled    bool   `json:"enabled" gorm:"default:true"`
+	SortOrder  int    `json:"sortOrder" gorm:"default:0"`
+}
+
+func (BotPaymentMethod) TableName() string { return "bot_payment_methods" }
+
+// Bot order lifecycle states.
+const (
+	BotOrderPendingPayment = "pending_payment"
+	BotOrderPendingReview  = "pending_review"
+	BotOrderApproved       = "approved"
+	BotOrderRejected       = "rejected"
+	BotOrderExpired        = "expired"
+)
+
+// BotOrder is one buyer's purchase attempt, from plan selection through manual
+// payment review to (on approval) the client it provisioned.
+type BotOrder struct {
+	Id              int    `json:"id" gorm:"primaryKey;autoIncrement"`
+	OwnerId         int    `json:"ownerId" gorm:"index"`
+	PlanId          int    `json:"planId" gorm:"index"`
+	BuyerTgId       int64  `json:"buyerTgId" gorm:"index"`
+	BuyerUsername   string `json:"buyerUsername"`
+	PaymentMethodId int    `json:"paymentMethodId"`
+	Status          string `json:"status" gorm:"index;default:pending_payment"`
+	ProofText       string `json:"proofText"`
+	ProofTgFileId   string `json:"proofTgFileId" gorm:"column:proof_tg_file_id"`
+	ClientEmail     string `json:"clientEmail"`
+	RejectReason    string `json:"rejectReason"`
+	CreatedAt       int64  `json:"createdAt" gorm:"autoCreateTime:milli"`
+	ReviewedAt      int64  `json:"reviewedAt"`
+	ReviewedBy      int    `json:"reviewedBy"`
+}
+
+func (BotOrder) TableName() string { return "bot_orders" }
+
 type InboundFallback struct {
 	Id        int    `json:"id" gorm:"primaryKey;autoIncrement"`
 	MasterId  int    `json:"masterId" gorm:"index;not null;column:master_id"`

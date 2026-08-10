@@ -1624,6 +1624,129 @@ export const sections: readonly Section[] = [
   },
 
   {
+    id: 'telegram-bot',
+    title: 'Telegram Sales Bot',
+    description:
+      'Self-service configuration for a per-owner Telegram bot that sells plans to buyers, with manual payment review (card-to-card, crypto). Every endpoint is scoped to the authenticated caller\'s own bot — there is no admin-only variant. Available to any logged-in user, including resellers.',
+    endpoints: [
+      {
+        method: 'GET',
+        path: '/panel/api/bot/config',
+        summary: 'Get the caller\'s bot configuration. Never returns the token itself; hasToken indicates whether one is set.',
+        response:
+          '{\n  "success": true,\n  "obj": { "enabled": true, "botUsername": "my_shop_bot", "welcomeMessage": "Welcome!", "linked": true, "hasToken": true }\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/bot/config',
+        summary: 'Set or update the bot token, enabled state, and welcome message. Starts or stops the bot instance to match. Omit token to leave the existing one unchanged.',
+        params: [
+          { name: 'token', in: 'body', type: 'string', optional: true, desc: 'Bot token from @BotFather. Omit to keep the current token.' },
+          { name: 'enabled', in: 'body', type: 'boolean' },
+          { name: 'welcomeMessage', in: 'body', type: 'string', optional: true },
+        ],
+        response: '{\n  "success": true,\n  "msg": "success"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/bot/config/link-code',
+        summary: 'Mint a one-time code. Send it to your own bot as "/link &lt;code&gt;" to register your chat as the order-review target.',
+        response: '{\n  "success": true,\n  "obj": { "code": "aB3xQ9kZ" }\n}',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/bot/plans/list',
+        summary: 'List the caller\'s bot plans (traffic/duration/price packages).',
+        response:
+          '{\n  "success": true,\n  "obj": [\n    { "id": 1, "ownerId": 5, "name": "30GB / 30 days", "trafficGB": 30, "durationDays": 30, "priceToman": 250000, "inboundIds": [1, 2], "enabled": true, "sortOrder": 0 }\n  ]\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/bot/plans/set',
+        summary: 'Create (omit id) or update (include id) a plan. inboundIds must be a subset of the caller\'s allowed inbounds when their allowedInboundsMode is "select".',
+        params: [
+          { name: 'id', in: 'body', type: 'integer', optional: true },
+          { name: 'name', in: 'body', type: 'string' },
+          { name: 'trafficGB', in: 'body', type: 'integer' },
+          { name: 'durationDays', in: 'body', type: 'integer' },
+          { name: 'priceToman', in: 'body', type: 'integer' },
+          { name: 'inboundIds', in: 'body', type: 'integer[]' },
+          { name: 'enabled', in: 'body', type: 'boolean' },
+        ],
+        response: '{\n  "success": true,\n  "msg": "success"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/bot/plans/del/:id',
+        summary: 'Delete one of the caller\'s plans.',
+        params: [{ name: 'id', in: 'path', type: 'integer' }],
+        response: '{\n  "success": true,\n  "msg": "success"\n}',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/bot/payment-methods/list',
+        summary: 'List the caller\'s accepted payment methods (card-to-card or crypto).',
+        response:
+          '{\n  "success": true,\n  "obj": [\n    { "id": 1, "ownerId": 5, "type": "card", "label": "Bank Melli", "value": "6037-xxxx-xxxx-1234", "holderName": "Ali R.", "enabled": true, "sortOrder": 0 }\n  ]\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/bot/payment-methods/set',
+        summary: 'Create (omit id) or update (include id) a payment method.',
+        params: [
+          { name: 'id', in: 'body', type: 'integer', optional: true },
+          { name: 'type', in: 'body', type: 'string', desc: '"card" or "crypto".' },
+          { name: 'label', in: 'body', type: 'string' },
+          { name: 'value', in: 'body', type: 'string', desc: 'Card number or crypto wallet address.' },
+          { name: 'holderName', in: 'body', type: 'string', optional: true },
+          { name: 'enabled', in: 'body', type: 'boolean' },
+        ],
+        response: '{\n  "success": true,\n  "msg": "success"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/bot/payment-methods/del/:id',
+        summary: 'Delete one of the caller\'s payment methods.',
+        params: [{ name: 'id', in: 'path', type: 'integer' }],
+        response: '{\n  "success": true,\n  "msg": "success"\n}',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/bot/orders/list',
+        summary: 'List the caller\'s bot orders, newest first.',
+        params: [{ name: 'status', in: 'query', type: 'string', optional: true, desc: 'Filter by pending_payment, pending_review, approved, rejected, or expired.' }],
+        response:
+          '{\n  "success": true,\n  "obj": [\n    { "id": 9, "ownerId": 5, "planId": 1, "buyerTgId": 123456789, "buyerUsername": "buyer1", "paymentMethodId": 1, "status": "pending_review", "proofText": "trx a1b2c3", "clientEmail": "", "createdAt": 1735689600000 }\n  ]\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/bot/orders/approve/:id',
+        summary: 'Approve a pending_review order: provisions a client (email auto-generated) under the caller\'s account with the plan\'s traffic/duration, then notifies the buyer via the bot.',
+        params: [{ name: 'id', in: 'path', type: 'integer' }],
+        response: '{\n  "success": true,\n  "obj": { "clientEmail": "bot-a1b2c3d4e5" }\n}',
+        errorResponse: '{\n  "success": false,\n  "msg": "plan references an inbound no longer allowed for this reseller"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/bot/orders/reject/:id',
+        summary: 'Reject a pending_review order and notify the buyer.',
+        params: [
+          { name: 'id', in: 'path', type: 'integer' },
+          { name: 'reason', in: 'body', type: 'string', optional: true },
+        ],
+        response: '{\n  "success": true,\n  "msg": "success"\n}',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/bot/orders/:id/proof-photo',
+        summary: 'Stream the buyer\'s submitted payment-proof photo (fetched live from Telegram by file_id, never stored locally). 404 if the order has no photo proof.',
+        params: [{ name: 'id', in: 'path', type: 'integer' }],
+        response: '(binary image data)',
+      },
+    ],
+  },
+
+  {
     id: 'websocket',
     title: 'WebSocket',
     description:

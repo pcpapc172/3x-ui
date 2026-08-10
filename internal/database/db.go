@@ -84,6 +84,10 @@ func allModels() []any {
 		&model.ClientGlobalTraffic{},
 		&model.OutboundSubscription{},
 		&model.InboundMultiplier{},
+		&model.BotConfig{},
+		&model.BotPlan{},
+		&model.BotPaymentMethod{},
+		&model.BotOrder{},
 	}
 }
 

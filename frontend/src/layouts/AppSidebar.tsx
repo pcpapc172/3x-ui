@@ -26,6 +26,7 @@ import {
   PushpinFilled,
   PushpinOutlined,
   ReadOutlined,
+  RobotOutlined,
   SafetyOutlined,
   SettingOutlined,
   SunOutlined,
@@ -51,7 +52,7 @@ const SIDEBAR_PINNED_KEY = 'sidebar-pinned';
 
 let hoveredAcrossRemounts = false;
 
-type IconName = 'dashboard' | 'inbound' | 'team' | 'groups' | 'setting' | 'tool' | 'cluster' | 'hosts' | 'logout' | 'apidocs' | 'outbound' | 'routing';
+type IconName = 'dashboard' | 'inbound' | 'team' | 'groups' | 'setting' | 'tool' | 'cluster' | 'hosts' | 'logout' | 'apidocs' | 'outbound' | 'routing' | 'bot';
 
 const iconByName: Record<IconName, ComponentType> = {
   dashboard: DashboardOutlined,
@@ -66,6 +67,7 @@ const iconByName: Record<IconName, ComponentType> = {
   apidocs: ApiOutlined,
   outbound: ExportOutlined,
   routing: SwapOutlined,
+  bot: RobotOutlined,
 };
 
 function DonateButton({ ariaLabel }: { ariaLabel: string }) {
@@ -222,11 +224,12 @@ export default function AppSidebar() {
       { key: '/api-docs', icon: 'apidocs', title: t('menu.apiDocs') },
       { key: '/admins', icon: 'team', title: t('menu.admins') },
       { key: '/multiply', icon: 'inbound', title: t('menu.multiply') },
+      { key: '/telegram-bot', icon: 'bot', title: t('menu.telegramBot') },
       { key: LOGOUT_KEY, icon: 'logout', title: t('logout') },
     ];
     if (!isAdmin) {
       return allTabs.filter((tab) =>
-        ['/', '/reseller', '/inbounds', '/clients', LOGOUT_KEY].includes(tab.key)
+        ['/', '/reseller', '/inbounds', '/clients', '/telegram-bot', LOGOUT_KEY].includes(tab.key)
       );
     }
     return allTabs;

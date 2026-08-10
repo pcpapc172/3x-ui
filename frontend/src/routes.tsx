@@ -15,6 +15,7 @@ const ApiDocsPage = lazy(() => import('@/pages/api-docs/ApiDocsPage'));
 const AdminsPage = lazy(() => import('@/pages/admins/AdminsPage'));
 const MultiplyPage = lazy(() => import('@/pages/multiply/MultiplyPage'));
 const ResellerOverviewPage = lazy(() => import('@/pages/reseller/ResellerOverviewPage'));
+const TelegramBotPage = lazy(() => import('@/pages/telegrambot/TelegramBotPage'));
 
 function withSuspense(node: React.ReactNode) {
   return <Suspense fallback={null}>{node}</Suspense>;
@@ -39,6 +40,7 @@ const routes: RouteObject[] = [
       { path: 'admins', element: withSuspense(<AdminsPage />) },
       { path: 'multiply', element: withSuspense(<MultiplyPage />) },
       { path: 'reseller', element: withSuspense(<ResellerOverviewPage />) },
+      { path: 'telegram-bot', element: withSuspense(<TelegramBotPage />) },
     ],
   },
 ];

@@ -113,7 +113,8 @@
     "docs": "مستندات",
     "openMenu": "باز کردن منو",
     "pinSidebar": "ثابت کردن نوار کناری",
-    "unpinSidebar": "برداشتن تثبیت نوار کناری"
+    "unpinSidebar": "برداشتن تثبیت نوار کناری",
+    "telegramBot": "ربات تلگرام"
   },
   "pages": {
     "login": {
@@ -1893,6 +1894,48 @@
       "totalClients": "Total Clients",
       "activeClients": "Active Clients",
       "quotaUsed": "Quota Used"
+    },
+    "telegramBot": {
+      "tabSetup": "تنظیمات",
+      "tabPlans": "پلن‌ها",
+      "tabPaymentMethods": "روش‌های پرداخت",
+      "tabOrders": "سفارش‌ها",
+      "token": "توکن ربات",
+      "tokenPlaceholder": "از @BotFather دریافت کنید",
+      "welcomeMessage": "پیام خوش‌آمدگویی",
+      "saved": "تنظیمات ربات ذخیره شد",
+      "linked": "متصل شد",
+      "notLinked": "متصل نشده",
+      "linkOwnerChat": "چت تلگرام خود را برای دریافت اعلان سفارش‌ها متصل کنید",
+      "getLinkCode": "دریافت کد اتصال",
+      "linkInstructions": "این را به ربات خود ارسال کنید:",
+      "presets": "پیش‌فرض‌ها",
+      "addPlan": "افزودن پلن",
+      "editPlan": "ویرایش پلن",
+      "deletePlanConfirm": "این پلن حذف شود؟",
+      "planName": "نام",
+      "planTraffic": "حجم / مدت",
+      "planTrafficGB": "حجم (گیگابایت)",
+      "planDuration": "مدت (روز)",
+      "planPrice": "قیمت (تومان)",
+      "planInbounds": "اینباندها",
+      "addMethod": "افزودن روش پرداخت",
+      "editMethod": "ویرایش روش پرداخت",
+      "deleteMethodConfirm": "این روش پرداخت حذف شود؟",
+      "methodType": "نوع",
+      "methodCard": "کارت به کارت",
+      "methodCrypto": "ارز دیجیتال",
+      "methodLabel": "برچسب",
+      "methodLabelPlaceholder": "مثلاً بانک ملی",
+      "methodValue": "مقدار",
+      "methodValuePlaceholder": "شماره کارت یا آدرس کیف پول",
+      "methodHolder": "نام صاحب حساب",
+      "orderBuyer": "خریدار",
+      "orderStatus": "وضعیت",
+      "orderProof": "رسید",
+      "orderCreated": "تاریخ ثبت",
+      "orderApproved": "سفارش تأیید شد",
+      "rejectOrderConfirm": "این سفارش رد شود؟"
     }
   },
   "tgbot": {
@@ -2089,5 +2132,29 @@
     "statusFailed": "ناموفق",
     "statusDown": "قطع",
     "statusUp": "وصل"
+  },
+  "botshop": {
+    "welcome": "خوش آمدید! یک پلن را برای شروع انتخاب کنید:",
+    "noPlans": "در حال حاضر پلنی موجود نیست.",
+    "noPaymentMethods": "در حال حاضر روش پرداختی موجود نیست.",
+    "choosePayment": "یک روش پرداخت انتخاب کنید:",
+    "payInstructions": "لطفاً مبلغ را به این مورد واریز کنید:",
+    "sendProof": "پس از پرداخت، اسکرین‌شات یا کد پیگیری تراکنش را اینجا ارسال کنید.",
+    "proofReceived": "ممنون! پرداخت شما در حال بررسی است.",
+    "newOrderPendingReview": "سفارش جدید در انتظار بررسی",
+    "approve": "تأیید",
+    "reject": "رد",
+    "approved": "سفارش تأیید شد.",
+    "rejected": "سفارش رد شد.",
+    "approveFailed": "تأیید این سفارش ممکن نشد",
+    "rejectFailed": "رد این سفارش ممکن نشد.",
+    "orderApproved": "سفارش شما تأیید شد!",
+    "yourClient": "کلاینت شما",
+    "orderRejected": "سفارش شما رد شد. لطفاً با فروشنده تماس بگیرید.",
+    "noPendingOrders": "سفارشی در انتظار بررسی نیست.",
+    "linkUsage": "روش استفاده: /link <code>",
+    "linkFailed": "کد نامعتبر یا منقضی شده است.",
+    "linkSuccess": "متصل شد! از این پس اعلان سفارش‌ها را اینجا دریافت می‌کنید.",
+    "error": "مشکلی پیش آمد. لطفاً دوباره تلاش کنید."
   }
 }

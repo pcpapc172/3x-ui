@@ -231,6 +231,52 @@ export const EXAMPLES: Record<string, unknown> = {
     "name": "central-panel-a",
     "token": "new-token-string"
   },
+  "BotConfig": {
+    "botUsername": "",
+    "enabled": false,
+    "id": 0,
+    "ownerId": 0,
+    "welcomeMessage": ""
+  },
+  "BotOrder": {
+    "buyerTgId": 0,
+    "buyerUsername": "",
+    "clientEmail": "",
+    "createdAt": 0,
+    "id": 0,
+    "ownerId": 0,
+    "paymentMethodId": 0,
+    "planId": 0,
+    "proofText": "",
+    "proofTgFileId": "",
+    "rejectReason": "",
+    "reviewedAt": 0,
+    "reviewedBy": 0,
+    "status": ""
+  },
+  "BotPaymentMethod": {
+    "enabled": false,
+    "holderName": "",
+    "id": 0,
+    "label": "",
+    "ownerId": 0,
+    "sortOrder": 0,
+    "type": "card",
+    "value": ""
+  },
+  "BotPlan": {
+    "durationDays": 0,
+    "enabled": false,
+    "id": 0,
+    "inboundIds": [
+      0
+    ],
+    "name": "",
+    "ownerId": 0,
+    "priceToman": 0,
+    "sortOrder": 0,
+    "trafficGB": 0
+  },
   "Client": {
     "adTag": "0123456789abcdef0123456789abcdef",
     "allowedIPs": [

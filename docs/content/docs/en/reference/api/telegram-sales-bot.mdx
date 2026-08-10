@@ -1,0 +1,114 @@
+---
+title: Telegram Sales Bot
+description: Self-service configuration for a per-owner Telegram bot that sells
+  plans to buyers, with manual payment review (card-to-card, crypto). Every
+  endpoint is scoped to the authenticated caller's own bot — there is no
+  admin-only variant. Available to any logged-in user, including resellers.
+full: true
+_openapi:
+  preload:
+    - ./public/openapi.json
+  toc:
+    - depth: 2
+      title: Get the caller's bot configuration. Never returns the token itself;
+        hasToken indicates whether one is set.
+      url: '#get-the-callers-bot-configuration-never-returns-the-token-itself-hastoken-indicates-whether-one-is-set'
+    - depth: 2
+      title: Set or update the bot token, enabled state, and welcome message. Starts
+        or stops the bot instance to match. Omit token to leave the existing one
+        unchanged.
+      url: '#set-or-update-the-bot-token-enabled-state-and-welcome-message-starts-or-stops-the-bot-instance-to-match-omit-token-to-leave-the-existing-one-unchanged'
+    - depth: 2
+      title: Mint a one-time code. Send it to your own bot as "/link &lt;code&gt;" to
+        register your chat as the order-review target.
+      url: '#mint-a-one-time-code-send-it-to-your-own-bot-as-link-ltcodegt-to-register-your-chat-as-the-order-review-target'
+    - depth: 2
+      title: List the caller's bot plans (traffic/duration/price packages).
+      url: '#list-the-callers-bot-plans-trafficdurationprice-packages'
+    - depth: 2
+      title: Create (omit id) or update (include id) a plan. inboundIds must be a
+        subset of the caller's allowed inbounds when their allowedInboundsMode
+        is "select".
+      url: '#create-omit-id-or-update-include-id-a-plan-inboundids-must-be-a-subset-of-the-callers-allowed-inbounds-when-their-allowedinboundsmode-is-select'
+    - depth: 2
+      title: Delete one of the caller's plans.
+      url: '#delete-one-of-the-callers-plans'
+    - depth: 2
+      title: List the caller's accepted payment methods (card-to-card or crypto).
+      url: '#list-the-callers-accepted-payment-methods-card-to-card-or-crypto'
+    - depth: 2
+      title: Create (omit id) or update (include id) a payment method.
+      url: '#create-omit-id-or-update-include-id-a-payment-method'
+    - depth: 2
+      title: Delete one of the caller's payment methods.
+      url: '#delete-one-of-the-callers-payment-methods'
+    - depth: 2
+      title: List the caller's bot orders, newest first.
+      url: '#list-the-callers-bot-orders-newest-first'
+    - depth: 2
+      title: "Approve a pending_review order: provisions a client (email
+        auto-generated) under the caller's account with the plan's
+        traffic/duration, then notifies the buyer via the bot."
+      url: '#approve-a-pending_review-order-provisions-a-client-email-auto-generated-under-the-callers-account-with-the-plans-trafficduration-then-notifies-the-buyer-via-the-bot'
+    - depth: 2
+      title: Reject a pending_review order and notify the buyer.
+      url: '#reject-a-pending_review-order-and-notify-the-buyer'
+    - depth: 2
+      title: Stream the buyer's submitted payment-proof photo (fetched live from
+        Telegram by file_id, never stored locally). 404 if the order has no
+        photo proof.
+      url: '#stream-the-buyers-submitted-payment-proof-photo-fetched-live-from-telegram-by-file_id-never-stored-locally-404-if-the-order-has-no-photo-proof'
+  structuredData:
+    headings:
+      - content: Get the caller's bot configuration. Never returns the token itself;
+          hasToken indicates whether one is set.
+        id: get-the-callers-bot-configuration-never-returns-the-token-itself-hastoken-indicates-whether-one-is-set
+      - content: Set or update the bot token, enabled state, and welcome message. Starts
+          or stops the bot instance to match. Omit token to leave the existing
+          one unchanged.
+        id: set-or-update-the-bot-token-enabled-state-and-welcome-message-starts-or-stops-the-bot-instance-to-match-omit-token-to-leave-the-existing-one-unchanged
+      - content: Mint a one-time code. Send it to your own bot as "/link &lt;code&gt;"
+          to register your chat as the order-review target.
+        id: mint-a-one-time-code-send-it-to-your-own-bot-as-link-ltcodegt-to-register-your-chat-as-the-order-review-target
+      - content: List the caller's bot plans (traffic/duration/price packages).
+        id: list-the-callers-bot-plans-trafficdurationprice-packages
+      - content: Create (omit id) or update (include id) a plan. inboundIds must be a
+          subset of the caller's allowed inbounds when their allowedInboundsMode
+          is "select".
+        id: create-omit-id-or-update-include-id-a-plan-inboundids-must-be-a-subset-of-the-callers-allowed-inbounds-when-their-allowedinboundsmode-is-select
+      - content: Delete one of the caller's plans.
+        id: delete-one-of-the-callers-plans
+      - content: List the caller's accepted payment methods (card-to-card or crypto).
+        id: list-the-callers-accepted-payment-methods-card-to-card-or-crypto
+      - content: Create (omit id) or update (include id) a payment method.
+        id: create-omit-id-or-update-include-id-a-payment-method
+      - content: Delete one of the caller's payment methods.
+        id: delete-one-of-the-callers-payment-methods
+      - content: List the caller's bot orders, newest first.
+        id: list-the-callers-bot-orders-newest-first
+      - content: "Approve a pending_review order: provisions a client (email
+          auto-generated) under the caller's account with the plan's
+          traffic/duration, then notifies the buyer via the bot."
+        id: approve-a-pending_review-order-provisions-a-client-email-auto-generated-under-the-callers-account-with-the-plans-trafficduration-then-notifies-the-buyer-via-the-bot
+      - content: Reject a pending_review order and notify the buyer.
+        id: reject-a-pending_review-order-and-notify-the-buyer
+      - content: Stream the buyer's submitted payment-proof photo (fetched live from
+          Telegram by file_id, never stored locally). 404 if the order has no
+          photo proof.
+        id: stream-the-buyers-submitted-payment-proof-photo-fetched-live-from-telegram-by-file_id-never-stored-locally-404-if-the-order-has-no-photo-proof
+    contents: []
+---
+
+{/* This file was generated by Fumadocs. Do not edit this file directly. Any changes should be made by running the generation command again. */}
+
+export default function Layout(props) {
+  const { APIPage, OpenAPIPage } = props.components ?? {};
+  // "APIPage" is the old name from v10, this allows both for backward compatibility
+  const Comp = OpenAPIPage ?? APIPage;
+  return (
+    <>
+      {props.children}
+      <Comp document="./public/openapi.json" webhooks={[]} operations={[{"path":"/panel/api/bot/config","method":"get"},{"path":"/panel/api/bot/config","method":"post"},{"path":"/panel/api/bot/config/link-code","method":"post"},{"path":"/panel/api/bot/plans/list","method":"get"},{"path":"/panel/api/bot/plans/set","method":"post"},{"path":"/panel/api/bot/plans/del/{id}","method":"post"},{"path":"/panel/api/bot/payment-methods/list","method":"get"},{"path":"/panel/api/bot/payment-methods/set","method":"post"},{"path":"/panel/api/bot/payment-methods/del/{id}","method":"post"},{"path":"/panel/api/bot/orders/list","method":"get"},{"path":"/panel/api/bot/orders/approve/{id}","method":"post"},{"path":"/panel/api/bot/orders/reject/{id}","method":"post"},{"path":"/panel/api/bot/orders/{id}/proof-photo","method":"get"}]} showTitle />
+    </>
+  );
+}
