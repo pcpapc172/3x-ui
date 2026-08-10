@@ -46,7 +46,7 @@ func BuildSubscriptionURLs(inboundSvc *InboundService, settingSvc *SettingServic
 	}
 
 	host := subDomain
-	if !((subPort == 443 && tls) || (subPort == 80 && !tls)) {
+	if (subPort != 443 || !tls) && (subPort != 80 || tls) {
 		host = fmt.Sprintf("%s:%d", subDomain, subPort)
 	}
 
