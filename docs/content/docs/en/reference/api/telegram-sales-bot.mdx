@@ -14,10 +14,10 @@ _openapi:
         hasToken indicates whether one is set.
       url: '#get-the-callers-bot-configuration-never-returns-the-token-itself-hastoken-indicates-whether-one-is-set'
     - depth: 2
-      title: Set or update the bot token, enabled state, and welcome message. Starts
-        or stops the bot instance to match. Omit token to leave the existing one
-        unchanged.
-      url: '#set-or-update-the-bot-token-enabled-state-and-welcome-message-starts-or-stops-the-bot-instance-to-match-omit-token-to-leave-the-existing-one-unchanged'
+      title: Set or update the bot token, enabled state, welcome message, and
+        wallet/referral/support settings. Starts or stops the bot instance to
+        match. Omit token to leave the existing one unchanged.
+      url: '#set-or-update-the-bot-token-enabled-state-welcome-message-and-walletreferralsupport-settings-starts-or-stops-the-bot-instance-to-match-omit-token-to-leave-the-existing-one-unchanged'
     - depth: 2
       title: Mint a one-time code. Send it to your own bot as "/link &lt;code&gt;" to
         register your chat as the order-review target.
@@ -58,15 +58,43 @@ _openapi:
         Telegram by file_id, never stored locally). 404 if the order has no
         photo proof.
       url: '#stream-the-buyers-submitted-payment-proof-photo-fetched-live-from-telegram-by-file_id-never-stored-locally-404-if-the-order-has-no-photo-proof'
+    - depth: 2
+      title: List the caller's discount codes.
+      url: '#list-the-callers-discount-codes'
+    - depth: 2
+      title: Create (omit id) or update (include id) a discount code, applied to a
+        purchase/renewal invoice.
+      url: '#create-omit-id-or-update-include-id-a-discount-code-applied-to-a-purchaserenewal-invoice'
+    - depth: 2
+      title: Delete one of the caller's discount codes.
+      url: '#delete-one-of-the-callers-discount-codes'
+    - depth: 2
+      title: List the caller's redeem (gift) codes.
+      url: '#list-the-callers-redeem-gift-codes'
+    - depth: 2
+      title: Create (omit id) or update (include id) a redeem code, which credits a
+        buyer's wallet directly.
+      url: '#create-omit-id-or-update-include-id-a-redeem-code-which-credits-a-buyers-wallet-directly'
+    - depth: 2
+      title: Delete one of the caller's redeem codes.
+      url: '#delete-one-of-the-callers-redeem-codes'
+    - depth: 2
+      title: List every buyer who has ever contacted the caller's bot, with wallet
+        balance and referral standing.
+      url: '#list-every-buyer-who-has-ever-contacted-the-callers-bot-with-wallet-balance-and-referral-standing'
+    - depth: 2
+      title: Manually credit or debit a customer's wallet balance (support use) —
+        ledgered the same as every other balance change.
+      url: '#manually-credit-or-debit-a-customers-wallet-balance-support-use--ledgered-the-same-as-every-other-balance-change'
   structuredData:
     headings:
       - content: Get the caller's bot configuration. Never returns the token itself;
           hasToken indicates whether one is set.
         id: get-the-callers-bot-configuration-never-returns-the-token-itself-hastoken-indicates-whether-one-is-set
-      - content: Set or update the bot token, enabled state, and welcome message. Starts
-          or stops the bot instance to match. Omit token to leave the existing
-          one unchanged.
-        id: set-or-update-the-bot-token-enabled-state-and-welcome-message-starts-or-stops-the-bot-instance-to-match-omit-token-to-leave-the-existing-one-unchanged
+      - content: Set or update the bot token, enabled state, welcome message, and
+          wallet/referral/support settings. Starts or stops the bot instance to
+          match. Omit token to leave the existing one unchanged.
+        id: set-or-update-the-bot-token-enabled-state-welcome-message-and-walletreferralsupport-settings-starts-or-stops-the-bot-instance-to-match-omit-token-to-leave-the-existing-one-unchanged
       - content: Mint a one-time code. Send it to your own bot as "/link &lt;code&gt;"
           to register your chat as the order-review target.
         id: mint-a-one-time-code-send-it-to-your-own-bot-as-link-ltcodegt-to-register-your-chat-as-the-order-review-target
@@ -96,6 +124,26 @@ _openapi:
           Telegram by file_id, never stored locally). 404 if the order has no
           photo proof.
         id: stream-the-buyers-submitted-payment-proof-photo-fetched-live-from-telegram-by-file_id-never-stored-locally-404-if-the-order-has-no-photo-proof
+      - content: List the caller's discount codes.
+        id: list-the-callers-discount-codes
+      - content: Create (omit id) or update (include id) a discount code, applied to a
+          purchase/renewal invoice.
+        id: create-omit-id-or-update-include-id-a-discount-code-applied-to-a-purchaserenewal-invoice
+      - content: Delete one of the caller's discount codes.
+        id: delete-one-of-the-callers-discount-codes
+      - content: List the caller's redeem (gift) codes.
+        id: list-the-callers-redeem-gift-codes
+      - content: Create (omit id) or update (include id) a redeem code, which credits a
+          buyer's wallet directly.
+        id: create-omit-id-or-update-include-id-a-redeem-code-which-credits-a-buyers-wallet-directly
+      - content: Delete one of the caller's redeem codes.
+        id: delete-one-of-the-callers-redeem-codes
+      - content: List every buyer who has ever contacted the caller's bot, with wallet
+          balance and referral standing.
+        id: list-every-buyer-who-has-ever-contacted-the-callers-bot-with-wallet-balance-and-referral-standing
+      - content: Manually credit or debit a customer's wallet balance (support use) —
+          ledgered the same as every other balance change.
+        id: manually-credit-or-debit-a-customers-wallet-balance-support-use--ledgered-the-same-as-every-other-balance-change
     contents: []
 ---
 
@@ -108,7 +156,7 @@ export default function Layout(props) {
   return (
     <>
       {props.children}
-      <Comp document="./public/openapi.json" webhooks={[]} operations={[{"path":"/panel/api/bot/config","method":"get"},{"path":"/panel/api/bot/config","method":"post"},{"path":"/panel/api/bot/config/link-code","method":"post"},{"path":"/panel/api/bot/plans/list","method":"get"},{"path":"/panel/api/bot/plans/set","method":"post"},{"path":"/panel/api/bot/plans/del/{id}","method":"post"},{"path":"/panel/api/bot/payment-methods/list","method":"get"},{"path":"/panel/api/bot/payment-methods/set","method":"post"},{"path":"/panel/api/bot/payment-methods/del/{id}","method":"post"},{"path":"/panel/api/bot/orders/list","method":"get"},{"path":"/panel/api/bot/orders/approve/{id}","method":"post"},{"path":"/panel/api/bot/orders/reject/{id}","method":"post"},{"path":"/panel/api/bot/orders/{id}/proof-photo","method":"get"}]} showTitle />
+      <Comp document="./public/openapi.json" webhooks={[]} operations={[{"path":"/panel/api/bot/config","method":"get"},{"path":"/panel/api/bot/config","method":"post"},{"path":"/panel/api/bot/config/link-code","method":"post"},{"path":"/panel/api/bot/plans/list","method":"get"},{"path":"/panel/api/bot/plans/set","method":"post"},{"path":"/panel/api/bot/plans/del/{id}","method":"post"},{"path":"/panel/api/bot/payment-methods/list","method":"get"},{"path":"/panel/api/bot/payment-methods/set","method":"post"},{"path":"/panel/api/bot/payment-methods/del/{id}","method":"post"},{"path":"/panel/api/bot/orders/list","method":"get"},{"path":"/panel/api/bot/orders/approve/{id}","method":"post"},{"path":"/panel/api/bot/orders/reject/{id}","method":"post"},{"path":"/panel/api/bot/orders/{id}/proof-photo","method":"get"},{"path":"/panel/api/bot/discount-codes/list","method":"get"},{"path":"/panel/api/bot/discount-codes/set","method":"post"},{"path":"/panel/api/bot/discount-codes/del/{id}","method":"post"},{"path":"/panel/api/bot/redeem-codes/list","method":"get"},{"path":"/panel/api/bot/redeem-codes/set","method":"post"},{"path":"/panel/api/bot/redeem-codes/del/{id}","method":"post"},{"path":"/panel/api/bot/customers/list","method":"get"},{"path":"/panel/api/bot/customers/{id}/adjust-wallet","method":"post"}]} showTitle />
     </>
   );
 }

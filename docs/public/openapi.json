@@ -1030,6 +1030,38 @@
           "ownerId": {
             "type": "integer"
           },
+          "referralEnabled": {
+            "type": "boolean"
+          },
+          "referralKind": {
+            "description": "ReferralKind: \"flat\" (ReferralValue Toman per qualifying referral) or\n\"percent\" (ReferralValue percent of the referred purchase).",
+            "enum": [
+              "flat",
+              "percent"
+            ],
+            "type": "string"
+          },
+          "referralTrigger": {
+            "description": "ReferralTrigger: \"first_purchase\" credits the referrer once; \"every_purchase\" credits on every referred order.",
+            "enum": [
+              "first_purchase",
+              "every_purchase"
+            ],
+            "type": "string"
+          },
+          "referralValue": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "supportText": {
+            "type": "string"
+          },
+          "tutorialText": {
+            "type": "string"
+          },
+          "walletEnabled": {
+            "type": "boolean"
+          },
           "welcomeMessage": {
             "type": "string"
           }
@@ -1039,7 +1071,127 @@
           "enabled",
           "id",
           "ownerId",
+          "referralEnabled",
+          "referralKind",
+          "referralTrigger",
+          "referralValue",
+          "supportText",
+          "tutorialText",
+          "walletEnabled",
           "welcomeMessage"
+        ],
+        "type": "object"
+      },
+      "BotCustomer": {
+        "description": "BotCustomer is one buyer's persistent profile with a given owner's bot:\nlanguage choice, wallet balance and referral standing survive across orders.",
+        "properties": {
+          "buyerTgId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "buyerUsername": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "language": {
+            "description": "Language is \"\" until the buyer picks one on their first /start (the\nbot then shows the language picker); callers should treat \"\" as \"fa\".",
+            "type": "string"
+          },
+          "notificationsEnabled": {
+            "type": "boolean"
+          },
+          "ownerId": {
+            "type": "integer"
+          },
+          "referralCode": {
+            "type": "string"
+          },
+          "referredByCustomerId": {
+            "type": "integer"
+          },
+          "trialUsed": {
+            "type": "boolean"
+          },
+          "walletBalanceToman": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "buyerTgId",
+          "buyerUsername",
+          "createdAt",
+          "id",
+          "language",
+          "notificationsEnabled",
+          "ownerId",
+          "referralCode",
+          "referredByCustomerId",
+          "trialUsed",
+          "walletBalanceToman"
+        ],
+        "type": "object"
+      },
+      "BotDiscountCode": {
+        "description": "BotDiscountCode reduces a purchase/renewal invoice's price.",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "percent",
+              "fixed"
+            ],
+            "type": "string"
+          },
+          "maxUses": {
+            "type": "integer"
+          },
+          "ownerId": {
+            "type": "integer"
+          },
+          "planIds": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "usedCount": {
+            "type": "integer"
+          },
+          "value": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "enabled",
+          "expiresAt",
+          "id",
+          "kind",
+          "maxUses",
+          "ownerId",
+          "planIds",
+          "usedCount",
+          "value"
         ],
         "type": "object"
       },
@@ -1060,11 +1212,32 @@
             "format": "int64",
             "type": "integer"
           },
+          "discountAmountToman": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "discountCodeId": {
+            "type": "integer"
+          },
+          "finalAmountToman": {
+            "format": "int64",
+            "type": "integer"
+          },
           "id": {
             "type": "integer"
           },
+          "kind": {
+            "type": "string"
+          },
           "ownerId": {
             "type": "integer"
+          },
+          "paidAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "payFromWallet": {
+            "type": "boolean"
           },
           "paymentMethodId": {
             "type": "integer"
@@ -1076,6 +1249,9 @@
             "type": "string"
           },
           "proofTgFileId": {
+            "type": "string"
+          },
+          "publicToken": {
             "type": "string"
           },
           "rejectReason": {
@@ -1090,6 +1266,13 @@
           },
           "status": {
             "type": "string"
+          },
+          "subscriptionId": {
+            "description": "SubscriptionId is set only for Kind==BotOrderKindRenewal — which\nexisting BotSubscription/client to extend, instead of provisioning new.",
+            "type": "integer"
+          },
+          "transactionRef": {
+            "type": "string"
           }
         },
         "required": [
@@ -1097,16 +1280,25 @@
           "buyerUsername",
           "clientEmail",
           "createdAt",
+          "discountAmountToman",
+          "discountCodeId",
+          "finalAmountToman",
           "id",
+          "kind",
           "ownerId",
+          "paidAt",
+          "payFromWallet",
           "paymentMethodId",
           "planId",
           "proofText",
           "proofTgFileId",
+          "publicToken",
           "rejectReason",
           "reviewedAt",
           "reviewedBy",
-          "status"
+          "status",
+          "subscriptionId",
+          "transactionRef"
         ],
         "type": "object"
       },
@@ -1172,6 +1364,10 @@
             },
             "type": "array"
           },
+          "isTrial": {
+            "description": "IsTrial marks the (at most one, enforced in BotService.SavePlan) plan\noffered free via \"Get free trial\", gated by BotCustomer.TrialUsed.",
+            "type": "boolean"
+          },
           "name": {
             "type": "string"
           },
@@ -1195,11 +1391,144 @@
           "enabled",
           "id",
           "inboundIds",
+          "isTrial",
           "name",
           "ownerId",
           "priceToman",
           "sortOrder",
           "trafficGB"
+        ],
+        "type": "object"
+      },
+      "BotRedeemCode": {
+        "description": "BotRedeemCode credits a buyer's wallet directly (a gift code), distinct\nfrom BotDiscountCode which only reduces an invoice's price.",
+        "properties": {
+          "amountToman": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "code": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "maxUses": {
+            "type": "integer"
+          },
+          "ownerId": {
+            "type": "integer"
+          },
+          "usedCount": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "amountToman",
+          "code",
+          "enabled",
+          "expiresAt",
+          "id",
+          "maxUses",
+          "ownerId",
+          "usedCount"
+        ],
+        "type": "object"
+      },
+      "BotSubscription": {
+        "description": "BotSubscription is one provisioned client (created on first approval, not\nduplicated by renewals) — the anchor for \"my subscriptions\" and auto-renew.",
+        "properties": {
+          "autoRenewEnabled": {
+            "type": "boolean"
+          },
+          "clientEmail": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "customerId": {
+            "type": "integer"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "lastAutoRenewAttempt": {
+            "description": "LastAutoRenewAttempt bounds the auto-renew cron to one attempt (success\nor failure) per subscription per day, so a persistently low wallet\nbalance can't spam the buyer every cron tick.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "ownerId": {
+            "type": "integer"
+          },
+          "planId": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "autoRenewEnabled",
+          "clientEmail",
+          "createdAt",
+          "customerId",
+          "id",
+          "lastAutoRenewAttempt",
+          "ownerId",
+          "planId"
+        ],
+        "type": "object"
+      },
+      "BotWalletTransaction": {
+        "description": "BotWalletTransaction is one ledger entry backing a BotCustomer's wallet\nbalance; the balance is only ever mutated alongside a new row here.",
+        "properties": {
+          "amountToman": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "balanceAfterToman": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "customerId": {
+            "type": "integer"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "ownerId": {
+            "type": "integer"
+          },
+          "relatedOrderId": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "amountToman",
+          "balanceAfterToman",
+          "createdAt",
+          "customerId",
+          "id",
+          "kind",
+          "note",
+          "ownerId",
+          "relatedOrderId"
         ],
         "type": "object"
       },
@@ -12195,7 +12524,14 @@
                     "botUsername": "my_shop_bot",
                     "welcomeMessage": "Welcome!",
                     "linked": true,
-                    "hasToken": true
+                    "hasToken": true,
+                    "walletEnabled": true,
+                    "referralEnabled": true,
+                    "referralKind": "flat",
+                    "referralValue": 20000,
+                    "referralTrigger": "first_purchase",
+                    "supportText": "@my_support",
+                    "tutorialText": "https://example.com/guide"
                   }
                 }
               }
@@ -12207,7 +12543,7 @@
         "tags": [
           "Telegram Sales Bot"
         ],
-        "summary": "Set or update the bot token, enabled state, and welcome message. Starts or stops the bot instance to match. Omit token to leave the existing one unchanged.",
+        "summary": "Set or update the bot token, enabled state, welcome message, and wallet/referral/support settings. Starts or stops the bot instance to match. Omit token to leave the existing one unchanged.",
         "operationId": "post_panel_api_bot_config",
         "requestBody": {
           "required": true,
@@ -12227,10 +12563,43 @@
                   "welcomeMessage": {
                     "type": "string",
                     "description": ""
+                  },
+                  "walletEnabled": {
+                    "type": "boolean",
+                    "description": ""
+                  },
+                  "referralEnabled": {
+                    "type": "boolean",
+                    "description": ""
+                  },
+                  "referralKind": {
+                    "type": "string",
+                    "description": "\"flat\" or \"percent\"."
+                  },
+                  "referralValue": {
+                    "type": "integer",
+                    "description": ""
+                  },
+                  "referralTrigger": {
+                    "type": "string",
+                    "description": "\"first_purchase\" or \"every_purchase\"."
+                  },
+                  "supportText": {
+                    "type": "string",
+                    "description": ""
+                  },
+                  "tutorialText": {
+                    "type": "string",
+                    "description": ""
                   }
                 },
                 "required": [
-                  "enabled"
+                  "enabled",
+                  "walletEnabled",
+                  "referralEnabled",
+                  "referralKind",
+                  "referralValue",
+                  "referralTrigger"
                 ]
               }
             }
@@ -12389,6 +12758,10 @@
                   "enabled": {
                     "type": "boolean",
                     "description": ""
+                  },
+                  "isTrial": {
+                    "type": "boolean",
+                    "description": "Marks this the free-trial plan; at most one per owner (saving demotes any other)."
                   }
                 },
                 "required": [
@@ -12863,6 +13236,465 @@
                     },
                     "obj": {}
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/bot/discount-codes/list": {
+      "get": {
+        "tags": [
+          "Telegram Sales Bot"
+        ],
+        "summary": "List the caller's discount codes.",
+        "operationId": "get_panel_api_bot_discount_codes_list",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": [
+                    {
+                      "id": 1,
+                      "ownerId": 5,
+                      "code": "WELCOME10",
+                      "kind": "percent",
+                      "value": 10,
+                      "maxUses": 100,
+                      "usedCount": 4,
+                      "planIds": [],
+                      "expiresAt": 0,
+                      "enabled": true
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/bot/discount-codes/set": {
+      "post": {
+        "tags": [
+          "Telegram Sales Bot"
+        ],
+        "summary": "Create (omit id) or update (include id) a discount code, applied to a purchase/renewal invoice.",
+        "operationId": "post_panel_api_bot_discount_codes_set",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "description": ""
+                  },
+                  "code": {
+                    "type": "string",
+                    "description": ""
+                  },
+                  "kind": {
+                    "type": "string",
+                    "description": "\"percent\" or \"fixed\"."
+                  },
+                  "value": {
+                    "type": "integer",
+                    "description": ""
+                  },
+                  "maxUses": {
+                    "type": "integer",
+                    "description": "0 = unlimited."
+                  },
+                  "planIds": {
+                    "type": "string",
+                    "description": "Empty = applies to every plan."
+                  },
+                  "expiresAt": {
+                    "type": "integer",
+                    "description": "Unix ms; 0 = never expires."
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "description": ""
+                  }
+                },
+                "required": [
+                  "code",
+                  "kind",
+                  "value",
+                  "maxUses",
+                  "enabled"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "msg": "success"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/bot/discount-codes/del/{id}": {
+      "post": {
+        "tags": [
+          "Telegram Sales Bot"
+        ],
+        "summary": "Delete one of the caller's discount codes.",
+        "operationId": "post_panel_api_bot_discount_codes_del_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "msg": "success"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/bot/redeem-codes/list": {
+      "get": {
+        "tags": [
+          "Telegram Sales Bot"
+        ],
+        "summary": "List the caller's redeem (gift) codes.",
+        "operationId": "get_panel_api_bot_redeem_codes_list",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": [
+                    {
+                      "id": 1,
+                      "ownerId": 5,
+                      "code": "GIFT50K",
+                      "amountToman": 50000,
+                      "maxUses": 1,
+                      "usedCount": 0,
+                      "expiresAt": 0,
+                      "enabled": true
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/bot/redeem-codes/set": {
+      "post": {
+        "tags": [
+          "Telegram Sales Bot"
+        ],
+        "summary": "Create (omit id) or update (include id) a redeem code, which credits a buyer's wallet directly.",
+        "operationId": "post_panel_api_bot_redeem_codes_set",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "description": ""
+                  },
+                  "code": {
+                    "type": "string",
+                    "description": ""
+                  },
+                  "amountToman": {
+                    "type": "integer",
+                    "description": ""
+                  },
+                  "maxUses": {
+                    "type": "integer",
+                    "description": "0 = unlimited."
+                  },
+                  "expiresAt": {
+                    "type": "integer",
+                    "description": "Unix ms; 0 = never expires."
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "description": ""
+                  }
+                },
+                "required": [
+                  "code",
+                  "amountToman",
+                  "maxUses",
+                  "enabled"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "msg": "success"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/bot/redeem-codes/del/{id}": {
+      "post": {
+        "tags": [
+          "Telegram Sales Bot"
+        ],
+        "summary": "Delete one of the caller's redeem codes.",
+        "operationId": "post_panel_api_bot_redeem_codes_del_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "msg": "success"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/bot/customers/list": {
+      "get": {
+        "tags": [
+          "Telegram Sales Bot"
+        ],
+        "summary": "List every buyer who has ever contacted the caller's bot, with wallet balance and referral standing.",
+        "operationId": "get_panel_api_bot_customers_list",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": [
+                    {
+                      "id": 1,
+                      "ownerId": 5,
+                      "buyerTgId": 123456789,
+                      "buyerUsername": "buyer1",
+                      "language": "fa",
+                      "walletBalanceToman": 150000,
+                      "referralCode": "aB3xQ9kZ",
+                      "referredByCustomerId": 0,
+                      "notificationsEnabled": true,
+                      "trialUsed": false,
+                      "createdAt": 1735689600000
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/bot/customers/{id}/adjust-wallet": {
+      "post": {
+        "tags": [
+          "Telegram Sales Bot"
+        ],
+        "summary": "Manually credit or debit a customer's wallet balance (support use) — ledgered the same as every other balance change.",
+        "operationId": "post_panel_api_bot_customers_id_adjust_wallet",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "deltaToman": {
+                    "type": "integer",
+                    "description": "Negative to debit."
+                  },
+                  "note": {
+                    "type": "string",
+                    "description": ""
+                  }
+                },
+                "required": [
+                  "deltaToman"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "msg": "success"
                 }
               }
             }

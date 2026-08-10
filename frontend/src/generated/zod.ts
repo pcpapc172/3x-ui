@@ -262,25 +262,70 @@ export const BotConfigSchema = z.object({
   enabled: z.boolean(),
   id: z.number().int(),
   ownerId: z.number().int(),
+  referralEnabled: z.boolean(),
+  referralKind: z.enum(['flat', 'percent']),
+  referralTrigger: z.enum(['first_purchase', 'every_purchase']),
+  referralValue: z.number().int(),
+  supportText: z.string(),
+  tutorialText: z.string(),
+  walletEnabled: z.boolean(),
   welcomeMessage: z.string(),
 });
 export type BotConfig = z.infer<typeof BotConfigSchema>;
+
+export const BotCustomerSchema = z.object({
+  buyerTgId: z.number().int(),
+  buyerUsername: z.string(),
+  createdAt: z.number().int(),
+  id: z.number().int(),
+  language: z.string(),
+  notificationsEnabled: z.boolean(),
+  ownerId: z.number().int(),
+  referralCode: z.string(),
+  referredByCustomerId: z.number().int(),
+  trialUsed: z.boolean(),
+  walletBalanceToman: z.number().int(),
+});
+export type BotCustomer = z.infer<typeof BotCustomerSchema>;
+
+export const BotDiscountCodeSchema = z.object({
+  code: z.string(),
+  enabled: z.boolean(),
+  expiresAt: z.number().int(),
+  id: z.number().int(),
+  kind: z.enum(['percent', 'fixed']),
+  maxUses: z.number().int(),
+  ownerId: z.number().int(),
+  planIds: z.array(z.number().int()),
+  usedCount: z.number().int(),
+  value: z.number().int(),
+});
+export type BotDiscountCode = z.infer<typeof BotDiscountCodeSchema>;
 
 export const BotOrderSchema = z.object({
   buyerTgId: z.number().int(),
   buyerUsername: z.string(),
   clientEmail: z.string(),
   createdAt: z.number().int(),
+  discountAmountToman: z.number().int(),
+  discountCodeId: z.number().int(),
+  finalAmountToman: z.number().int(),
   id: z.number().int(),
+  kind: z.string(),
   ownerId: z.number().int(),
+  paidAt: z.number().int(),
+  payFromWallet: z.boolean(),
   paymentMethodId: z.number().int(),
   planId: z.number().int(),
   proofText: z.string(),
   proofTgFileId: z.string(),
+  publicToken: z.string(),
   rejectReason: z.string(),
   reviewedAt: z.number().int(),
   reviewedBy: z.number().int(),
   status: z.string(),
+  subscriptionId: z.number().int(),
+  transactionRef: z.string(),
 });
 export type BotOrder = z.infer<typeof BotOrderSchema>;
 
@@ -301,6 +346,7 @@ export const BotPlanSchema = z.object({
   enabled: z.boolean(),
   id: z.number().int(),
   inboundIds: z.array(z.number().int()),
+  isTrial: z.boolean(),
   name: z.string(),
   ownerId: z.number().int(),
   priceToman: z.number().int(),
@@ -308,6 +354,43 @@ export const BotPlanSchema = z.object({
   trafficGB: z.number().int(),
 });
 export type BotPlan = z.infer<typeof BotPlanSchema>;
+
+export const BotRedeemCodeSchema = z.object({
+  amountToman: z.number().int(),
+  code: z.string(),
+  enabled: z.boolean(),
+  expiresAt: z.number().int(),
+  id: z.number().int(),
+  maxUses: z.number().int(),
+  ownerId: z.number().int(),
+  usedCount: z.number().int(),
+});
+export type BotRedeemCode = z.infer<typeof BotRedeemCodeSchema>;
+
+export const BotSubscriptionSchema = z.object({
+  autoRenewEnabled: z.boolean(),
+  clientEmail: z.string(),
+  createdAt: z.number().int(),
+  customerId: z.number().int(),
+  id: z.number().int(),
+  lastAutoRenewAttempt: z.number().int(),
+  ownerId: z.number().int(),
+  planId: z.number().int(),
+});
+export type BotSubscription = z.infer<typeof BotSubscriptionSchema>;
+
+export const BotWalletTransactionSchema = z.object({
+  amountToman: z.number().int(),
+  balanceAfterToman: z.number().int(),
+  createdAt: z.number().int(),
+  customerId: z.number().int(),
+  id: z.number().int(),
+  kind: z.string(),
+  note: z.string(),
+  ownerId: z.number().int(),
+  relatedOrderId: z.number().int(),
+});
+export type BotWalletTransaction = z.infer<typeof BotWalletTransactionSchema>;
 
 export const ClientSchema = z.object({
   adTag: z.string().optional(),

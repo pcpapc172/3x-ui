@@ -49,6 +49,13 @@ interface BotConfigInfo {
   welcomeMessage: string;
   linked: boolean;
   hasToken: boolean;
+  walletEnabled: boolean;
+  referralEnabled: boolean;
+  referralKind: string;
+  referralValue: number;
+  referralTrigger: string;
+  supportText: string;
+  tutorialText: string;
 }
 
 interface BotPlan {
@@ -59,6 +66,7 @@ interface BotPlan {
   priceToman: number;
   inboundIds: number[];
   enabled: boolean;
+  isTrial: boolean;
 }
 
 interface BotPaymentMethod {
@@ -77,10 +85,50 @@ interface BotOrder {
   buyerUsername: string;
   paymentMethodId: number;
   status: string;
+  kind: string;
   proofText: string;
   proofTgFileId: string;
   clientEmail: string;
   rejectReason: string;
+  discountAmountToman: number;
+  finalAmountToman: number;
+  payFromWallet: boolean;
+  publicToken: string;
+  createdAt: number;
+}
+
+interface BotDiscountCode {
+  id: number;
+  code: string;
+  kind: string;
+  value: number;
+  maxUses: number;
+  usedCount: number;
+  planIds: number[];
+  expiresAt: number;
+  enabled: boolean;
+}
+
+interface BotRedeemCode {
+  id: number;
+  code: string;
+  amountToman: number;
+  maxUses: number;
+  usedCount: number;
+  expiresAt: number;
+  enabled: boolean;
+}
+
+interface BotCustomer {
+  id: number;
+  buyerTgId: number;
+  buyerUsername: string;
+  language: string;
+  walletBalanceToman: number;
+  referralCode: string;
+  referredByCustomerId: number;
+  notificationsEnabled: boolean;
+  trialUsed: boolean;
   createdAt: number;
 }
 
@@ -122,6 +170,9 @@ export default function TelegramBotPage() {
   const [plans, setPlans] = useState<BotPlan[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<BotPaymentMethod[]>([]);
   const [orders, setOrders] = useState<BotOrder[]>([]);
+  const [discountCodes, setDiscountCodes] = useState<BotDiscountCode[]>([]);
+  const [redeemCodes, setRedeemCodes] = useState<BotRedeemCode[]>([]);
+  const [customers, setCustomers] = useState<BotCustomer[]>([]);
   const [inbounds, setInbounds] = useState<InboundOption[]>([]);
   const [fetched, setFetched] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -130,6 +181,13 @@ export default function TelegramBotPage() {
   const [tokenInput, setTokenInput] = useState('');
   const [enabledInput, setEnabledInput] = useState(false);
   const [welcomeInput, setWelcomeInput] = useState('');
+  const [walletEnabledInput, setWalletEnabledInput] = useState(false);
+  const [referralEnabledInput, setReferralEnabledInput] = useState(false);
+  const [referralKindInput, setReferralKindInput] = useState('flat');
+  const [referralValueInput, setReferralValueInput] = useState(0);
+  const [referralTriggerInput, setReferralTriggerInput] = useState('first_purchase');
+  const [supportTextInput, setSupportTextInput] = useState('');
+  const [tutorialTextInput, setTutorialTextInput] = useState('');
   const [linkCode, setLinkCode] = useState('');
   const [savingConfig, setSavingConfig] = useState(false);
 
@@ -140,6 +198,17 @@ export default function TelegramBotPage() {
   const [methodModalOpen, setMethodModalOpen] = useState(false);
   const [editingMethod, setEditingMethod] = useState<BotPaymentMethod | null>(null);
   const [methodForm] = Form.useForm();
+
+  const [discountModalOpen, setDiscountModalOpen] = useState(false);
+  const [editingDiscount, setEditingDiscount] = useState<BotDiscountCode | null>(null);
+  const [discountForm] = Form.useForm();
+
+  const [redeemModalOpen, setRedeemModalOpen] = useState(false);
+  const [editingRedeem, setEditingRedeem] = useState<BotRedeemCode | null>(null);
+  const [redeemForm] = Form.useForm();
+
+  const [walletAdjustCustomer, setWalletAdjustCustomer] = useState<BotCustomer | null>(null);
+  const [walletAdjustForm] = Form.useForm();
 
   const inboundsById = useMemo(() => {
     const out: Record<number, InboundOption> = {};
@@ -164,23 +233,36 @@ export default function TelegramBotPage() {
     setLoading(true);
     setFetchError('');
     try {
-      const [cfgResp, plansResp, methodsResp, ordersResp, inbResp] = await Promise.all([
+      const [cfgResp, plansResp, methodsResp, ordersResp, inbResp, discResp, redeemResp, custResp] = await Promise.all([
         HttpUtil.get<BotConfigInfo>('/panel/api/bot/config'),
         HttpUtil.get<BotPlan[]>('/panel/api/bot/plans/list'),
         HttpUtil.get<BotPaymentMethod[]>('/panel/api/bot/payment-methods/list'),
         HttpUtil.get<BotOrder[]>('/panel/api/bot/orders/list'),
         HttpUtil.get<InboundOption[]>('/panel/api/inbounds/options'),
+        HttpUtil.get<BotDiscountCode[]>('/panel/api/bot/discount-codes/list'),
+        HttpUtil.get<BotRedeemCode[]>('/panel/api/bot/redeem-codes/list'),
+        HttpUtil.get<BotCustomer[]>('/panel/api/bot/customers/list'),
       ]);
       if (cfgResp.success && cfgResp.obj) {
         const cfg = cfgResp.obj;
         setConfig(cfg);
         setEnabledInput(cfg.enabled);
         setWelcomeInput(cfg.welcomeMessage);
+        setWalletEnabledInput(cfg.walletEnabled);
+        setReferralEnabledInput(cfg.referralEnabled);
+        setReferralKindInput(cfg.referralKind || 'flat');
+        setReferralValueInput(cfg.referralValue || 0);
+        setReferralTriggerInput(cfg.referralTrigger || 'first_purchase');
+        setSupportTextInput(cfg.supportText);
+        setTutorialTextInput(cfg.tutorialText);
       }
       if (plansResp.success && plansResp.obj) setPlans(plansResp.obj);
       if (methodsResp.success && methodsResp.obj) setPaymentMethods(methodsResp.obj);
       if (ordersResp.success && ordersResp.obj) setOrders(ordersResp.obj);
       if (inbResp.success && inbResp.obj) setInbounds(inbResp.obj);
+      if (discResp.success && discResp.obj) setDiscountCodes(discResp.obj);
+      if (redeemResp.success && redeemResp.obj) setRedeemCodes(redeemResp.obj);
+      if (custResp.success && custResp.obj) setCustomers(custResp.obj);
     } catch {
       setFetchError(t('somethingWentWrong'));
     } finally {
@@ -198,6 +280,13 @@ export default function TelegramBotPage() {
         token: tokenInput,
         enabled: enabledInput,
         welcomeMessage: welcomeInput,
+        walletEnabled: walletEnabledInput,
+        referralEnabled: referralEnabledInput,
+        referralKind: referralKindInput,
+        referralValue: referralValueInput,
+        referralTrigger: referralTriggerInput,
+        supportText: supportTextInput,
+        tutorialText: tutorialTextInput,
       });
       if (resp.success) {
         setTokenInput('');
@@ -278,6 +367,77 @@ export default function TelegramBotPage() {
     if (resp.success) fetchData();
   };
 
+  const handleAddDiscount = () => {
+    setEditingDiscount(null);
+    discountForm.resetFields();
+    discountForm.setFieldsValue({ kind: 'percent', maxUses: 0, enabled: true, planIds: [] });
+    setDiscountModalOpen(true);
+  };
+
+  const handleEditDiscount = (dc: BotDiscountCode) => {
+    setEditingDiscount(dc);
+    discountForm.setFieldsValue(dc);
+    setDiscountModalOpen(true);
+  };
+
+  const handleDiscountSubmit = async () => {
+    const values = await discountForm.validateFields();
+    const resp = await HttpUtil.post<unknown>('/panel/api/bot/discount-codes/set', {
+      id: editingDiscount?.id,
+      ...values,
+    });
+    if (resp.success) {
+      setDiscountModalOpen(false);
+      fetchData();
+    }
+  };
+
+  const handleDeleteDiscount = async (id: number) => {
+    const resp = await HttpUtil.post(`/panel/api/bot/discount-codes/del/${id}`);
+    if (resp.success) fetchData();
+  };
+
+  const handleAddRedeem = () => {
+    setEditingRedeem(null);
+    redeemForm.resetFields();
+    redeemForm.setFieldsValue({ maxUses: 0, enabled: true });
+    setRedeemModalOpen(true);
+  };
+
+  const handleEditRedeem = (rc: BotRedeemCode) => {
+    setEditingRedeem(rc);
+    redeemForm.setFieldsValue(rc);
+    setRedeemModalOpen(true);
+  };
+
+  const handleRedeemSubmit = async () => {
+    const values = await redeemForm.validateFields();
+    const resp = await HttpUtil.post<unknown>('/panel/api/bot/redeem-codes/set', {
+      id: editingRedeem?.id,
+      ...values,
+    });
+    if (resp.success) {
+      setRedeemModalOpen(false);
+      fetchData();
+    }
+  };
+
+  const handleDeleteRedeem = async (id: number) => {
+    const resp = await HttpUtil.post(`/panel/api/bot/redeem-codes/del/${id}`);
+    if (resp.success) fetchData();
+  };
+
+  const handleWalletAdjustSubmit = async () => {
+    if (!walletAdjustCustomer) return;
+    const values = await walletAdjustForm.validateFields();
+    const resp = await HttpUtil.post<unknown>(`/panel/api/bot/customers/${walletAdjustCustomer.id}/adjust-wallet`, values);
+    if (resp.success) {
+      setWalletAdjustCustomer(null);
+      messageApi.success(t('pages.telegramBot.walletAdjusted', 'Wallet balance updated'));
+      fetchData();
+    }
+  };
+
   const handleApproveOrder = async (id: number) => {
     const resp = await HttpUtil.post(`/panel/api/bot/orders/approve/${id}`);
     if (resp.success) {
@@ -325,6 +485,13 @@ export default function TelegramBotPage() {
       key: 'enabled',
       sorter: (a: BotPlan, b: BotPlan) => Number(a.enabled) - Number(b.enabled),
       render: (v: boolean) => (v ? <CheckOutlined style={{ color: 'var(--ant-color-success)' }} /> : <CloseOutlined style={{ color: 'var(--ant-color-text-quaternary)' }} />),
+    },
+    {
+      title: t('pages.telegramBot.trial', 'Trial'),
+      dataIndex: 'isTrial',
+      key: 'isTrial',
+      sorter: (a: BotPlan, b: BotPlan) => Number(a.isTrial) - Number(b.isTrial),
+      render: (v: boolean) => (v ? <Tag color="gold">{t('pages.telegramBot.trial', 'Trial')}</Tag> : null),
     },
     {
       title: '',
@@ -376,11 +543,35 @@ export default function TelegramBotPage() {
     { title: '#', dataIndex: 'id', key: 'id', width: 60, sorter: (a: BotOrder, b: BotOrder) => a.id - b.id },
     { title: t('pages.telegramBot.orderBuyer', 'Buyer'), dataIndex: 'buyerUsername', key: 'buyerUsername', render: (v: string) => (v ? `@${v}` : '-') },
     {
+      title: t('pages.telegramBot.orderKind', 'Kind'),
+      dataIndex: 'kind',
+      key: 'kind',
+      sorter: (a: BotOrder, b: BotOrder) => a.kind.localeCompare(b.kind),
+      render: (v: string) => <Tag>{v || 'purchase'}</Tag>,
+    },
+    {
       title: t('pages.telegramBot.orderStatus', 'Status'),
       dataIndex: 'status',
       key: 'status',
       sorter: (a: BotOrder, b: BotOrder) => a.status.localeCompare(b.status),
       render: (v: string) => <Tag color={STATUS_COLORS[v] || 'default'}>{v}</Tag>,
+    },
+    {
+      title: t('pages.telegramBot.orderAmount', 'Amount'),
+      dataIndex: 'finalAmountToman',
+      key: 'finalAmountToman',
+      sorter: (a: BotOrder, b: BotOrder) => a.finalAmountToman - b.finalAmountToman,
+      render: (v: number, record: BotOrder) => (
+        <span>
+          {v?.toLocaleString() ?? 0} Toman
+          {record.discountAmountToman > 0 && (
+            <Typography.Text type="success" style={{ marginInlineStart: 4, fontSize: 12 }}>
+              (-{record.discountAmountToman.toLocaleString()})
+            </Typography.Text>
+          )}
+          {record.payFromWallet && <Tag color="purple" style={{ marginInlineStart: 4 }}>{t('pages.telegramBot.wallet', 'Wallet')}</Tag>}
+        </span>
+      ),
     },
     {
       title: t('pages.telegramBot.orderProof', 'Proof'),
@@ -415,6 +606,94 @@ export default function TelegramBotPage() {
         ) : record.clientEmail ? (
           <Typography.Text code>{record.clientEmail}</Typography.Text>
         ) : null,
+    },
+  ];
+
+  const discountColumns = [
+    { title: t('pages.telegramBot.code', 'Code'), dataIndex: 'code', key: 'code', sorter: (a: BotDiscountCode, b: BotDiscountCode) => a.code.localeCompare(b.code) },
+    {
+      title: t('pages.telegramBot.discountValue', 'Value'),
+      key: 'value',
+      render: (_: unknown, record: BotDiscountCode) => (record.kind === 'percent' ? `${record.value}%` : `${record.value.toLocaleString()} Toman`),
+    },
+    { title: t('pages.telegramBot.uses', 'Uses'), key: 'uses', render: (_: unknown, record: BotDiscountCode) => `${record.usedCount} / ${record.maxUses || '∞'}` },
+    {
+      title: t('enabled', 'Enabled'),
+      dataIndex: 'enabled',
+      key: 'enabled',
+      render: (v: boolean) => (v ? <CheckOutlined style={{ color: 'var(--ant-color-success)' }} /> : <CloseOutlined style={{ color: 'var(--ant-color-text-quaternary)' }} />),
+    },
+    {
+      title: '',
+      key: 'actions',
+      width: 100,
+      render: (_: unknown, record: BotDiscountCode) => (
+        <Space>
+          <Button size="small" icon={<EditOutlined />} onClick={() => handleEditDiscount(record)} />
+          <Popconfirm title={t('pages.telegramBot.deleteCodeConfirm', 'Delete this code?')} onConfirm={() => handleDeleteDiscount(record.id)}>
+            <Button size="small" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
+
+  const redeemColumns = [
+    { title: t('pages.telegramBot.code', 'Code'), dataIndex: 'code', key: 'code', sorter: (a: BotRedeemCode, b: BotRedeemCode) => a.code.localeCompare(b.code) },
+    {
+      title: t('pages.telegramBot.amount', 'Amount'),
+      dataIndex: 'amountToman',
+      key: 'amountToman',
+      sorter: (a: BotRedeemCode, b: BotRedeemCode) => a.amountToman - b.amountToman,
+      render: (v: number) => `${v.toLocaleString()} Toman`,
+    },
+    { title: t('pages.telegramBot.uses', 'Uses'), key: 'uses', render: (_: unknown, record: BotRedeemCode) => `${record.usedCount} / ${record.maxUses || '∞'}` },
+    {
+      title: t('enabled', 'Enabled'),
+      dataIndex: 'enabled',
+      key: 'enabled',
+      render: (v: boolean) => (v ? <CheckOutlined style={{ color: 'var(--ant-color-success)' }} /> : <CloseOutlined style={{ color: 'var(--ant-color-text-quaternary)' }} />),
+    },
+    {
+      title: '',
+      key: 'actions',
+      width: 100,
+      render: (_: unknown, record: BotRedeemCode) => (
+        <Space>
+          <Button size="small" icon={<EditOutlined />} onClick={() => handleEditRedeem(record)} />
+          <Popconfirm title={t('pages.telegramBot.deleteCodeConfirm', 'Delete this code?')} onConfirm={() => handleDeleteRedeem(record.id)}>
+            <Button size="small" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
+
+  const customerColumns = [
+    { title: t('pages.telegramBot.orderBuyer', 'Buyer'), dataIndex: 'buyerUsername', key: 'buyerUsername', render: (v: string) => (v ? `@${v}` : '-') },
+    { title: t('pages.telegramBot.buyerTgId', 'Telegram ID'), dataIndex: 'buyerTgId', key: 'buyerTgId' },
+    {
+      title: t('pages.telegramBot.walletBalance', 'Wallet Balance'),
+      dataIndex: 'walletBalanceToman',
+      key: 'walletBalanceToman',
+      sorter: (a: BotCustomer, b: BotCustomer) => a.walletBalanceToman - b.walletBalanceToman,
+      render: (v: number) => `${v.toLocaleString()} Toman`,
+    },
+    { title: t('pages.telegramBot.referralCode', 'Referral Code'), dataIndex: 'referralCode', key: 'referralCode', render: (v: string) => <Typography.Text code copyable>{v}</Typography.Text> },
+    {
+      title: t('pages.telegramBot.accountJoined', 'Joined'),
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      sorter: (a: BotCustomer, b: BotCustomer) => a.createdAt - b.createdAt,
+      render: (v: number) => (v ? new Date(v).toLocaleString() : '-'),
+    },
+    {
+      title: '',
+      key: 'actions',
+      width: 80,
+      render: (_: unknown, record: BotCustomer) => (
+        <Button size="small" icon={<WalletOutlined />} onClick={() => { setWalletAdjustCustomer(record); walletAdjustForm.resetFields(); }} />
+      ),
     },
   ];
 
@@ -476,6 +755,55 @@ export default function TelegramBotPage() {
               </Card>
             </Space>
           </Col>
+          <Col xs={24} md={12}>
+            <Card size="small" hoverable title={t('pages.telegramBot.walletSettings', 'Wallet')}>
+              <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                <Space align="center">
+                  <Switch checked={walletEnabledInput} onChange={setWalletEnabledInput} />
+                  <span>{t('pages.telegramBot.walletEnabled', 'Enable wallet & instant pay')}</span>
+                </Space>
+              </Space>
+            </Card>
+          </Col>
+          <Col xs={24} md={12}>
+            <Card size="small" hoverable title={t('pages.telegramBot.referralSettings', 'Referrals')}>
+              <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                <Space align="center">
+                  <Switch checked={referralEnabledInput} onChange={setReferralEnabledInput} />
+                  <span>{t('pages.telegramBot.referralEnabled', 'Enable referral program')}</span>
+                </Space>
+                <Select
+                  style={{ width: '100%' }}
+                  value={referralKindInput}
+                  onChange={setReferralKindInput}
+                  options={[
+                    { value: 'flat', label: t('pages.telegramBot.referralFlat', 'Flat bonus (Toman)') },
+                    { value: 'percent', label: t('pages.telegramBot.referralPercent', 'Percent of purchase') },
+                  ]}
+                />
+                <InputNumber style={{ width: '100%' }} min={0} value={referralValueInput} onChange={(v) => setReferralValueInput(v || 0)} />
+                <Select
+                  style={{ width: '100%' }}
+                  value={referralTriggerInput}
+                  onChange={setReferralTriggerInput}
+                  options={[
+                    { value: 'first_purchase', label: t('pages.telegramBot.triggerFirst', 'On first purchase only') },
+                    { value: 'every_purchase', label: t('pages.telegramBot.triggerEvery', 'On every purchase') },
+                  ]}
+                />
+              </Space>
+            </Card>
+          </Col>
+          <Col xs={24} md={12}>
+            <Card size="small" hoverable title={t('pages.telegramBot.supportText', 'Support message')}>
+              <Input.TextArea rows={2} value={supportTextInput} onChange={(e) => setSupportTextInput(e.target.value)} />
+            </Card>
+          </Col>
+          <Col xs={24} md={12}>
+            <Card size="small" hoverable title={t('pages.telegramBot.tutorialText', 'Connection guide')}>
+              <Input.TextArea rows={2} value={tutorialTextInput} onChange={(e) => setTutorialTextInput(e.target.value)} />
+            </Card>
+          </Col>
         </Row>
       ),
     },
@@ -511,6 +839,41 @@ export default function TelegramBotPage() {
       children: (
         <Card size="small" hoverable>
           <Table dataSource={orders} columns={orderColumns} rowKey="id" loading={loading} pagination={{ pageSize: 20 }} size="small" />
+        </Card>
+      ),
+    },
+    {
+      key: 'discount-codes',
+      label: t('pages.telegramBot.tabDiscountCodes', 'Discount Codes'),
+      children: (
+        <Card
+          size="small"
+          hoverable
+          extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleAddDiscount}>{isMobile ? '' : t('add', 'Add')}</Button>}
+        >
+          <Table dataSource={discountCodes} columns={discountColumns} rowKey="id" loading={loading} pagination={false} size="small" />
+        </Card>
+      ),
+    },
+    {
+      key: 'redeem-codes',
+      label: t('pages.telegramBot.tabRedeemCodes', 'Redeem Codes'),
+      children: (
+        <Card
+          size="small"
+          hoverable
+          extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleAddRedeem}>{isMobile ? '' : t('add', 'Add')}</Button>}
+        >
+          <Table dataSource={redeemCodes} columns={redeemColumns} rowKey="id" loading={loading} pagination={false} size="small" />
+        </Card>
+      ),
+    },
+    {
+      key: 'customers',
+      label: t('pages.telegramBot.tabCustomers', 'Customers'),
+      children: (
+        <Card size="small" hoverable>
+          <Table dataSource={customers} columns={customerColumns} rowKey="id" loading={loading} pagination={{ pageSize: 20 }} size="small" />
         </Card>
       ),
     },
@@ -613,6 +976,9 @@ export default function TelegramBotPage() {
           <Form.Item name="enabled" label={t('enabled', 'Enabled')} valuePropName="checked">
             <Switch />
           </Form.Item>
+          <Form.Item name="isTrial" label={t('pages.telegramBot.planIsTrial', 'Free trial plan')} valuePropName="checked">
+            <Switch />
+          </Form.Item>
         </Form>
       </Modal>
 
@@ -638,6 +1004,82 @@ export default function TelegramBotPage() {
           </Form.Item>
           <Form.Item name="enabled" label={t('enabled', 'Enabled')} valuePropName="checked">
             <Switch />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={editingDiscount ? t('pages.telegramBot.editDiscount', 'Edit Discount Code') : t('pages.telegramBot.addDiscount', 'Add Discount Code')}
+        open={discountModalOpen}
+        onOk={handleDiscountSubmit}
+        onCancel={() => setDiscountModalOpen(false)}
+        okText={editingDiscount ? t('update', 'Update') : t('add', 'Add')}
+      >
+        <Form form={discountForm} layout="vertical">
+          <Form.Item name="code" label={t('pages.telegramBot.code', 'Code')} rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="kind" label={t('pages.telegramBot.discountKind', 'Kind')} rules={[{ required: true }]}>
+            <Select options={[{ value: 'percent', label: t('pages.telegramBot.referralPercent', 'Percent of purchase') }, { value: 'fixed', label: t('pages.telegramBot.discountFixed', 'Fixed amount (Toman)') }]} />
+          </Form.Item>
+          <Form.Item name="value" label={t('pages.telegramBot.discountValue', 'Value')} rules={[{ required: true }]}>
+            <InputNumber min={1} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="maxUses" label={t('pages.telegramBot.maxUses', 'Max uses (0 = unlimited)')}>
+            <InputNumber min={0} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="planIds" label={t('pages.telegramBot.discountPlans', 'Applies to (empty = all plans)')}>
+            <Select mode="multiple" options={plans.map((p) => ({ value: p.id, label: p.name }))} />
+          </Form.Item>
+          <Form.Item name="enabled" label={t('enabled', 'Enabled')} valuePropName="checked">
+            <Switch />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={editingRedeem ? t('pages.telegramBot.editRedeem', 'Edit Redeem Code') : t('pages.telegramBot.addRedeem', 'Add Redeem Code')}
+        open={redeemModalOpen}
+        onOk={handleRedeemSubmit}
+        onCancel={() => setRedeemModalOpen(false)}
+        okText={editingRedeem ? t('update', 'Update') : t('add', 'Add')}
+      >
+        <Form form={redeemForm} layout="vertical">
+          <Form.Item name="code" label={t('pages.telegramBot.code', 'Code')} rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="amountToman" label={t('pages.telegramBot.amount', 'Amount (Toman)')} rules={[{ required: true }]}>
+            <InputNumber min={1} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="maxUses" label={t('pages.telegramBot.maxUses', 'Max uses (0 = unlimited)')}>
+            <InputNumber min={0} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="enabled" label={t('enabled', 'Enabled')} valuePropName="checked">
+            <Switch />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={t('pages.telegramBot.adjustWallet', 'Adjust Wallet Balance')}
+        open={!!walletAdjustCustomer}
+        onOk={handleWalletAdjustSubmit}
+        onCancel={() => setWalletAdjustCustomer(null)}
+        okText={t('save', 'Save')}
+      >
+        {walletAdjustCustomer && (
+          <Typography.Paragraph>
+            {walletAdjustCustomer.buyerUsername ? `@${walletAdjustCustomer.buyerUsername}` : walletAdjustCustomer.buyerTgId}
+            {' — '}
+            {t('pages.telegramBot.currentBalance', 'Current balance')}: {walletAdjustCustomer.walletBalanceToman.toLocaleString()} Toman
+          </Typography.Paragraph>
+        )}
+        <Form form={walletAdjustForm} layout="vertical">
+          <Form.Item name="deltaToman" label={t('pages.telegramBot.deltaToman', 'Amount (negative to debit)')} rules={[{ required: true }]}>
+            <InputNumber style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="note" label={t('pages.telegramBot.note', 'Note')}>
+            <Input />
           </Form.Item>
         </Form>
       </Modal>

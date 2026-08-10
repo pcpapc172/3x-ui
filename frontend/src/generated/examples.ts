@@ -236,23 +236,66 @@ export const EXAMPLES: Record<string, unknown> = {
     "enabled": false,
     "id": 0,
     "ownerId": 0,
+    "referralEnabled": false,
+    "referralKind": "flat",
+    "referralTrigger": "first_purchase",
+    "referralValue": 0,
+    "supportText": "",
+    "tutorialText": "",
+    "walletEnabled": false,
     "welcomeMessage": ""
+  },
+  "BotCustomer": {
+    "buyerTgId": 0,
+    "buyerUsername": "",
+    "createdAt": 0,
+    "id": 0,
+    "language": "",
+    "notificationsEnabled": false,
+    "ownerId": 0,
+    "referralCode": "",
+    "referredByCustomerId": 0,
+    "trialUsed": false,
+    "walletBalanceToman": 0
+  },
+  "BotDiscountCode": {
+    "code": "",
+    "enabled": false,
+    "expiresAt": 0,
+    "id": 0,
+    "kind": "percent",
+    "maxUses": 0,
+    "ownerId": 0,
+    "planIds": [
+      0
+    ],
+    "usedCount": 0,
+    "value": 0
   },
   "BotOrder": {
     "buyerTgId": 0,
     "buyerUsername": "",
     "clientEmail": "",
     "createdAt": 0,
+    "discountAmountToman": 0,
+    "discountCodeId": 0,
+    "finalAmountToman": 0,
     "id": 0,
+    "kind": "",
     "ownerId": 0,
+    "paidAt": 0,
+    "payFromWallet": false,
     "paymentMethodId": 0,
     "planId": 0,
     "proofText": "",
     "proofTgFileId": "",
+    "publicToken": "",
     "rejectReason": "",
     "reviewedAt": 0,
     "reviewedBy": 0,
-    "status": ""
+    "status": "",
+    "subscriptionId": 0,
+    "transactionRef": ""
   },
   "BotPaymentMethod": {
     "enabled": false,
@@ -271,11 +314,43 @@ export const EXAMPLES: Record<string, unknown> = {
     "inboundIds": [
       0
     ],
+    "isTrial": false,
     "name": "",
     "ownerId": 0,
     "priceToman": 0,
     "sortOrder": 0,
     "trafficGB": 0
+  },
+  "BotRedeemCode": {
+    "amountToman": 0,
+    "code": "",
+    "enabled": false,
+    "expiresAt": 0,
+    "id": 0,
+    "maxUses": 0,
+    "ownerId": 0,
+    "usedCount": 0
+  },
+  "BotSubscription": {
+    "autoRenewEnabled": false,
+    "clientEmail": "",
+    "createdAt": 0,
+    "customerId": 0,
+    "id": 0,
+    "lastAutoRenewAttempt": 0,
+    "ownerId": 0,
+    "planId": 0
+  },
+  "BotWalletTransaction": {
+    "amountToman": 0,
+    "balanceAfterToman": 0,
+    "createdAt": 0,
+    "customerId": 0,
+    "id": 0,
+    "kind": "",
+    "note": "",
+    "ownerId": 0,
+    "relatedOrderId": 0
   },
   "Client": {
     "adTag": "0123456789abcdef0123456789abcdef",

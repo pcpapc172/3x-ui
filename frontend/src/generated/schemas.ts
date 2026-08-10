@@ -1004,6 +1004,38 @@ export const SCHEMAS: Record<string, unknown> = {
       "ownerId": {
         "type": "integer"
       },
+      "referralEnabled": {
+        "type": "boolean"
+      },
+      "referralKind": {
+        "description": "ReferralKind: \"flat\" (ReferralValue Toman per qualifying referral) or\n\"percent\" (ReferralValue percent of the referred purchase).",
+        "enum": [
+          "flat",
+          "percent"
+        ],
+        "type": "string"
+      },
+      "referralTrigger": {
+        "description": "ReferralTrigger: \"first_purchase\" credits the referrer once; \"every_purchase\" credits on every referred order.",
+        "enum": [
+          "first_purchase",
+          "every_purchase"
+        ],
+        "type": "string"
+      },
+      "referralValue": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "supportText": {
+        "type": "string"
+      },
+      "tutorialText": {
+        "type": "string"
+      },
+      "walletEnabled": {
+        "type": "boolean"
+      },
       "welcomeMessage": {
         "type": "string"
       }
@@ -1013,7 +1045,127 @@ export const SCHEMAS: Record<string, unknown> = {
       "enabled",
       "id",
       "ownerId",
+      "referralEnabled",
+      "referralKind",
+      "referralTrigger",
+      "referralValue",
+      "supportText",
+      "tutorialText",
+      "walletEnabled",
       "welcomeMessage"
+    ],
+    "type": "object"
+  },
+  "BotCustomer": {
+    "description": "BotCustomer is one buyer's persistent profile with a given owner's bot:\nlanguage choice, wallet balance and referral standing survive across orders.",
+    "properties": {
+      "buyerTgId": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "buyerUsername": {
+        "type": "string"
+      },
+      "createdAt": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "id": {
+        "type": "integer"
+      },
+      "language": {
+        "description": "Language is \"\" until the buyer picks one on their first /start (the\nbot then shows the language picker); callers should treat \"\" as \"fa\".",
+        "type": "string"
+      },
+      "notificationsEnabled": {
+        "type": "boolean"
+      },
+      "ownerId": {
+        "type": "integer"
+      },
+      "referralCode": {
+        "type": "string"
+      },
+      "referredByCustomerId": {
+        "type": "integer"
+      },
+      "trialUsed": {
+        "type": "boolean"
+      },
+      "walletBalanceToman": {
+        "format": "int64",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "buyerTgId",
+      "buyerUsername",
+      "createdAt",
+      "id",
+      "language",
+      "notificationsEnabled",
+      "ownerId",
+      "referralCode",
+      "referredByCustomerId",
+      "trialUsed",
+      "walletBalanceToman"
+    ],
+    "type": "object"
+  },
+  "BotDiscountCode": {
+    "description": "BotDiscountCode reduces a purchase/renewal invoice's price.",
+    "properties": {
+      "code": {
+        "type": "string"
+      },
+      "enabled": {
+        "type": "boolean"
+      },
+      "expiresAt": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "id": {
+        "type": "integer"
+      },
+      "kind": {
+        "enum": [
+          "percent",
+          "fixed"
+        ],
+        "type": "string"
+      },
+      "maxUses": {
+        "type": "integer"
+      },
+      "ownerId": {
+        "type": "integer"
+      },
+      "planIds": {
+        "items": {
+          "type": "integer"
+        },
+        "type": "array"
+      },
+      "usedCount": {
+        "type": "integer"
+      },
+      "value": {
+        "format": "int64",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "code",
+      "enabled",
+      "expiresAt",
+      "id",
+      "kind",
+      "maxUses",
+      "ownerId",
+      "planIds",
+      "usedCount",
+      "value"
     ],
     "type": "object"
   },
@@ -1034,11 +1186,32 @@ export const SCHEMAS: Record<string, unknown> = {
         "format": "int64",
         "type": "integer"
       },
+      "discountAmountToman": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "discountCodeId": {
+        "type": "integer"
+      },
+      "finalAmountToman": {
+        "format": "int64",
+        "type": "integer"
+      },
       "id": {
         "type": "integer"
       },
+      "kind": {
+        "type": "string"
+      },
       "ownerId": {
         "type": "integer"
+      },
+      "paidAt": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "payFromWallet": {
+        "type": "boolean"
       },
       "paymentMethodId": {
         "type": "integer"
@@ -1050,6 +1223,9 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "proofTgFileId": {
+        "type": "string"
+      },
+      "publicToken": {
         "type": "string"
       },
       "rejectReason": {
@@ -1064,6 +1240,13 @@ export const SCHEMAS: Record<string, unknown> = {
       },
       "status": {
         "type": "string"
+      },
+      "subscriptionId": {
+        "description": "SubscriptionId is set only for Kind==BotOrderKindRenewal — which\nexisting BotSubscription/client to extend, instead of provisioning new.",
+        "type": "integer"
+      },
+      "transactionRef": {
+        "type": "string"
       }
     },
     "required": [
@@ -1071,16 +1254,25 @@ export const SCHEMAS: Record<string, unknown> = {
       "buyerUsername",
       "clientEmail",
       "createdAt",
+      "discountAmountToman",
+      "discountCodeId",
+      "finalAmountToman",
       "id",
+      "kind",
       "ownerId",
+      "paidAt",
+      "payFromWallet",
       "paymentMethodId",
       "planId",
       "proofText",
       "proofTgFileId",
+      "publicToken",
       "rejectReason",
       "reviewedAt",
       "reviewedBy",
-      "status"
+      "status",
+      "subscriptionId",
+      "transactionRef"
     ],
     "type": "object"
   },
@@ -1146,6 +1338,10 @@ export const SCHEMAS: Record<string, unknown> = {
         },
         "type": "array"
       },
+      "isTrial": {
+        "description": "IsTrial marks the (at most one, enforced in BotService.SavePlan) plan\noffered free via \"Get free trial\", gated by BotCustomer.TrialUsed.",
+        "type": "boolean"
+      },
       "name": {
         "type": "string"
       },
@@ -1169,11 +1365,144 @@ export const SCHEMAS: Record<string, unknown> = {
       "enabled",
       "id",
       "inboundIds",
+      "isTrial",
       "name",
       "ownerId",
       "priceToman",
       "sortOrder",
       "trafficGB"
+    ],
+    "type": "object"
+  },
+  "BotRedeemCode": {
+    "description": "BotRedeemCode credits a buyer's wallet directly (a gift code), distinct\nfrom BotDiscountCode which only reduces an invoice's price.",
+    "properties": {
+      "amountToman": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "code": {
+        "type": "string"
+      },
+      "enabled": {
+        "type": "boolean"
+      },
+      "expiresAt": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "id": {
+        "type": "integer"
+      },
+      "maxUses": {
+        "type": "integer"
+      },
+      "ownerId": {
+        "type": "integer"
+      },
+      "usedCount": {
+        "type": "integer"
+      }
+    },
+    "required": [
+      "amountToman",
+      "code",
+      "enabled",
+      "expiresAt",
+      "id",
+      "maxUses",
+      "ownerId",
+      "usedCount"
+    ],
+    "type": "object"
+  },
+  "BotSubscription": {
+    "description": "BotSubscription is one provisioned client (created on first approval, not\nduplicated by renewals) — the anchor for \"my subscriptions\" and auto-renew.",
+    "properties": {
+      "autoRenewEnabled": {
+        "type": "boolean"
+      },
+      "clientEmail": {
+        "type": "string"
+      },
+      "createdAt": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "customerId": {
+        "type": "integer"
+      },
+      "id": {
+        "type": "integer"
+      },
+      "lastAutoRenewAttempt": {
+        "description": "LastAutoRenewAttempt bounds the auto-renew cron to one attempt (success\nor failure) per subscription per day, so a persistently low wallet\nbalance can't spam the buyer every cron tick.",
+        "format": "int64",
+        "type": "integer"
+      },
+      "ownerId": {
+        "type": "integer"
+      },
+      "planId": {
+        "type": "integer"
+      }
+    },
+    "required": [
+      "autoRenewEnabled",
+      "clientEmail",
+      "createdAt",
+      "customerId",
+      "id",
+      "lastAutoRenewAttempt",
+      "ownerId",
+      "planId"
+    ],
+    "type": "object"
+  },
+  "BotWalletTransaction": {
+    "description": "BotWalletTransaction is one ledger entry backing a BotCustomer's wallet\nbalance; the balance is only ever mutated alongside a new row here.",
+    "properties": {
+      "amountToman": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "balanceAfterToman": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "createdAt": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "customerId": {
+        "type": "integer"
+      },
+      "id": {
+        "type": "integer"
+      },
+      "kind": {
+        "type": "string"
+      },
+      "note": {
+        "type": "string"
+      },
+      "ownerId": {
+        "type": "integer"
+      },
+      "relatedOrderId": {
+        "type": "integer"
+      }
+    },
+    "required": [
+      "amountToman",
+      "balanceAfterToman",
+      "createdAt",
+      "customerId",
+      "id",
+      "kind",
+      "note",
+      "ownerId",
+      "relatedOrderId"
     ],
     "type": "object"
   },

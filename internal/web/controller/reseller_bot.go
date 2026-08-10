@@ -45,6 +45,17 @@ func (a *ResellerBotController) initRouter(g *gin.RouterGroup) {
 	g.POST("/orders/approve/:id", a.approveOrder)
 	g.POST("/orders/reject/:id", a.rejectOrder)
 	g.GET("/orders/:id/proof-photo", a.orderProofPhoto)
+
+	g.GET("/discount-codes/list", a.listDiscountCodes)
+	g.POST("/discount-codes/set", a.setDiscountCode)
+	g.POST("/discount-codes/del/:id", a.delDiscountCode)
+
+	g.GET("/redeem-codes/list", a.listRedeemCodes)
+	g.POST("/redeem-codes/set", a.setRedeemCode)
+	g.POST("/redeem-codes/del/:id", a.delRedeemCode)
+
+	g.GET("/customers/list", a.listCustomers)
+	g.POST("/customers/:id/adjust-wallet", a.adjustCustomerWallet)
 }
 
 func (a *ResellerBotController) getConfig(c *gin.Context) {
@@ -55,18 +66,32 @@ func (a *ResellerBotController) getConfig(c *gin.Context) {
 		return
 	}
 	jsonObj(c, gin.H{
-		"enabled":        cfg.Enabled,
-		"botUsername":    cfg.BotUsername,
-		"welcomeMessage": cfg.WelcomeMessage,
-		"linked":         cfg.OwnerChatId != 0,
-		"hasToken":       cfg.Token != "",
+		"enabled":         cfg.Enabled,
+		"botUsername":     cfg.BotUsername,
+		"welcomeMessage":  cfg.WelcomeMessage,
+		"linked":          cfg.OwnerChatId != 0,
+		"hasToken":        cfg.Token != "",
+		"walletEnabled":   cfg.WalletEnabled,
+		"referralEnabled": cfg.ReferralEnabled,
+		"referralKind":    cfg.ReferralKind,
+		"referralValue":   cfg.ReferralValue,
+		"referralTrigger": cfg.ReferralTrigger,
+		"supportText":     cfg.SupportText,
+		"tutorialText":    cfg.TutorialText,
 	}, nil)
 }
 
 type saveBotConfigForm struct {
-	Token          string `form:"token" json:"token"`
-	Enabled        bool   `form:"enabled" json:"enabled"`
-	WelcomeMessage string `form:"welcomeMessage" json:"welcomeMessage"`
+	Token           string `form:"token" json:"token"`
+	Enabled         bool   `form:"enabled" json:"enabled"`
+	WelcomeMessage  string `form:"welcomeMessage" json:"welcomeMessage"`
+	WalletEnabled   bool   `form:"walletEnabled" json:"walletEnabled"`
+	ReferralEnabled bool   `form:"referralEnabled" json:"referralEnabled"`
+	ReferralKind    string `form:"referralKind" json:"referralKind"`
+	ReferralValue   int64  `form:"referralValue" json:"referralValue"`
+	ReferralTrigger string `form:"referralTrigger" json:"referralTrigger"`
+	SupportText     string `form:"supportText" json:"supportText"`
+	TutorialText    string `form:"tutorialText" json:"tutorialText"`
 }
 
 func (a *ResellerBotController) saveConfig(c *gin.Context) {
@@ -76,7 +101,18 @@ func (a *ResellerBotController) saveConfig(c *gin.Context) {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
-	if _, err := a.botService.SaveConfig(user.Id, form.Token, form.Enabled, form.WelcomeMessage); err != nil {
+	if _, err := a.botService.SaveConfig(user.Id, panel.BotConfigInput{
+		Token:           form.Token,
+		Enabled:         form.Enabled,
+		WelcomeMessage:  form.WelcomeMessage,
+		WalletEnabled:   form.WalletEnabled,
+		ReferralEnabled: form.ReferralEnabled,
+		ReferralKind:    form.ReferralKind,
+		ReferralValue:   form.ReferralValue,
+		ReferralTrigger: form.ReferralTrigger,
+		SupportText:     form.SupportText,
+		TutorialText:    form.TutorialText,
+	}); err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
@@ -115,6 +151,7 @@ type setPlanForm struct {
 	PriceToman   int64  `form:"priceToman" json:"priceToman"`
 	InboundIds   []int  `form:"inboundIds" json:"inboundIds"`
 	Enabled      bool   `form:"enabled" json:"enabled"`
+	IsTrial      bool   `form:"isTrial" json:"isTrial"`
 }
 
 func (a *ResellerBotController) setPlan(c *gin.Context) {
@@ -133,6 +170,7 @@ func (a *ResellerBotController) setPlan(c *gin.Context) {
 		PriceToman:   form.PriceToman,
 		InboundIds:   form.InboundIds,
 		Enabled:      form.Enabled,
+		IsTrial:      form.IsTrial,
 	}
 	if err := a.botService.SavePlan(&plan); err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
@@ -293,4 +331,154 @@ func (a *ResellerBotController) orderProofPhoto(c *gin.Context) {
 	defer rc.Close()
 	c.Header("Content-Type", contentType)
 	_, _ = io.Copy(c.Writer, rc)
+}
+
+func (a *ResellerBotController) listDiscountCodes(c *gin.Context) {
+	user := session.GetLoginUser(c)
+	codes, err := a.botService.ListDiscountCodes(user.Id)
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	jsonObj(c, codes, nil)
+}
+
+type setDiscountCodeForm struct {
+	Id        int    `form:"id" json:"id"`
+	Code      string `form:"code" json:"code"`
+	Kind      string `form:"kind" json:"kind"`
+	Value     int64  `form:"value" json:"value"`
+	MaxUses   int    `form:"maxUses" json:"maxUses"`
+	PlanIds   []int  `form:"planIds" json:"planIds"`
+	ExpiresAt int64  `form:"expiresAt" json:"expiresAt"`
+	Enabled   bool   `form:"enabled" json:"enabled"`
+}
+
+func (a *ResellerBotController) setDiscountCode(c *gin.Context) {
+	user := session.GetLoginUser(c)
+	var form setDiscountCodeForm
+	if err := c.ShouldBind(&form); err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	dc := model.BotDiscountCode{
+		Id:        form.Id,
+		OwnerId:   user.Id,
+		Code:      form.Code,
+		Kind:      form.Kind,
+		Value:     form.Value,
+		MaxUses:   form.MaxUses,
+		PlanIds:   form.PlanIds,
+		ExpiresAt: form.ExpiresAt,
+		Enabled:   form.Enabled,
+	}
+	if err := a.botService.SaveDiscountCode(&dc); err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	jsonMsg(c, "success", nil)
+}
+
+func (a *ResellerBotController) delDiscountCode(c *gin.Context) {
+	user := session.GetLoginUser(c)
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	if err := a.botService.DeleteDiscountCode(user.Id, id); err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	jsonMsg(c, "success", nil)
+}
+
+func (a *ResellerBotController) listRedeemCodes(c *gin.Context) {
+	user := session.GetLoginUser(c)
+	codes, err := a.botService.ListRedeemCodes(user.Id)
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	jsonObj(c, codes, nil)
+}
+
+type setRedeemCodeForm struct {
+	Id          int    `form:"id" json:"id"`
+	Code        string `form:"code" json:"code"`
+	AmountToman int64  `form:"amountToman" json:"amountToman"`
+	MaxUses     int    `form:"maxUses" json:"maxUses"`
+	ExpiresAt   int64  `form:"expiresAt" json:"expiresAt"`
+	Enabled     bool   `form:"enabled" json:"enabled"`
+}
+
+func (a *ResellerBotController) setRedeemCode(c *gin.Context) {
+	user := session.GetLoginUser(c)
+	var form setRedeemCodeForm
+	if err := c.ShouldBind(&form); err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	rc := model.BotRedeemCode{
+		Id:          form.Id,
+		OwnerId:     user.Id,
+		Code:        form.Code,
+		AmountToman: form.AmountToman,
+		MaxUses:     form.MaxUses,
+		ExpiresAt:   form.ExpiresAt,
+		Enabled:     form.Enabled,
+	}
+	if err := a.botService.SaveRedeemCode(&rc); err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	jsonMsg(c, "success", nil)
+}
+
+func (a *ResellerBotController) delRedeemCode(c *gin.Context) {
+	user := session.GetLoginUser(c)
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	if err := a.botService.DeleteRedeemCode(user.Id, id); err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	jsonMsg(c, "success", nil)
+}
+
+func (a *ResellerBotController) listCustomers(c *gin.Context) {
+	user := session.GetLoginUser(c)
+	customers, err := a.botService.ListCustomers(user.Id)
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	jsonObj(c, customers, nil)
+}
+
+type adjustWalletForm struct {
+	DeltaToman int64  `form:"deltaToman" json:"deltaToman"`
+	Note       string `form:"note" json:"note"`
+}
+
+func (a *ResellerBotController) adjustCustomerWallet(c *gin.Context) {
+	user := session.GetLoginUser(c)
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	var form adjustWalletForm
+	if err := c.ShouldBind(&form); err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	if err := a.botService.AdjustWallet(user.Id, id, form.DeltaToman, form.Note); err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	jsonMsg(c, "success", nil)
 }

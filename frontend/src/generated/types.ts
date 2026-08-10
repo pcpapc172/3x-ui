@@ -246,7 +246,41 @@ export interface BotConfig {
   enabled: boolean;
   id: number;
   ownerId: number;
+  referralEnabled: boolean;
+  referralKind: string;
+  referralTrigger: string;
+  referralValue: number;
+  supportText: string;
+  tutorialText: string;
+  walletEnabled: boolean;
   welcomeMessage: string;
+}
+
+export interface BotCustomer {
+  buyerTgId: number;
+  buyerUsername: string;
+  createdAt: number;
+  id: number;
+  language: string;
+  notificationsEnabled: boolean;
+  ownerId: number;
+  referralCode: string;
+  referredByCustomerId: number;
+  trialUsed: boolean;
+  walletBalanceToman: number;
+}
+
+export interface BotDiscountCode {
+  code: string;
+  enabled: boolean;
+  expiresAt: number;
+  id: number;
+  kind: string;
+  maxUses: number;
+  ownerId: number;
+  planIds: number[];
+  usedCount: number;
+  value: number;
 }
 
 export interface BotOrder {
@@ -254,16 +288,25 @@ export interface BotOrder {
   buyerUsername: string;
   clientEmail: string;
   createdAt: number;
+  discountAmountToman: number;
+  discountCodeId: number;
+  finalAmountToman: number;
   id: number;
+  kind: string;
   ownerId: number;
+  paidAt: number;
+  payFromWallet: boolean;
   paymentMethodId: number;
   planId: number;
   proofText: string;
   proofTgFileId: string;
+  publicToken: string;
   rejectReason: string;
   reviewedAt: number;
   reviewedBy: number;
   status: string;
+  subscriptionId: number;
+  transactionRef: string;
 }
 
 export interface BotPaymentMethod {
@@ -282,11 +325,46 @@ export interface BotPlan {
   enabled: boolean;
   id: number;
   inboundIds: number[];
+  isTrial: boolean;
   name: string;
   ownerId: number;
   priceToman: number;
   sortOrder: number;
   trafficGB: number;
+}
+
+export interface BotRedeemCode {
+  amountToman: number;
+  code: string;
+  enabled: boolean;
+  expiresAt: number;
+  id: number;
+  maxUses: number;
+  ownerId: number;
+  usedCount: number;
+}
+
+export interface BotSubscription {
+  autoRenewEnabled: boolean;
+  clientEmail: string;
+  createdAt: number;
+  customerId: number;
+  id: number;
+  lastAutoRenewAttempt: number;
+  ownerId: number;
+  planId: number;
+}
+
+export interface BotWalletTransaction {
+  amountToman: number;
+  balanceAfterToman: number;
+  createdAt: number;
+  customerId: number;
+  id: number;
+  kind: string;
+  note: string;
+  ownerId: number;
+  relatedOrderId: number;
 }
 
 export interface Client {
