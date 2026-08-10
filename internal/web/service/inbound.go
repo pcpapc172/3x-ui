@@ -556,23 +556,33 @@ func (s *InboundService) GetInboundsSlimByIds(ids []int) ([]*model.Inbound, erro
 	return inbounds, nil
 }
 
-// GetInboundOptionsByIds returns lightweight inbound projections filtered by IDs.
+// GetInboundOptionsByIds returns lightweight inbound projections filtered by
+// IDs. Field set mirrors GetInboundOptions — resellers in "select" mode go
+// through this path, so a missing column here (notably Enable) silently
+// hides every inbound from the client-creation picker, which filters out
+// anything not enabled.
 func (s *InboundService) GetInboundOptionsByIds(ids []int) ([]InboundOption, error) {
 	db := database.GetDB()
 	var rows []struct {
-		Id             int    `gorm:"column:id"`
-		Remark         string `gorm:"column:remark"`
-		Tag            string `gorm:"column:tag"`
-		Protocol       string `gorm:"column:protocol"`
-		Port           int    `gorm:"column:port"`
-		StreamSettings string `gorm:"column:stream_settings"`
-		Settings       string `gorm:"column:settings"`
-		NodeId         *int   `gorm:"column:node_id"`
+		Id                int    `gorm:"column:id"`
+		Remark            string `gorm:"column:remark"`
+		Tag               string `gorm:"column:tag"`
+		Protocol          string `gorm:"column:protocol"`
+		Port              int    `gorm:"column:port"`
+		Enable            bool   `gorm:"column:enable"`
+		StreamSettings    string `gorm:"column:stream_settings"`
+		Settings          string `gorm:"column:settings"`
+		Listen            string `gorm:"column:listen"`
+		ShareAddr         string `gorm:"column:share_addr"`
+		ShareAddrStrategy string `gorm:"column:share_addr_strategy"`
+		NodeId            *int   `gorm:"column:node_id"`
+		NodeAddress       string `gorm:"column:node_address"`
 	}
 	err := db.Table("inbounds").
-		Select("id, remark, tag, protocol, port, stream_settings, settings, node_id").
-		Where("id IN ?", ids).
-		Order("id ASC").
+		Select("inbounds.id, inbounds.remark, inbounds.tag, inbounds.protocol, inbounds.port, inbounds.enable, inbounds.stream_settings, inbounds.settings, inbounds.listen, inbounds.share_addr, inbounds.share_addr_strategy, inbounds.node_id, COALESCE(nodes.address, '') AS node_address").
+		Joins("LEFT JOIN nodes ON nodes.id = inbounds.node_id").
+		Where("inbounds.id IN ?", ids).
+		Order("inbounds.id ASC").
 		Scan(&rows).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
@@ -580,18 +590,28 @@ func (s *InboundService) GetInboundOptionsByIds(ids []int) ([]InboundOption, err
 	out := make([]InboundOption, 0, len(rows))
 	for _, r := range rows {
 		wgPublicKey, wgMtu, wgDns := inboundWireguardHints(r.Protocol, r.Settings)
+		shareAddrStrategy := r.ShareAddrStrategy
+		if shareAddrStrategy == "node" {
+			shareAddrStrategy = ""
+		}
 		out = append(out, InboundOption{
-			Id:             r.Id,
-			Remark:         r.Remark,
-			Tag:            r.Tag,
-			Protocol:       r.Protocol,
-			Port:           r.Port,
-			TlsFlowCapable: inboundCanEnableTlsFlow(r.Protocol, r.StreamSettings, r.Settings),
-			SsMethod:       inboundShadowsocksMethod(r.Protocol, r.Settings),
-			WgPublicKey:    wgPublicKey,
-			WgMtu:          wgMtu,
-			WgDns:          wgDns,
-			NodeId:         r.NodeId,
+			Id:                r.Id,
+			Remark:            r.Remark,
+			Tag:               r.Tag,
+			Protocol:          r.Protocol,
+			Port:              r.Port,
+			Enable:            r.Enable,
+			TlsFlowCapable:    inboundCanEnableTlsFlow(r.Protocol, r.StreamSettings, r.Settings),
+			SsMethod:          inboundShadowsocksMethod(r.Protocol, r.Settings),
+			WgPublicKey:       wgPublicKey,
+			WgMtu:             wgMtu,
+			WgDns:             wgDns,
+			MtprotoDomain:     inboundMtprotoDomain(r.Protocol, r.Settings),
+			NodeId:            r.NodeId,
+			NodeAddress:       r.NodeAddress,
+			Listen:            r.Listen,
+			ShareAddr:         r.ShareAddr,
+			ShareAddrStrategy: shareAddrStrategy,
 		})
 	}
 	return out, nil
