@@ -294,6 +294,7 @@ const (
 	cadenceOutboundSub   = "@every 5m"
 	cadenceReapOrphans   = "@every 5m"
 	cadenceResellerBot   = "@every 1m"
+	cadenceBotAutoRenew  = "@every 30m"
 	cadenceXrayLogPrune  = "@every 10m"
 	cadenceCheckHash     = "@every 2m"
 	// cpu.Percent samples over a full minute (blocking), so a finer cadence just
@@ -333,6 +334,9 @@ func (s *Server) startTask(restartXray bool, loc *time.Location) {
 	botJob := job.NewResellerBotJob()
 	_, _ = s.cron.AddJob(cadenceResellerBot, botJob)
 	go botJob.Run()
+
+	// Auto-renew bot-sold subscriptions nearing expiry from the buyer's wallet
+	_, _ = s.cron.AddJob(cadenceBotAutoRenew, job.NewBotAutoRenewJob())
 
 	// check client ips from log file every 10 sec
 	_, _ = s.cron.AddJob(cadenceClientIPScan, job.NewCheckClientIpJob())
