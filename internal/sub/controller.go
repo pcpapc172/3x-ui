@@ -395,6 +395,7 @@ func (a *SUBController) subs(c *gin.Context) {
 	logSubscriptionRoute(userAgent, "raw")
 	subId := c.Param("subid")
 	scheme, host, hostWithPort, _ := a.subService.ResolveRequest(c)
+	service.RecordObservedPublicHost(host, scheme)
 	subReq := a.subService.ForRequest(host)
 	subReq.subscriptionBody = true
 	subs, _, _, traffic, err := subReq.getSubs(subId)

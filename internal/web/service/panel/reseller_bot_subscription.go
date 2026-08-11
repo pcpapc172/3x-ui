@@ -37,6 +37,15 @@ func (s *BotService) GetSubscription(ownerId, id int) (*model.BotSubscription, e
 	return sub, err
 }
 
+// GetSubscriptionByEmail looks up a subscription by its client's email —
+// used right after a purchase/renewal settles, when the caller only has the
+// provisioned/renewed client's email, not the BotSubscription id.
+func (s *BotService) GetSubscriptionByEmail(ownerId int, email string) (*model.BotSubscription, error) {
+	sub := &model.BotSubscription{}
+	err := database.GetDB().Where("owner_id = ? AND client_email = ?", ownerId, email).First(sub).Error
+	return sub, err
+}
+
 // GetSubscriptionConfigs builds the subscription URL for a client, reusing
 // the same host/path/TLS resolution the admin Telegram bot and web panel
 // already use (service.BuildSubscriptionURLs) rather than re-deriving it.
@@ -45,6 +54,17 @@ func (s *BotService) GetSubscriptionConfigs(clientEmail string) (subURL string, 
 	settingSvc := &service.SettingService{}
 	subURL, _, err = service.BuildSubscriptionURLs(inboundSvc, settingSvc, clientEmail, "")
 	return subURL, err
+}
+
+// GetClientConfigLinks returns the client's individual per-protocol share
+// links (vless://, vmess://, trojan://, ...), one per attached inbound —
+// what "Get configs" actually hands the buyer, as opposed to the aggregate
+// /sub/<subId> URL from GetSubscriptionConfigs.
+func (s *BotService) GetClientConfigLinks(clientEmail string) ([]string, error) {
+	inboundSvc := &service.InboundService{}
+	settingSvc := &service.SettingService{}
+	host, _ := service.ResolveFallbackHost(settingSvc, "")
+	return inboundSvc.GetAllClientLinks(host, clientEmail)
 }
 
 // RevokeLink issues fresh credentials for the subscription's client —

@@ -6,6 +6,26 @@ import (
 	"strings"
 )
 
+// ResolveFallbackHost picks the best-known public host for a caller with no
+// live HTTP request to read a Host header from (e.g. a Telegram bot
+// goroutine): the configured web domain, else the most recently observed
+// public host a real subscription request arrived on (see
+// RecordObservedPublicHost), else the caller's own fallbackHost, else
+// "localhost". scheme is only non-empty ("https") when it came from the
+// observed-host source, since that's the only source with a real scheme.
+func ResolveFallbackHost(settingSvc *SettingService, fallbackHost string) (host, scheme string) {
+	if d, dErr := settingSvc.GetWebDomain(); dErr == nil && d != "" {
+		return d, ""
+	}
+	if oh, oscheme := ObservedPublicHost(); oh != "" {
+		return oh, oscheme
+	}
+	if fallbackHost != "" {
+		return fallbackHost, ""
+	}
+	return "localhost", ""
+}
+
 // BuildSubscriptionURLs returns a client's subscription page URL (and JSON
 // URL, when enabled), using the panel's configured sub-server settings.
 // fallbackHost is used only when no sub domain or web domain is configured
@@ -36,12 +56,11 @@ func BuildSubscriptionURLs(inboundSvc *InboundService, settingSvc *SettingServic
 	}
 
 	if subDomain == "" {
-		if d, dErr := settingSvc.GetWebDomain(); dErr == nil && d != "" {
-			subDomain = d
-		} else if fallbackHost != "" {
-			subDomain = fallbackHost
-		} else {
-			subDomain = "localhost"
+		var oscheme string
+		subDomain, oscheme = ResolveFallbackHost(settingSvc, fallbackHost)
+		if oscheme == "https" {
+			tls = true
+			scheme = "https"
 		}
 	}
 
