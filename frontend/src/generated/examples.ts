@@ -291,6 +291,7 @@ export const EXAMPLES: Record<string, unknown> = {
     "proofTgFileId": "",
     "publicToken": "",
     "rejectReason": "",
+    "requestedEmail": "",
     "reviewedAt": 0,
     "reviewedBy": 0,
     "status": "",

@@ -1231,6 +1231,10 @@ export const SCHEMAS: Record<string, unknown> = {
       "rejectReason": {
         "type": "string"
       },
+      "requestedEmail": {
+        "description": "RequestedEmail is the buyer-chosen username for a new client, captured\nbefore payment; \"\" means auto-generate (the \"random\" choice).",
+        "type": "string"
+      },
       "reviewedAt": {
         "format": "int64",
         "type": "integer"
@@ -1268,6 +1272,7 @@ export const SCHEMAS: Record<string, unknown> = {
       "proofTgFileId",
       "publicToken",
       "rejectReason",
+      "requestedEmail",
       "reviewedAt",
       "reviewedBy",
       "status",

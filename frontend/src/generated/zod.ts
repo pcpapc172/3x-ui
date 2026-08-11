@@ -321,6 +321,7 @@ export const BotOrderSchema = z.object({
   proofTgFileId: z.string(),
   publicToken: z.string(),
   rejectReason: z.string(),
+  requestedEmail: z.string(),
   reviewedAt: z.number().int(),
   reviewedBy: z.number().int(),
   status: z.string(),

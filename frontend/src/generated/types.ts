@@ -302,6 +302,7 @@ export interface BotOrder {
   proofTgFileId: string;
   publicToken: string;
   rejectReason: string;
+  requestedEmail: string;
   reviewedAt: number;
   reviewedBy: number;
   status: string;
