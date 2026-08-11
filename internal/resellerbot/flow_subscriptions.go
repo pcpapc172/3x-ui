@@ -2,10 +2,13 @@ package resellerbot
 
 import (
 	"fmt"
+	"html"
 	"strconv"
 	"time"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
+	"github.com/mhsanaei/3x-ui/v3/internal/web/service/panel"
 
 	"github.com/mymmrac/telego"
 	tu "github.com/mymmrac/telego/telegoutil"
@@ -58,22 +61,35 @@ func (inst *botInstance) sendSubscriptionList(chatID, buyerTgID int64, buyerUser
 	inst.send(chatID, t(lang, "menuSubs"), tu.InlineKeyboard(rows...))
 }
 
-func (inst *botInstance) sendSubscriptionDetail(chatID int64, subID int, lang string) {
-	sub, err := botSvc.GetSubscription(inst.ownerId, subID)
-	if err != nil {
-		inst.send(chatID, t(lang, "error"))
-		return
+// clientStatusLabel collapses enable/expiry into the same three states the
+// subscription-page/subscription bot card shows.
+func clientStatusLabel(lang string, stats *panel.SubscriptionStats) string {
+	switch {
+	case stats == nil || !stats.Enable:
+		return t(lang, "clientStatusDisabled")
+	case stats.ExpiryTime > 0 && stats.ExpiryTime/1000 < time.Now().Unix():
+		return t(lang, "clientStatusExpired")
+	default:
+		return t(lang, "clientStatusActive")
 	}
+}
+
+// subscriptionCard renders the full subscription-detail message (status,
+// username, usage, remaining time, sub link) and its action buttons —
+// shared by "my subscriptions" and the post-purchase/renewal delivery card.
+func subscriptionCard(sub *model.BotSubscription, lang string) (string, *telego.InlineKeyboardMarkup) {
 	stats, _ := botSvc.GetSubscriptionStats(sub.ClientEmail)
 	subURL, _ := botSvc.GetSubscriptionConfigs(sub.ClientEmail)
 
-	var text string
+	text := t(lang, "subStatus", clientStatusLabel(lang, stats)) + "\n" + t(lang, "subUsername", sub.ClientEmail)
 	if stats != nil {
 		used := common.FormatTraffic(stats.Up + stats.Down)
+		remaining := t(lang, "unlimited")
 		if stats.Total > 0 {
-			used = fmt.Sprintf("%s / %s", used, common.FormatTraffic(stats.Total))
+			remaining = common.FormatTraffic(stats.Total - stats.Up - stats.Down)
 		}
-		text = t(lang, "subUsed", used) + "\n" + t(lang, "subRemaining", timeLeftLabel(stats.ExpiryTime))
+		text += "\n" + t(lang, "subUsed", used) + "\n" + t(lang, "subRemainingQuota", remaining) +
+			"\n" + t(lang, "subRemaining", timeLeftLabel(stats.ExpiryTime))
 	}
 	if subURL != "" {
 		text += "\n\n" + t(lang, "subLink", subURL)
@@ -90,7 +106,17 @@ func (inst *botInstance) sendSubscriptionDetail(chatID int64, subID int, lang st
 		tu.InlineKeyboardRow(tu.InlineKeyboardButton(t(lang, "btnRenew")).WithCallbackData("sub:renew:" + idStr)),
 		tu.InlineKeyboardRow(tu.InlineKeyboardButton(t(lang, autoLabel)).WithCallbackData("sub:autorenew:" + idStr)),
 	}
-	inst.send(chatID, text, tu.InlineKeyboard(rows...))
+	return text, tu.InlineKeyboard(rows...)
+}
+
+func (inst *botInstance) sendSubscriptionDetail(chatID int64, subID int, lang string) {
+	sub, err := botSvc.GetSubscription(inst.ownerId, subID)
+	if err != nil {
+		inst.send(chatID, t(lang, "error"))
+		return
+	}
+	text, kb := subscriptionCard(sub, lang)
+	inst.send(chatID, text, kb)
 }
 
 func (inst *botInstance) handleGetConfigs(chatID int64, subIDStr, lang string) {
@@ -103,12 +129,14 @@ func (inst *botInstance) handleGetConfigs(chatID int64, subIDStr, lang string) {
 		inst.send(chatID, t(lang, "error"))
 		return
 	}
-	subURL, err := botSvc.GetSubscriptionConfigs(sub.ClientEmail)
-	if err != nil || subURL == "" {
+	links, err := botSvc.GetClientConfigLinks(sub.ClientEmail)
+	if err != nil || len(links) == 0 {
 		inst.send(chatID, t(lang, "error"))
 		return
 	}
-	inst.send(chatID, t(lang, "subLink", subURL))
+	for _, link := range links {
+		inst.send(chatID, "<code>"+html.EscapeString(link)+"</code>")
+	}
 }
 
 func (inst *botInstance) handleRevokePrompt(chatID int64, subIDStr, lang string) {

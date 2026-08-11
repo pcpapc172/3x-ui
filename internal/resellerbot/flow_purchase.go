@@ -3,7 +3,9 @@ package resellerbot
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
@@ -74,17 +76,67 @@ func (inst *botInstance) sendPlanList(chatID int64, lang string) {
 	inst.send(chatID, t(lang, "choosePlan"), tu.InlineKeyboard(rows...))
 }
 
-func (inst *botInstance) handleBuyPlan(chatID, buyerTgID int64, buyerUsername, planIDStr, lang string) {
+func (inst *botInstance) handleBuyPlan(chatID int64, planIDStr, lang string) {
+	if _, err := strconv.Atoi(planIDStr); err != nil {
+		return
+	}
+	inst.states.set(chatID, "awaiting_username:"+planIDStr)
+	inst.send(chatID, t(lang, "askUsername"), tu.InlineKeyboard(tu.InlineKeyboardRow(
+		tu.InlineKeyboardButton(t(lang, "usernameRandom")).WithCallbackData("email:random:"+planIDStr),
+	)))
+}
+
+// validUsername mirrors this codebase's client-email character rule
+// (internal/web/service's unexported hasForbiddenClientChar): no path
+// separators, control characters, or whitespace.
+func validUsername(s string) bool {
+	if s == "" || len(s) > 64 {
+		return false
+	}
+	for _, r := range s {
+		if r == '/' || r == '\\' || r < 0x20 || r == 0x7f || unicode.IsSpace(r) {
+			return false
+		}
+	}
+	return true
+}
+
+func (inst *botInstance) createPurchaseAndShowInvoice(chatID, buyerTgID int64, buyerUsername, planIDStr, requestedEmail, lang string) {
 	planID, err := strconv.Atoi(planIDStr)
 	if err != nil {
 		return
 	}
-	order, err := botSvc.CreatePurchaseOrder(inst.ownerId, planID, buyerTgID, buyerUsername, 0, "")
+	order, err := botSvc.CreatePurchaseOrder(inst.ownerId, planID, buyerTgID, buyerUsername, 0, "", requestedEmail)
 	if err != nil {
 		inst.send(chatID, t(lang, "error"))
 		return
 	}
 	inst.sendInvoiceCard(chatID, order.Id, lang)
+}
+
+func (inst *botInstance) handleRandomUsername(chatID, buyerTgID int64, buyerUsername, planIDStr, lang string) {
+	inst.states.clear(chatID)
+	inst.createPurchaseAndShowInvoice(chatID, buyerTgID, buyerUsername, planIDStr, "", lang)
+}
+
+func (inst *botInstance) handleUsernameInput(message telego.Message, planIDStr, lang string) {
+	chatID := message.Chat.ID
+	username := strings.TrimSpace(message.Text)
+	if !validUsername(username) {
+		inst.send(chatID, t(lang, "usernameInvalid"))
+		return
+	}
+	taken, err := botSvc.IsClientEmailTaken(username)
+	if err != nil {
+		inst.send(chatID, t(lang, "error"))
+		return
+	}
+	if taken {
+		inst.send(chatID, t(lang, "usernameTaken"))
+		return
+	}
+	inst.states.clear(chatID)
+	inst.createPurchaseAndShowInvoice(chatID, message.From.ID, message.From.Username, planIDStr, username, lang)
 }
 
 func (inst *botInstance) handleRenew(chatID, buyerTgID int64, buyerUsername, subIDStr, lang string) {
@@ -302,14 +354,24 @@ func (inst *botInstance) handlePayFromWallet(chatID int64, orderIDStr, lang stri
 	}
 	order, email, err := botSvc.PayOrderFromWallet(orderID)
 	if err != nil {
-		inst.send(chatID, t(lang, "insufficientBalance"))
+		if err.Error() == "insufficient wallet balance" {
+			inst.send(chatID, t(lang, "insufficientBalance"))
+		} else {
+			inst.send(chatID, t(lang, "error")+" ("+err.Error()+")")
+		}
 		return
 	}
 	if order.Kind == model.BotOrderKindTopup {
 		inst.send(chatID, t(lang, "redeemSuccess", order.FinalAmountToman))
 		return
 	}
-	inst.send(chatID, t(lang, "orderApproved", email))
+	sub, err := botSvc.GetSubscriptionByEmail(inst.ownerId, email)
+	if err != nil {
+		inst.send(chatID, t(lang, "orderApproved", email))
+		return
+	}
+	text, kb := subscriptionCard(sub, lang)
+	inst.send(chatID, t(lang, "subscriptionActivated")+"\n\n"+text, kb)
 }
 
 func (inst *botInstance) handleProofMessage(message telego.Message, orderIDStr, lang string) {

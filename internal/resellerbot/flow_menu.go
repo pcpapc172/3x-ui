@@ -40,6 +40,10 @@ func (inst *botInstance) handleStart(_ *th.Context, message telego.Message) erro
 		return nil
 	}
 	inst.states.clear(message.Chat.ID)
+	if isOwnerChat(inst.ownerId, message.Chat.ID) {
+		inst.sendAdminMenu(message.Chat.ID)
+		return nil
+	}
 	customer, err := botSvc.GetOrCreateCustomer(inst.ownerId, message.From.ID, message.From.Username)
 	if err != nil {
 		inst.send(message.Chat.ID, t(langFA, "error"))

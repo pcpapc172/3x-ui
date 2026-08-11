@@ -12,12 +12,21 @@ import (
 	"github.com/mymmrac/telego"
 )
 
+// notifyBuyerApproved sends the full subscription-detail card (not just a
+// bare "approved" line) — the buyer's actual delivery message for a fresh
+// purchase or a renewal.
 func (inst *botInstance) notifyBuyerApproved(order *model.BotOrder, email string) {
 	lang := inst.customerLang(order.BuyerTgId, order.BuyerUsername)
 	if email == "" {
 		return // topup: settleOrder already messaged the buyer via redeemSuccess-style text
 	}
-	inst.send(order.BuyerTgId, t(lang, "orderApproved", email))
+	sub, err := botSvc.GetSubscriptionByEmail(order.OwnerId, email)
+	if err != nil {
+		inst.send(order.BuyerTgId, t(lang, "orderApproved", email))
+		return
+	}
+	text, kb := subscriptionCard(sub, lang)
+	inst.send(order.BuyerTgId, t(lang, "subscriptionActivated")+"\n\n"+text, kb)
 }
 
 func (inst *botInstance) notifyBuyerRejected(order *model.BotOrder) {
@@ -25,12 +34,20 @@ func (inst *botInstance) notifyBuyerRejected(order *model.BotOrder) {
 	inst.send(order.BuyerTgId, t(lang, "orderRejected"))
 }
 
+// notifyOwnerPendingReview pushes the same proof+Approve/Reject card /orders
+// shows, directly to the owner's linked chat, so a new order doesn't require
+// the owner to go run /orders manually to see and act on it.
 func (inst *botInstance) notifyOwnerPendingReview(orderID int) {
 	cfg, err := configFor(inst.ownerId)
 	if err != nil || cfg.OwnerChatId == 0 {
 		return
 	}
-	inst.send(cfg.OwnerChatId, fmt.Sprintf("%s #%d", t(langFA, "newOrderPendingReview"), orderID))
+	order, err := botSvc.GetOrder(inst.ownerId, orderID)
+	if err != nil {
+		return
+	}
+	inst.send(cfg.OwnerChatId, t(langFA, "newOrderPendingReview"))
+	inst.sendOrderReviewCard(cfg.OwnerChatId, *order)
 }
 
 // NotifyOrderApproved messages the buyer through the owner's bot after an

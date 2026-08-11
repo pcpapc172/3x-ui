@@ -6,9 +6,26 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/random"
+	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 
 	"gorm.io/gorm"
 )
+
+// IsClientEmailTaken checks whether a buyer-chosen username is already used
+// by another client, so the bot can reject it before an order is even
+// created (ClientService.Create enforces this too, at settlement time —
+// this is just the earlier, friendlier check).
+func (s *BotService) IsClientEmailTaken(email string) (bool, error) {
+	clientSvc := &service.ClientService{}
+	_, err := clientSvc.GetRecordByEmail(nil, email)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
 
 // ListCustomers is the admin-facing "Customers" tab — every buyer who has
 // ever contacted this owner's bot.

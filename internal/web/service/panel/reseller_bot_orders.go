@@ -67,14 +67,16 @@ func (s *BotService) applyDiscount(order *model.BotOrder, code string, priceToma
 	return nil
 }
 
-// CreatePurchaseOrder is called from the bot's buyer flow once a plan and
-// payment method have both been chosen.
-func (s *BotService) CreatePurchaseOrder(ownerId, planId int, buyerTgId int64, buyerUsername string, paymentMethodId int, discountCode string) (*model.BotOrder, error) {
+// CreatePurchaseOrder is called from the bot's buyer flow once a plan has
+// been chosen and a username (or "random") captured. requestedEmail == ""
+// means auto-generate at settlement time.
+func (s *BotService) CreatePurchaseOrder(ownerId, planId int, buyerTgId int64, buyerUsername string, paymentMethodId int, discountCode, requestedEmail string) (*model.BotOrder, error) {
 	plan := &model.BotPlan{}
 	if err := database.GetDB().Where("id = ? AND owner_id = ?", planId, ownerId).First(plan).Error; err != nil {
 		return nil, err
 	}
 	order := s.newOrder(ownerId, model.BotOrderKindPurchase, planId, 0, buyerTgId, buyerUsername, paymentMethodId, plan.PriceToman)
+	order.RequestedEmail = requestedEmail
 	if err := s.applyDiscount(order, discountCode, plan.PriceToman); err != nil {
 		return nil, err
 	}
@@ -266,7 +268,10 @@ func (s *BotService) settleOrder(order *model.BotOrder) (string, error) {
 			return "", errors.New("reseller is over their usage quota, cannot approve new orders")
 		}
 
-		email := "bot-" + random.NumLower(10)
+		email := order.RequestedEmail
+		if email == "" {
+			email = "bot-" + random.NumLower(10)
+		}
 		client := model.Client{
 			Email:      email,
 			Enable:     true,
@@ -407,6 +412,41 @@ func (s *BotService) RejectOrder(orderId, reviewerId int, reason string) (*model
 	order.Status = model.BotOrderRejected
 	order.RejectReason = reason
 	return order, nil
+}
+
+// OwnerStats is a quick shop-health summary for the bot's admin "Stats" menu.
+type OwnerStats struct {
+	CustomerCount  int64
+	ApprovedOrders int64
+	PendingReview  int64
+	RevenueToman   int64
+}
+
+// GetOwnerStats aggregates counts/revenue for the owner's bot. Revenue
+// excludes topups (a topup is money moving into the wallet, not revenue —
+// the later wallet-funded purchase it eventually pays for is what counts).
+func (s *BotService) GetOwnerStats(ownerId int) (*OwnerStats, error) {
+	db := database.GetDB()
+	stats := &OwnerStats{}
+	if err := db.Model(&model.BotCustomer{}).Where("owner_id = ?", ownerId).Count(&stats.CustomerCount).Error; err != nil {
+		return nil, err
+	}
+	if err := db.Model(&model.BotOrder{}).
+		Where("owner_id = ? AND status = ?", ownerId, model.BotOrderApproved).
+		Count(&stats.ApprovedOrders).Error; err != nil {
+		return nil, err
+	}
+	if err := db.Model(&model.BotOrder{}).
+		Where("owner_id = ? AND status = ?", ownerId, model.BotOrderPendingReview).
+		Count(&stats.PendingReview).Error; err != nil {
+		return nil, err
+	}
+	if err := db.Model(&model.BotOrder{}).
+		Where("owner_id = ? AND status = ? AND kind != ?", ownerId, model.BotOrderApproved, model.BotOrderKindTopup).
+		Select("COALESCE(SUM(final_amount_toman), 0)").Scan(&stats.RevenueToman).Error; err != nil {
+		return nil, err
+	}
+	return stats, nil
 }
 
 // ClaimTrial provisions the owner's trial plan (BotPlan.IsTrial) for a

@@ -60,25 +60,37 @@ func (inst *botInstance) handleOrdersCommand(_ *th.Context, message telego.Messa
 		return nil
 	}
 	for _, o := range orders {
-		plan, _ := botSvc.GetPlan(inst.ownerId, o.PlanId)
-		planName := kindLabel(langFA, o.Kind)
-		if plan != nil {
-			planName = plan.Name
-		}
-		summary := fmt.Sprintf("#%d — @%s\n%s\nProof: %s", o.Id, o.BuyerUsername, planName, orderProofSummary(o))
-		markup := tu.InlineKeyboard(tu.InlineKeyboardRow(
-			tu.InlineKeyboardButton(t(langFA, "approve")).WithCallbackData("a:"+strconv.Itoa(o.Id)),
-			tu.InlineKeyboardButton(t(langFA, "reject")).WithCallbackData("r:"+strconv.Itoa(o.Id)),
-		))
-		if o.ProofTgFileId != "" {
-			_, _ = inst.bot.SendPhoto(context.Background(), &telego.SendPhotoParams{
-				ChatID: tu.ID(message.Chat.ID), Photo: telego.InputFile{FileID: o.ProofTgFileId}, Caption: summary, ReplyMarkup: markup,
-			})
-			continue
-		}
-		inst.send(message.Chat.ID, summary, markup)
+		inst.sendOrderReviewCard(message.Chat.ID, o)
 	}
 	return nil
+}
+
+// sendOrderReviewCard renders one pending_review order for the owner: plan,
+// buyer, proof (photo or text), and inline Approve/Reject buttons — used by
+// both /orders and the pending-review push notification, so an owner never
+// has to run /orders manually just to see what they're approving.
+func (inst *botInstance) sendOrderReviewCard(chatID int64, o model.BotOrder) {
+	plan, _ := botSvc.GetPlan(inst.ownerId, o.PlanId)
+	planName := kindLabel(langFA, o.Kind)
+	if plan != nil {
+		planName = plan.Name
+	}
+	summary := fmt.Sprintf("#%d — @%s\n%s\n%s\nProof: %s", o.Id, o.BuyerUsername, planName,
+		t(langFA, "invoiceAmount", o.FinalAmountToman), orderProofSummary(o))
+	if o.TransactionRef != "" {
+		summary += "\n" + t(langFA, "invoiceTxRef", o.TransactionRef)
+	}
+	markup := tu.InlineKeyboard(tu.InlineKeyboardRow(
+		tu.InlineKeyboardButton(t(langFA, "approve")).WithCallbackData("a:"+strconv.Itoa(o.Id)),
+		tu.InlineKeyboardButton(t(langFA, "reject")).WithCallbackData("r:"+strconv.Itoa(o.Id)),
+	))
+	if o.ProofTgFileId != "" {
+		_, _ = inst.bot.SendPhoto(context.Background(), &telego.SendPhotoParams{
+			ChatID: tu.ID(chatID), Photo: telego.InputFile{FileID: o.ProofTgFileId}, Caption: summary, ReplyMarkup: markup,
+		})
+		return
+	}
+	inst.send(chatID, summary, markup)
 }
 
 func orderProofSummary(o model.BotOrder) string {
@@ -108,7 +120,12 @@ func (inst *botInstance) handleCallback(_ *th.Context, query telego.CallbackQuer
 	case "lang":
 		inst.handleSelectLanguage(chatID, buyerID, buyerUsername, parts[1])
 	case "buy":
-		inst.handleBuyPlan(chatID, buyerID, buyerUsername, parts[1], lang)
+		inst.handleBuyPlan(chatID, parts[1], lang)
+	case "email":
+		if len(parts) < 3 || parts[1] != "random" {
+			return nil
+		}
+		inst.handleRandomUsername(chatID, buyerID, buyerUsername, parts[2], lang)
 	case "inv":
 		if len(parts) < 3 {
 			return nil
@@ -227,6 +244,9 @@ func (inst *botInstance) handleMessage(_ *th.Context, message telego.Message) er
 		case strings.HasPrefix(state, "awaiting_discount:"):
 			inst.handleDiscountCode(message.Chat.ID, strings.TrimPrefix(state, "awaiting_discount:"), strings.TrimSpace(message.Text), lang)
 			return nil
+		case strings.HasPrefix(state, "awaiting_username:"):
+			inst.handleUsernameInput(message, strings.TrimPrefix(state, "awaiting_username:"), lang)
+			return nil
 		case state == "awaiting_topup_amount":
 			inst.handleTopupAmount(message, lang)
 			return nil
@@ -234,6 +254,10 @@ func (inst *botInstance) handleMessage(_ *th.Context, message telego.Message) er
 			inst.handleRedeemCode(message, lang)
 			return nil
 		}
+	}
+	if isOwnerChat(inst.ownerId, message.Chat.ID) {
+		inst.handleAdminMenuText(message)
+		return nil
 	}
 	inst.handleMenuText(message, lang)
 	return nil

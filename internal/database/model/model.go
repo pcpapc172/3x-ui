@@ -1185,10 +1185,13 @@ type BotOrder struct {
 	PayFromWallet       bool   `json:"payFromWallet" gorm:"default:false"`
 	PublicToken         string `json:"publicToken" gorm:"uniqueIndex"`
 	TransactionRef      string `json:"transactionRef"`
-	PaidAt              int64  `json:"paidAt" gorm:"default:0"`
-	CreatedAt           int64  `json:"createdAt" gorm:"autoCreateTime:milli"`
-	ReviewedAt          int64  `json:"reviewedAt"`
-	ReviewedBy          int    `json:"reviewedBy"`
+	// RequestedEmail is the buyer-chosen username for a new client, captured
+	// before payment; "" means auto-generate (the "random" choice).
+	RequestedEmail string `json:"requestedEmail"`
+	PaidAt         int64  `json:"paidAt" gorm:"default:0"`
+	CreatedAt      int64  `json:"createdAt" gorm:"autoCreateTime:milli"`
+	ReviewedAt     int64  `json:"reviewedAt"`
+	ReviewedBy     int    `json:"reviewedBy"`
 }
 
 func (BotOrder) TableName() string { return "bot_orders" }
