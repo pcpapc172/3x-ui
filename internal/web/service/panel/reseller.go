@@ -214,6 +214,12 @@ func (s *ResellerService) GetResellerById(id int) (*model.User, error) {
 // through the same ClientService.BulkSetEnable path the normal per-client
 // toggle uses — so a disabled reseller's clients actually stop working
 // instead of just losing panel access while staying fully connectable.
+//
+// The cascade uses ClientRecord.Locked the same way the over-quota
+// auto-disable job does: disabling marks only the clients it disabled as
+// locked, and re-enabling only unlocks/re-enables those — a client the
+// reseller had disabled manually beforehand (enable=false, locked=false)
+// is left alone in both directions.
 func (s *ResellerService) ToggleEnableReseller(id int) (bool, bool, error) {
 	db := database.GetDB()
 	user := &model.User{}
@@ -233,14 +239,31 @@ func (s *ResellerService) ToggleEnableReseller(id int) (bool, bool, error) {
 	enabled := newEpoch >= 0
 
 	var emails []string
-	db.Model(&model.ClientRecord{}).Where("owner_id = ?", id).Pluck("email", &emails)
-	if len(emails) == 0 {
-		return enabled, false, nil
+	if enabled {
+		db.Model(&model.ClientRecord{}).Where("owner_id = ? AND locked = ?", id, true).Pluck("email", &emails)
+		if len(emails) == 0 {
+			return enabled, false, nil
+		}
+		if err := db.Model(&model.ClientRecord{}).Where("email IN ?", emails).Update("locked", false).Error; err != nil {
+			logger.Warning("ToggleEnableReseller: clearing locked flag failed for reseller", id, ":", err)
+			return enabled, false, nil
+		}
+	} else {
+		db.Model(&model.ClientRecord{}).Where("owner_id = ? AND enable = ?", id, true).Pluck("email", &emails)
+		if len(emails) == 0 {
+			return enabled, false, nil
+		}
 	}
+
 	_, needRestart, err := (&service.ClientService{}).BulkSetEnable(&service.InboundService{}, emails, enabled)
 	if err != nil {
 		logger.Warning("ToggleEnableReseller: cascading enable state to clients failed for reseller", id, ":", err)
 		return enabled, false, nil
+	}
+	if !enabled {
+		if err := db.Model(&model.ClientRecord{}).Where("email IN ?", emails).Update("locked", true).Error; err != nil {
+			logger.Warning("ToggleEnableReseller: marking clients locked failed for reseller", id, ":", err)
+		}
 	}
 	return enabled, needRestart, nil
 }

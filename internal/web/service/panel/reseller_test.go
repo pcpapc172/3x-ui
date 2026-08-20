@@ -6,6 +6,7 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 	"github.com/mhsanaei/3x-ui/v3/internal/xray"
 )
 
@@ -65,6 +66,54 @@ func seedResellerWithClient(t *testing.T, email string) (reseller *model.User, i
 	}
 
 	return reseller, inbound
+}
+
+// addClientToReseller attaches one more client to an already-seeded
+// reseller/inbound pair, so multi-client cascade behavior can be tested.
+func addClientToReseller(t *testing.T, reseller *model.User, inbound *model.Inbound, email string) {
+	t.Helper()
+	db := database.GetDB()
+
+	client := model.Client{
+		Email:      email,
+		ID:         "22222222-2222-2222-2222-222222222222",
+		SubID:      email,
+		Enable:     true,
+		TotalGB:    0,
+		ExpiryTime: 0,
+	}
+
+	var settings struct {
+		Clients []model.Client `json:"clients"`
+	}
+	if err := json.Unmarshal([]byte(inbound.Settings), &settings); err != nil {
+		t.Fatalf("unmarshal inbound settings: %v", err)
+	}
+	settings.Clients = append(settings.Clients, client)
+	settingsJSON, err := json.Marshal(settings)
+	if err != nil {
+		t.Fatalf("marshal settings: %v", err)
+	}
+	if err := db.Model(inbound).Update("settings", string(settingsJSON)).Error; err != nil {
+		t.Fatalf("update inbound settings: %v", err)
+	}
+
+	rec := &model.ClientRecord{
+		Email:   email,
+		UUID:    client.ID,
+		SubID:   email,
+		Enable:  true,
+		OwnerId: reseller.Id,
+	}
+	if err := db.Create(rec).Error; err != nil {
+		t.Fatalf("create client record: %v", err)
+	}
+	if err := db.Create(&model.ClientInbound{ClientId: rec.Id, InboundId: inbound.Id}).Error; err != nil {
+		t.Fatalf("create client-inbound link: %v", err)
+	}
+	if err := db.Create(&xray.ClientTraffic{Email: email, Enable: true, InboundId: inbound.Id}).Error; err != nil {
+		t.Fatalf("create client traffic: %v", err)
+	}
 }
 
 func clientRecordEnable(t *testing.T, email string) bool {
@@ -133,5 +182,49 @@ func TestToggleEnableReseller_DoesNotTouchOtherResellersClients(t *testing.T) {
 	}
 	if got := clientRecordEnable(t, victimEmail); !got {
 		t.Fatalf("unrelated reseller's client was disabled too, want untouched (still enabled)")
+	}
+}
+
+// TestToggleEnableReseller_ReEnableSkipsManuallyDisabledClients is the
+// regression test for the reported bug: re-enabling a reseller must only
+// restore the clients the disable cascade itself turned off, not a client
+// the reseller had already disabled manually before the reseller-level
+// disable — otherwise re-enabling silently undoes the reseller's own choice.
+func TestToggleEnableReseller_ReEnableSkipsManuallyDisabledClients(t *testing.T) {
+	setupBotTestDB(t)
+	cascadeEmail := "cascade2@x"
+	manualEmail := "manual2@x"
+	reseller, inbound := seedResellerWithClient(t, cascadeEmail)
+	addClientToReseller(t, reseller, inbound, manualEmail)
+
+	// Disable manualEmail the same way the ordinary per-client toggle does
+	// (through BulkSetEnable, which updates the inbound Settings JSON, the
+	// client_traffics row and the ClientRecord row together) — a raw
+	// ClientRecord-only update would be inconsistent with the inbound's
+	// Settings JSON and get overwritten by the next resync.
+	if _, _, err := (&service.ClientService{}).BulkSetEnable(&service.InboundService{}, []string{manualEmail}, false); err != nil {
+		t.Fatalf("manually disable client: %v", err)
+	}
+
+	svc := &ResellerService{}
+	if _, _, err := svc.ToggleEnableReseller(reseller.Id); err != nil {
+		t.Fatalf("ToggleEnableReseller (disable): %v", err)
+	}
+	if got := clientRecordEnable(t, cascadeEmail); got {
+		t.Fatalf("cascade-target client still enabled after disabling its reseller, want disabled")
+	}
+
+	enabled, _, err := svc.ToggleEnableReseller(reseller.Id)
+	if err != nil {
+		t.Fatalf("ToggleEnableReseller (re-enable): %v", err)
+	}
+	if !enabled {
+		t.Fatalf("ToggleEnableReseller (re-enable) returned enabled=false, want true")
+	}
+	if got := clientRecordEnable(t, cascadeEmail); !got {
+		t.Fatalf("cascade-disabled client %q still disabled after re-enabling its reseller, want enabled", cascadeEmail)
+	}
+	if got := clientRecordEnable(t, manualEmail); got {
+		t.Fatalf("manually-disabled client %q was re-enabled by reseller re-enable, want still disabled", manualEmail)
 	}
 }

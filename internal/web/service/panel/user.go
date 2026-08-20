@@ -84,6 +84,10 @@ func (s *UserService) CheckUser(username string, password string, twoFactorCode 
 		}
 	}
 
+	if user.Role == "reseller" && user.LoginEpoch < 0 {
+		return nil, errors.New("account disabled")
+	}
+
 	twoFactorEnable, err := s.settingService.GetTwoFactorEnable()
 	if err != nil {
 		logger.Warning("check two factor err:", err)
