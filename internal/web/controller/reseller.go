@@ -6,6 +6,7 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service/panel"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/session"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/websocket"
@@ -15,6 +16,7 @@ import (
 
 type ResellerController struct {
 	resellerService panel.ResellerService
+	xrayService     service.XrayService
 }
 
 func NewResellerController(g *gin.RouterGroup) *ResellerController {
@@ -214,10 +216,14 @@ func (a *ResellerController) toggleEnable(c *gin.Context) {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
-	enabled, err := a.resellerService.ToggleEnableReseller(id)
+	enabled, needRestart, err := a.resellerService.ToggleEnableReseller(id)
 	if err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
 	jsonObj(c, gin.H{"enabled": enabled}, nil)
+	if needRestart {
+		a.xrayService.SetToNeedRestart()
+	}
+	notifyClientsChanged()
 }

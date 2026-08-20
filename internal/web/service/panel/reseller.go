@@ -8,6 +8,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/crypto"
+	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 
 	"gorm.io/gorm"
 )
@@ -208,21 +209,40 @@ func (s *ResellerService) GetResellerById(id int) (*model.User, error) {
 	return user, nil
 }
 
-func (s *ResellerService) ToggleEnableReseller(id int) (bool, error) {
+// ToggleEnableReseller flips the reseller's own panel-login access AND
+// cascades the same enable state to every client they've provisioned,
+// through the same ClientService.BulkSetEnable path the normal per-client
+// toggle uses — so a disabled reseller's clients actually stop working
+// instead of just losing panel access while staying fully connectable.
+func (s *ResellerService) ToggleEnableReseller(id int) (bool, bool, error) {
 	db := database.GetDB()
 	user := &model.User{}
 	if err := db.First(user, id).Error; err != nil {
-		return false, err
+		return false, false, err
 	}
 	if user.Role != "reseller" {
-		return false, errors.New("user is not a reseller")
+		return false, false, errors.New("user is not a reseller")
 	}
 	newEpoch := int64(0)
 	if user.LoginEpoch >= 0 {
 		newEpoch = -1
 	}
-	db.Model(user).Update("login_epoch", newEpoch)
-	return newEpoch >= 0, nil
+	if err := db.Model(user).Update("login_epoch", newEpoch).Error; err != nil {
+		return false, false, err
+	}
+	enabled := newEpoch >= 0
+
+	var emails []string
+	db.Model(&model.ClientRecord{}).Where("owner_id = ?", id).Pluck("email", &emails)
+	if len(emails) == 0 {
+		return enabled, false, nil
+	}
+	_, needRestart, err := (&service.ClientService{}).BulkSetEnable(&service.InboundService{}, emails, enabled)
+	if err != nil {
+		logger.Warning("ToggleEnableReseller: cascading enable state to clients failed for reseller", id, ":", err)
+		return enabled, false, nil
+	}
+	return enabled, needRestart, nil
 }
 
 func (s *ResellerService) GetOverQuotaResellerIds(tx *gorm.DB) ([]int, error) {
