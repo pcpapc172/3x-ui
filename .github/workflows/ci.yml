@@ -148,7 +148,11 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: latest
+          # Pinned, not "latest": v2.13.0 bundles honnef.co/go/tools@v0.8.0-rc.1,
+          # whose nilness analyzer panics ("unhandled builtin recover") on this
+          # repo's internal/util/common package — an upstream regression, not a
+          # real finding. Bump deliberately once a release fixes it upstream.
+          version: v2.12.2
 
   frontend:
     runs-on: ubuntu-latest
