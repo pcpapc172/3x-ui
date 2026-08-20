@@ -729,6 +729,8 @@
       "group": "Группа",
       "groupDesc": "Логическая метка для группировки связанных клиентов (например, команда, клиент, регион). Фильтруется из панели инструментов.",
       "groupPlaceholder": "например, customer-a",
+      "owner": "Owner",
+      "ownerPlaceholder": "Filter by reseller",
       "comment": "Комментарий",
       "traffic": "Трафик",
       "speed": "Скорость",

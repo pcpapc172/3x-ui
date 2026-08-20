@@ -22,6 +22,11 @@ import type { NodeRecord } from '@/schemas/node';
 import { formatInboundLabel } from '@/lib/inbounds/label';
 import { emptyFilters, type ClientFilters } from './filters';
 
+export interface OwnerOption {
+  id: number;
+  username: string;
+}
+
 interface FilterDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -31,6 +36,9 @@ interface FilterDrawerProps {
   protocols: string[];
   groups: string[];
   nodes: NodeRecord[];
+  // Admin only — empty for a reseller (the endpoint that backs this is
+  // admin-only, and a reseller only ever sees their own clients anyway).
+  owners: OwnerOption[];
 }
 
 const BUCKET_KEYS = ['active', 'expiring', 'depleted', 'deactive', 'online'] as const;
@@ -44,12 +52,18 @@ export default function FilterDrawer({
   protocols,
   groups,
   nodes,
+  owners,
 }: FilterDrawerProps) {
   const { t } = useTranslation();
 
   function patch<K extends keyof ClientFilters>(key: K, value: ClientFilters[K]) {
     onChange({ ...filters, [key]: value });
   }
+
+  const ownerOptions = useMemo(
+    () => owners.map((o) => ({ value: o.id, label: o.username })),
+    [owners],
+  );
 
   const inboundOptions = useMemo(
     () => inbounds.map((ib) => ({
@@ -154,6 +168,20 @@ export default function FilterDrawer({
               placeholder={t('pages.clients.filters.nodes')}
               maxTagCount="responsive"
               allowClear
+              showSearch={{ optionFilterProp: 'label' }}
+              listHeight={220}
+            />
+          </Form.Item>
+        )}
+
+        {owners.length > 0 && (
+          <Form.Item label={t('pages.clients.owner')}>
+            <Select
+              allowClear
+              value={filters.ownerId || undefined}
+              onChange={(v) => patch('ownerId', (v as number | undefined) || undefined)}
+              options={ownerOptions}
+              placeholder={t('pages.clients.ownerPlaceholder')}
               showSearch={{ optionFilterProp: 'label' }}
               listHeight={220}
             />

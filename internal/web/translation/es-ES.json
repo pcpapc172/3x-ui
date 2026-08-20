@@ -729,6 +729,8 @@
       "group": "Grupo",
       "groupDesc": "Etiqueta lógica para agrupar clientes relacionados (p. ej. equipo, cliente, región). Filtrable desde la barra de herramientas.",
       "groupPlaceholder": "p. ej. customer-a",
+      "owner": "Owner",
+      "ownerPlaceholder": "Filter by reseller",
       "comment": "Comentario",
       "traffic": "Tráfico",
       "speed": "Velocidad",

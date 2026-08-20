@@ -729,6 +729,8 @@
       "group": "Nhóm",
       "groupDesc": "Nhãn logic để gom các client liên quan (nhóm, khách hàng, khu vực). Có thể lọc từ thanh công cụ.",
       "groupPlaceholder": "ví dụ customer-a",
+      "owner": "Owner",
+      "ownerPlaceholder": "Filter by reseller",
       "comment": "Ghi chú",
       "traffic": "Lưu lượng",
       "speed": "Tốc độ",

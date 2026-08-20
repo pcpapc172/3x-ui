@@ -31,6 +31,8 @@ type ClientSlim struct {
 	Traffic    *xray.ClientTraffic `json:"traffic,omitempty"`
 	CreatedAt  int64               `json:"createdAt"`
 	UpdatedAt  int64               `json:"updatedAt"`
+	OwnerId    int                 `json:"ownerId"`
+	OwnerName  string              `json:"ownerName,omitempty"`
 }
 
 // ClientPageParams are the query params accepted by /panel/api/clients/list/paged.
@@ -455,6 +457,30 @@ func (q clientQuery) pageRows(params ClientPageParams, onlines []string, offset,
 		}
 	}
 
+	ownerIds := make([]int, 0, len(records))
+	seenOwner := map[int]struct{}{}
+	for i := range records {
+		oid := records[i].OwnerId
+		if oid <= 0 {
+			continue
+		}
+		if _, ok := seenOwner[oid]; ok {
+			continue
+		}
+		seenOwner[oid] = struct{}{}
+		ownerIds = append(ownerIds, oid)
+	}
+	ownerNameById := make(map[int]string, len(ownerIds))
+	if len(ownerIds) > 0 {
+		var owners []model.User
+		if err := q.db.Select("id", "username").Where("id IN ?", ownerIds).Find(&owners).Error; err != nil {
+			return nil, err
+		}
+		for _, o := range owners {
+			ownerNameById[o.Id] = o.Username
+		}
+	}
+
 	items := make([]ClientSlim, 0, len(ids))
 	for _, id := range ids {
 		rec := byId[id]
@@ -475,6 +501,8 @@ func (q clientQuery) pageRows(params ClientPageParams, onlines []string, offset,
 			Traffic:    trafficByEmail[rec.Email],
 			CreatedAt:  rec.CreatedAt,
 			UpdatedAt:  rec.UpdatedAt,
+			OwnerId:    rec.OwnerId,
+			OwnerName:  ownerNameById[rec.OwnerId],
 		})
 	}
 	return items, nil

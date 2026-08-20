@@ -63,7 +63,7 @@ import ClientTrafficCell from '@/components/clients/ClientTrafficCell';
 import ClientSpeedTag, { isActiveSpeed } from '@/components/clients/ClientSpeedTag';
 import ClientCardComment from '@/components/clients/ClientCardComment';
 import AppSidebar from '@/layouts/AppSidebar';
-import { IntlUtil, SizeFormatter } from '@/utils';
+import { HttpUtil, IntlUtil, SizeFormatter } from '@/utils';
 import { setMessageInstance } from '@/utils/messageBus';
 import { LazyMount } from '@/components/utility';
 import { SPEED_COLUMN_WIDTH, SPEED_TAG_CLASS_NAME, SPEED_TAG_STYLE } from '@/components/utility/speedTagStyle';
@@ -82,6 +82,7 @@ const PromptModal = lazy(() => import('@/components/feedback/PromptModal'));
 import { ClientInboundChips, ClientRowActions } from './RowCells';
 import { emptyFilters, activeFilterCount } from './filters';
 import type { ClientFilters } from './filters';
+import type { OwnerOption } from './FilterDrawer';
 import './ClientsPage.css';
 
 const FILTER_STATE_KEY = 'clientsFilterState';
@@ -141,6 +142,11 @@ function ClientEmailList({ emails, total }: { emails: string[]; total: number })
 }
 
 type Bucket = 'active' | 'deactive' | 'depleted' | 'expiring';
+
+interface ResellerListEntry {
+  id: number;
+  username: string;
+}
 
 interface PersistedFilterState {
   searchKey: string;
@@ -248,6 +254,20 @@ export default function ClientsPage() {
   // Node list for the Nodes filter; the section only renders when the panel
   // actually manages nodes (#4997).
   const { nodes } = useNodesQuery();
+
+  // Owner (reseller) list for the Owner filter/column. /resellers/list is
+  // admin-only — a reseller's request 403s, which we treat the same as "no
+  // owners to filter by" (they only ever see their own clients anyway).
+  const [owners, setOwners] = useState<OwnerOption[]>([]);
+  useEffect(() => {
+    HttpUtil.get<ResellerListEntry[]>('/panel/api/resellers/list', undefined, { silent: true })
+      .then((resp) => {
+        if (resp.success && Array.isArray(resp.obj)) {
+          setOwners(resp.obj.map((r) => ({ id: r.id, username: r.username })));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const [togglingEmail, setTogglingEmail] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -361,6 +381,7 @@ export default function ClientsPage() {
       hasTgId: filters.hasTgId || undefined,
       hasComment: filters.hasComment || undefined,
       group: filters.groups.join(',') || undefined,
+      ownerId: filters.ownerId,
       sort: sortColumn || undefined,
       order: sortOrder || undefined,
     });
@@ -907,6 +928,16 @@ export default function ClientsPage() {
       },
     },
     {
+      title: t('pages.clients.owner'),
+      key: 'owner',
+      width: 130,
+      hidden: owners.length === 0,
+      render: (_v, record) => {
+        if (!record.ownerId || !record.ownerName) return <span style={{ color: 'rgba(0,0,0,0.45)' }}>—</span>;
+        return <Tag>{record.ownerName}</Tag>;
+      },
+    },
+    {
       title: t('pages.clients.attachedInbounds'),
       key: 'inboundIds',
       width: 170,
@@ -965,7 +996,7 @@ export default function ClientsPage() {
       ),
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [t, togglingEmail, clientBucket, isOnline, inboundsById, filters, allGroups, datepicker, trafficDiff, clientSpeed]);
+  ], [t, togglingEmail, clientBucket, isOnline, inboundsById, filters, allGroups, owners, datepicker, trafficDiff, clientSpeed]);
 
   const tablePagination = {
     current: currentPage,
@@ -1310,6 +1341,11 @@ export default function ClientsPage() {
                               {t('pages.clients.group')}: {g}
                             </Tag>
                           ))}
+                          {!!filters.ownerId && (
+                            <Tag closable color="geekblue" onClose={() => clearOneFilter('ownerId')}>
+                              {t('pages.clients.owner')}: {owners.find((o) => o.id === filters.ownerId)?.username ?? filters.ownerId}
+                            </Tag>
+                          )}
                           {(filters.expiryFrom || filters.expiryTo) && (
                             <Tag closable color="purple" onClose={() => clearOneFilter('expiryFrom')}>
                               {t('pages.clients.expiryTime')}: {filters.expiryFrom ? IntlUtil.formatDate(filters.expiryFrom, datepicker) : '…'}
@@ -1623,6 +1659,7 @@ export default function ClientsPage() {
             protocols={protocolOptions}
             groups={groupOptions}
             nodes={nodes}
+            owners={owners}
           />
         </LazyMount>
         <LazyMount when={textOpen}>

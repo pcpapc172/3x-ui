@@ -69,6 +69,7 @@ export interface ClientQueryParams {
   hasTgId?: 'yes' | 'no' | '';
   hasComment?: 'yes' | 'no' | '';
   group?: string;
+  ownerId?: number;
 }
 
 const DEFAULT_QUERY: ClientQueryParams = { page: 1, pageSize: 25 };
@@ -193,6 +194,7 @@ function buildQS(p: ClientQueryParams): string {
   if (p.hasTgId) sp.set('hasTgId', p.hasTgId);
   if (p.hasComment) sp.set('hasComment', p.hasComment);
   if (p.group) sp.set('group', p.group);
+  if (p.ownerId && p.ownerId > 0) sp.set('ownerId', String(p.ownerId));
   return sp.toString();
 }
 
@@ -259,6 +261,7 @@ export function useClients(options: UseClientsOptions = {}) {
         && (prev.hasTgId ?? '') === (next.hasTgId ?? '')
         && (prev.hasComment ?? '') === (next.hasComment ?? '')
         && (prev.group ?? '') === (next.group ?? '')
+        && (prev.ownerId ?? 0) === (next.ownerId ?? 0)
       ) return prev;
       return next;
     });

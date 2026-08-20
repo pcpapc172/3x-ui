@@ -729,6 +729,8 @@
       "group": "المجموعة",
       "groupDesc": "تسمية منطقية لتجميع العملاء (مثل فريق، عميل، منطقة). يمكن تصفيتها من شريط الأدوات.",
       "groupPlaceholder": "مثلاً customer-a",
+      "owner": "Owner",
+      "ownerPlaceholder": "Filter by reseller",
       "comment": "ملاحظة",
       "traffic": "حركة المرور",
       "speed": "السرعة",

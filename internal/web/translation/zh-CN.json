@@ -729,6 +729,8 @@
       "group": "分组",
       "groupDesc": "用于对相关客户端进行分桶的逻辑标签（如团队、客户、地区）。可从工具栏筛选。",
       "groupPlaceholder": "如 customer-a",
+      "owner": "Owner",
+      "ownerPlaceholder": "Filter by reseller",
       "comment": "备注",
       "traffic": "流量",
       "speed": "速度",

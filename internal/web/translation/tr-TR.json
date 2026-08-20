@@ -729,6 +729,8 @@
       "group": "Grup",
       "groupDesc": "İlgili kullanıcıları gruplamak için mantıksal etiket (ekip, müşteri, bölge). Araç çubuğundan filtrelenebilir.",
       "groupPlaceholder": "örn. customer-a",
+      "owner": "Owner",
+      "ownerPlaceholder": "Filter by reseller",
       "comment": "Yorum",
       "traffic": "Trafik",
       "speed": "Hız",

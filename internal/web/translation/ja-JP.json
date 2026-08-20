@@ -729,6 +729,8 @@
       "group": "グループ",
       "groupDesc": "関連クライアントをまとめる論理ラベル(チーム、顧客、地域など)。ツールバーからフィルタ可能。",
       "groupPlaceholder": "例: customer-a",
+      "owner": "Owner",
+      "ownerPlaceholder": "Filter by reseller",
       "comment": "コメント",
       "traffic": "トラフィック",
       "speed": "速度",

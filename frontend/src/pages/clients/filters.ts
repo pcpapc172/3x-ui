@@ -13,6 +13,7 @@ export interface ClientFilters {
   autoRenew: '' | 'on' | 'off';
   hasTgId: '' | 'yes' | 'no';
   hasComment: '' | 'yes' | 'no';
+  ownerId?: number;
 }
 
 export function emptyFilters(): ClientFilters {
@@ -40,5 +41,6 @@ export function activeFilterCount(f: ClientFilters): number {
   if (f.autoRenew) n++;
   if (f.hasTgId) n++;
   if (f.hasComment) n++;
+  if (f.ownerId) n++;
   return n;
 }

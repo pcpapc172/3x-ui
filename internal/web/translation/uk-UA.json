@@ -729,6 +729,8 @@
       "group": "Група",
       "groupDesc": "Логічна мітка для групування пов'язаних клієнтів (напр. команда, клієнт, регіон). Фільтрується з панелі інструментів.",
       "groupPlaceholder": "напр. customer-a",
+      "owner": "Owner",
+      "ownerPlaceholder": "Filter by reseller",
       "comment": "Коментар",
       "traffic": "Трафік",
       "speed": "Швидкість",

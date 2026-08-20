@@ -729,6 +729,8 @@
       "group": "Grup",
       "groupDesc": "Label logis untuk mengelompokkan klien terkait (mis. tim, pelanggan, wilayah). Dapat difilter dari toolbar.",
       "groupPlaceholder": "mis. customer-a",
+      "owner": "Owner",
+      "ownerPlaceholder": "Filter by reseller",
       "comment": "Komentar",
       "traffic": "Lalu lintas",
       "speed": "Kecepatan",

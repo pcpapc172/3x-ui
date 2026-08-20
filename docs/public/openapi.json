@@ -6340,6 +6340,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "ownerId",
+            "in": "query",
+            "required": true,
+            "description": "Only clients owned by this reseller. 0/omitted = no owner filter.",
+            "schema": {
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -6381,7 +6390,9 @@
                           "enable": true
                         },
                         "createdAt": 1735000000000,
-                        "updatedAt": 1735100000000
+                        "updatedAt": 1735100000000,
+                        "ownerId": 5,
+                        "ownerName": "reseller1"
                       }
                     ],
                     "total": 2000,
