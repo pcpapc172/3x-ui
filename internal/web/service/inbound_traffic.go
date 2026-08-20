@@ -48,12 +48,14 @@ func (s *InboundService) addTrafficLocked(inboundTraffics []*xray.Traffic, clien
 	if err != nil {
 		return false, false, err
 	}
+	resellerDeltas := s.applyTrafficMultipliers(tx, clientTraffics)
+
 	err = s.addClientTraffic(tx, clientTraffics)
 	if err != nil {
 		return false, false, err
 	}
 
-	s.updateResellerUsage(tx, clientTraffics)
+	s.updateResellerUsage(tx, resellerDeltas)
 
 	needRestart0, count, renewErr := s.autoRenewClients(tx)
 	if renewErr != nil {
@@ -1158,29 +1160,58 @@ func (s *InboundService) SearchClientTraffic(query string) (traffic *xray.Client
 	return traffic, nil
 }
 
-func (s *InboundService) updateResellerUsage(tx *gorm.DB, clientTraffics []*xray.ClientTraffic) {
-	if len(clientTraffics) == 0 {
-		return
-	}
-	type ownerTraffic struct {
-		OwnerId int
-		Up      int64
-		Down    int64
-	}
-	deltas := make(map[int]*ownerTraffic)
+type ownerTraffic struct {
+	OwnerId int
+	Up      int64
+	Down    int64
+}
 
-	multiplierCache := make(map[int]float64)
-	getMultiplier := func(inboundId int) float64 {
-		if rate, ok := multiplierCache[inboundId]; ok {
+// applyTrafficMultipliers multiplies each client's traffic delta in place by
+// its effective rate — the highest multiplier among the inbounds it's
+// attached to, times its owning reseller's own multiplier (if any) — before
+// addClientTraffic ever writes a delta to the database. This is the single
+// point where multiplying happens: a multiplied inbound affects every client
+// on it (owned by anyone, including the admin's own unowned clients) and,
+// where that client belongs to a reseller, the reseller's aggregate usage
+// too; a reseller-only multiplier affects just that reseller's own clients
+// and their aggregate. Previously only the reseller aggregate was
+// multiplied — a client's own traffic/quota consumption was always raw,
+// which looked "half-applied" from the client side.
+//
+// Returns the per-reseller totals (already multiplied) for
+// updateResellerUsage to add to User.UsageUp/UsageDown.
+func (s *InboundService) applyTrafficMultipliers(tx *gorm.DB, clientTraffics []*xray.ClientTraffic) map[int]*ownerTraffic {
+	return s.multiplierDeltas(tx, clientTraffics, true)
+}
+
+// resellerMultiplierDeltas computes the same multiplied reseller totals as
+// applyTrafficMultipliers but leaves clientTraffics untouched. Used by the
+// node-sync and cross-master traffic paths, where a client's own traffic
+// counter for the affected inbound is written through a separate mechanism
+// this package doesn't own end-to-end — only the reseller aggregate is this
+// function's job there, matching those paths' existing behavior.
+func (s *InboundService) resellerMultiplierDeltas(tx *gorm.DB, clientTraffics []*xray.ClientTraffic) map[int]*ownerTraffic {
+	return s.multiplierDeltas(tx, clientTraffics, false)
+}
+
+func (s *InboundService) multiplierDeltas(tx *gorm.DB, clientTraffics []*xray.ClientTraffic, mutate bool) map[int]*ownerTraffic {
+	deltas := make(map[int]*ownerTraffic)
+	if len(clientTraffics) == 0 {
+		return deltas
+	}
+
+	inboundMultiplierCache := make(map[int]float64)
+	getInboundMultiplier := func(inboundId int) float64 {
+		if rate, ok := inboundMultiplierCache[inboundId]; ok {
 			return rate
 		}
 		var m model.InboundMultiplier
-		if err := tx.Where("inbound_id = ?", inboundId).First(&m).Error; err == nil {
-			multiplierCache[inboundId] = m.Rate
-			return m.Rate
+		rate := 1.0
+		if err := tx.Where("inbound_id = ?", inboundId).First(&m).Error; err == nil && m.Rate > 0 {
+			rate = m.Rate
 		}
-		multiplierCache[inboundId] = 1
-		return 1
+		inboundMultiplierCache[inboundId] = rate
+		return rate
 	}
 
 	resellerMultiplierCache := make(map[int]float64)
@@ -1188,21 +1219,18 @@ func (s *InboundService) updateResellerUsage(tx *gorm.DB, clientTraffics []*xray
 		if rate, ok := resellerMultiplierCache[ownerId]; ok {
 			return rate
 		}
+		rate := 1.0
 		var multiplier float64
-		if err := tx.Model(&model.User{}).Where("id = ? AND role = ?", ownerId, "reseller").Pluck("multiplier", &multiplier).Error; err == nil && multiplier > 0 {
-			resellerMultiplierCache[ownerId] = multiplier
-			return multiplier
+		if err := tx.Model(&model.User{}).Where("id = ? AND role = ?", ownerId, "reseller").
+			Pluck("multiplier", &multiplier).Error; err == nil && multiplier > 0 {
+			rate = multiplier
 		}
-		resellerMultiplierCache[ownerId] = 1
-		return 1
+		resellerMultiplierCache[ownerId] = rate
+		return rate
 	}
 
 	for _, ct := range clientTraffics {
-		if ct == nil || ct.Email == "" {
-			continue
-		}
-		var ownerId int
-		if err := tx.Model(&model.ClientRecord{}).Where("email = ?", ct.Email).Pluck("owner_id", &ownerId).Error; err != nil || ownerId == 0 {
+		if ct == nil || ct.Email == "" || (ct.Up == 0 && ct.Down == 0) {
 			continue
 		}
 
@@ -1211,30 +1239,44 @@ func (s *InboundService) updateResellerUsage(tx *gorm.DB, clientTraffics []*xray
 			continue
 		}
 		var inboundIds []int
-		if err := tx.Model(&model.ClientInbound{}).Where("client_id = ?", clientRecord.Id).Pluck("inbound_id", &inboundIds).Error; err != nil || len(inboundIds) == 0 {
+		if err := tx.Model(&model.ClientInbound{}).Where("client_id = ?", clientRecord.Id).
+			Pluck("inbound_id", &inboundIds).Error; err != nil || len(inboundIds) == 0 {
 			inboundIds = []int{0}
 		}
 
 		totalRate := 1.0
 		for _, ibId := range inboundIds {
-			rate := getMultiplier(ibId)
-			if rate > totalRate {
+			if rate := getInboundMultiplier(ibId); rate > totalRate {
 				totalRate = rate
 			}
 		}
-
-		resellerRate := getResellerMultiplier(ownerId)
-		totalRate *= resellerRate
-
-		multUp := int64(float64(ct.Up) * totalRate)
-		multDown := int64(float64(ct.Down) * totalRate)
-
-		if _, ok := deltas[ownerId]; !ok {
-			deltas[ownerId] = &ownerTraffic{OwnerId: ownerId}
+		if clientRecord.OwnerId > 0 {
+			totalRate *= getResellerMultiplier(clientRecord.OwnerId)
 		}
-		deltas[ownerId].Up += multUp
-		deltas[ownerId].Down += multDown
+
+		multUp, multDown := ct.Up, ct.Down
+		if totalRate != 1 {
+			multUp = int64(float64(ct.Up) * totalRate)
+			multDown = int64(float64(ct.Down) * totalRate)
+			if mutate {
+				ct.Up = multUp
+				ct.Down = multDown
+			}
+		}
+
+		if clientRecord.OwnerId == 0 {
+			continue
+		}
+		if _, ok := deltas[clientRecord.OwnerId]; !ok {
+			deltas[clientRecord.OwnerId] = &ownerTraffic{OwnerId: clientRecord.OwnerId}
+		}
+		deltas[clientRecord.OwnerId].Up += multUp
+		deltas[clientRecord.OwnerId].Down += multDown
 	}
+	return deltas
+}
+
+func (s *InboundService) updateResellerUsage(tx *gorm.DB, deltas map[int]*ownerTraffic) {
 	for _, d := range deltas {
 		if d.Up == 0 && d.Down == 0 {
 			continue

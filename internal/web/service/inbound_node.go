@@ -1050,7 +1050,8 @@ func (s *InboundService) setRemoteTrafficLocked(nodeID int, snap *runtime.Traffi
 	committed = true
 
 	if len(nodeTrafficDeltas) > 0 {
-		(&InboundService{}).updateResellerUsage(database.GetDB(), nodeTrafficDeltas)
+		svc := &InboundService{}
+		svc.updateResellerUsage(database.GetDB(), svc.resellerMultiplierDeltas(database.GetDB(), nodeTrafficDeltas))
 	}
 
 	if len(adoptedInbounds) > 0 {
