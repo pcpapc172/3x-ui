@@ -125,6 +125,31 @@ func clientRecordEnable(t *testing.T, email string) bool {
 	return rec.Enable
 }
 
+// inboundSettingsClientEnable reads a client's "enable" flag straight out of
+// the inbound's Settings JSON — the field xray-core and node sync actually
+// read — to prove a re-enable was pushed live, not just flipped in the
+// ClientRecord row.
+func inboundSettingsClientEnable(t *testing.T, inboundId int, email string) bool {
+	t.Helper()
+	ib := &model.Inbound{}
+	if err := database.GetDB().First(ib, inboundId).Error; err != nil {
+		t.Fatalf("load inbound %d: %v", inboundId, err)
+	}
+	var settings struct {
+		Clients []model.Client `json:"clients"`
+	}
+	if err := json.Unmarshal([]byte(ib.Settings), &settings); err != nil {
+		t.Fatalf("unmarshal inbound settings: %v", err)
+	}
+	for _, c := range settings.Clients {
+		if c.Email == email {
+			return c.Enable
+		}
+	}
+	t.Fatalf("client %q not found in inbound %d settings", email, inboundId)
+	return false
+}
+
 // TestToggleEnableReseller_CascadesToClients is the regression test for the
 // reported bug: disabling a reseller in the panel locked them out of their
 // own login, but their clients kept working (and even accepting NEW
@@ -226,5 +251,61 @@ func TestToggleEnableReseller_ReEnableSkipsManuallyDisabledClients(t *testing.T)
 	}
 	if got := clientRecordEnable(t, manualEmail); got {
 		t.Fatalf("manually-disabled client %q was re-enabled by reseller re-enable, want still disabled", manualEmail)
+	}
+}
+
+// TestResetResellerUsage_OnlyReEnablesLockedClientsLive is the regression
+// test for the "recharge" path: it previously force-enabled every client of
+// the reseller (undoing manual disables) via a raw DB update that never
+// touched the inbound's Settings JSON, so a quota-locked client stayed
+// removed from the live Xray config even after the reset reported it
+// "re-enabled". It must now only restore quota-locked clients, and it must
+// do so through the same live-push path as every other enable cascade.
+func TestResetResellerUsage_OnlyReEnablesLockedClientsLive(t *testing.T) {
+	setupBotTestDB(t)
+	lockedEmail := "locked3@x"
+	manualEmail := "manual3@x"
+	reseller, inbound := seedResellerWithClient(t, lockedEmail)
+	addClientToReseller(t, reseller, inbound, manualEmail)
+
+	db := database.GetDB()
+	if err := db.Model(&model.User{}).Where("id = ?", reseller.Id).
+		Updates(map[string]any{"usage_limit": 100, "usage_up": 100, "usage_down": 0}).Error; err != nil {
+		t.Fatalf("set reseller over quota: %v", err)
+	}
+
+	// lockedEmail gets auto-disabled by the over-quota job (Locked=true,
+	// pushed live through BulkSetEnable so its inbound JSON entry flips too).
+	if _, _, err := (&service.ClientService{}).BulkSetEnable(&service.InboundService{}, []string{lockedEmail}, false); err != nil {
+		t.Fatalf("simulate quota auto-disable: %v", err)
+	}
+	if err := db.Model(&model.ClientRecord{}).Where("email = ?", lockedEmail).Update("locked", true).Error; err != nil {
+		t.Fatalf("mark client locked: %v", err)
+	}
+	// manualEmail was disabled by the reseller themselves, unrelated to quota.
+	if _, _, err := (&service.ClientService{}).BulkSetEnable(&service.InboundService{}, []string{manualEmail}, false); err != nil {
+		t.Fatalf("manually disable client: %v", err)
+	}
+
+	svc := &ResellerService{}
+	affected, err := svc.ResetResellerUsage(reseller.Id)
+	if err != nil {
+		t.Fatalf("ResetResellerUsage: %v", err)
+	}
+	if affected != 1 {
+		t.Fatalf("ResetResellerUsage reported %d re-enabled, want 1 (only the quota-locked client)", affected)
+	}
+
+	if got := clientRecordEnable(t, lockedEmail); !got {
+		t.Fatalf("quota-locked client %q still disabled after usage reset, want enabled", lockedEmail)
+	}
+	if got := inboundSettingsClientEnable(t, inbound.Id, lockedEmail); !got {
+		t.Fatalf("quota-locked client %q not re-enabled in the live inbound settings, want enabled", lockedEmail)
+	}
+	if got := clientRecordEnable(t, manualEmail); got {
+		t.Fatalf("manually-disabled client %q was re-enabled by usage reset, want still disabled", manualEmail)
+	}
+	if got := inboundSettingsClientEnable(t, inbound.Id, manualEmail); got {
+		t.Fatalf("manually-disabled client %q was re-enabled in the live inbound settings, want still disabled", manualEmail)
 	}
 }

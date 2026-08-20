@@ -166,38 +166,44 @@ func (s *ResellerService) ResetResellerUsage(id int) (int64, error) {
 		return 0, errors.New("user is not a reseller")
 	}
 
-	result := db.Model(&model.User{}).Where("id = ?", id).
+	if err := db.Model(&model.User{}).Where("id = ?", id).
 		Updates(map[string]any{
 			"usage_up":   0,
 			"usage_down": 0,
-		})
-	if result.Error != nil {
-		return 0, result.Error
+		}).Error; err != nil {
+		return 0, err
 	}
 
-	var emails []string
-	db.Model(&model.ClientRecord{}).Where("owner_id = ?", id).Pluck("email", &emails)
-	if len(emails) == 0 {
-		return 0, nil
-	}
-
-	db.Model(&model.ClientRecord{}).Where("email IN ?", emails).Updates(map[string]any{"enable": true, "locked": false})
-	db.Table("client_traffics").Where("email IN ?", emails).Update("enable", true)
-
-	return int64(len(emails)), nil
+	affected, _, err := s.reEnableLockedClients(id)
+	return affected, err
 }
 
-func (s *ResellerService) ReEnableResellerClients(id int) error {
+// reEnableLockedClients restores connectivity for the clients this
+// reseller's over-quota auto-disable locked, through the same
+// ClientService.BulkSetEnable path every other enable/disable cascade in
+// this file uses — a raw DB flip leaves the client removed from the live
+// Xray config until an unrelated restart happens to pick it back up.
+// Clients the reseller disabled manually (Locked=false) are left alone.
+func (s *ResellerService) reEnableLockedClients(id int) (int64, bool, error) {
 	db := database.GetDB()
 	var emails []string
 	db.Model(&model.ClientRecord{}).Where("owner_id = ? AND locked = ?", id, true).Pluck("email", &emails)
 	if len(emails) == 0 {
-		return nil
+		return 0, false, nil
 	}
-	db.Model(&model.ClientRecord{}).Where("email IN ?", emails).Updates(map[string]any{"enable": true, "locked": false})
-	db.Table("client_traffics").Where("email IN ?", emails).Update("enable", true)
+	if err := db.Model(&model.ClientRecord{}).Where("email IN ?", emails).Update("locked", false).Error; err != nil {
+		return 0, false, err
+	}
+	_, needRestart, err := (&service.ClientService{}).BulkSetEnable(&service.InboundService{}, emails, true)
+	if err != nil {
+		return 0, false, err
+	}
+	return int64(len(emails)), needRestart, nil
+}
 
-	return nil
+func (s *ResellerService) ReEnableResellerClients(id int) error {
+	_, _, err := s.reEnableLockedClients(id)
+	return err
 }
 
 func (s *ResellerService) GetResellerById(id int) (*model.User, error) {
@@ -238,32 +244,27 @@ func (s *ResellerService) ToggleEnableReseller(id int) (bool, bool, error) {
 	}
 	enabled := newEpoch >= 0
 
-	var emails []string
 	if enabled {
-		db.Model(&model.ClientRecord{}).Where("owner_id = ? AND locked = ?", id, true).Pluck("email", &emails)
-		if len(emails) == 0 {
+		_, needRestart, err := s.reEnableLockedClients(id)
+		if err != nil {
+			logger.Warning("ToggleEnableReseller: re-enabling clients failed for reseller", id, ":", err)
 			return enabled, false, nil
 		}
-		if err := db.Model(&model.ClientRecord{}).Where("email IN ?", emails).Update("locked", false).Error; err != nil {
-			logger.Warning("ToggleEnableReseller: clearing locked flag failed for reseller", id, ":", err)
-			return enabled, false, nil
-		}
-	} else {
-		db.Model(&model.ClientRecord{}).Where("owner_id = ? AND enable = ?", id, true).Pluck("email", &emails)
-		if len(emails) == 0 {
-			return enabled, false, nil
-		}
+		return enabled, needRestart, nil
 	}
 
-	_, needRestart, err := (&service.ClientService{}).BulkSetEnable(&service.InboundService{}, emails, enabled)
+	var emails []string
+	db.Model(&model.ClientRecord{}).Where("owner_id = ? AND enable = ?", id, true).Pluck("email", &emails)
+	if len(emails) == 0 {
+		return enabled, false, nil
+	}
+	_, needRestart, err := (&service.ClientService{}).BulkSetEnable(&service.InboundService{}, emails, false)
 	if err != nil {
 		logger.Warning("ToggleEnableReseller: cascading enable state to clients failed for reseller", id, ":", err)
 		return enabled, false, nil
 	}
-	if !enabled {
-		if err := db.Model(&model.ClientRecord{}).Where("email IN ?", emails).Update("locked", true).Error; err != nil {
-			logger.Warning("ToggleEnableReseller: marking clients locked failed for reseller", id, ":", err)
-		}
+	if err := db.Model(&model.ClientRecord{}).Where("email IN ?", emails).Update("locked", true).Error; err != nil {
+		logger.Warning("ToggleEnableReseller: marking clients locked failed for reseller", id, ":", err)
 	}
 	return enabled, needRestart, nil
 }
