@@ -1289,16 +1289,20 @@ func (s *InboundService) updateResellerUsage(tx *gorm.DB, deltas map[int]*ownerT
 	}
 }
 
-// resellerQuotaLockEpoch marks a reseller's LoginEpoch as auto-locked for going
+// ResellerQuotaLockEpoch marks a reseller's LoginEpoch as auto-locked for going
 // over quota — far below the manual-disable value (-1) so +1 bumps can't erode it.
-const resellerQuotaLockEpoch int64 = -1_000_000
+const ResellerQuotaLockEpoch int64 = -1_000_000
+
+// overQuotaResellerCond matches a reseller over quota right now — re-checked in
+// every WHERE below so a concurrent ResetResellerUsage can't leave rows stuck off.
+const overQuotaResellerCond = "role = 'reseller' AND usage_limit > 0 AND usage_up + usage_down >= usage_limit"
 
 func (s *InboundService) disableResellerOverQuotaClients(tx *gorm.DB) (bool, int64, error) {
 	needRestart := false
 
 	var overQuotaIds []int
 	err := tx.Model(&model.User{}).
-		Where("role = ? AND usage_limit > 0 AND (usage_up + usage_down >= usage_limit)", "reseller").
+		Where(overQuotaResellerCond).
 		Pluck("id", &overQuotaIds).Error
 	if err != nil || len(overQuotaIds) == 0 {
 		return false, 0, err
@@ -1307,14 +1311,14 @@ func (s *InboundService) disableResellerOverQuotaClients(tx *gorm.DB) (bool, int
 	// Lock the reseller out of the panel too, not just their clients: a
 	// login-only disable lets them log back in and re-enable/provision clients.
 	if lockErr := tx.Model(&model.User{}).
-		Where("id IN ? AND role = ? AND login_epoch >= 0", overQuotaIds, "reseller").
-		Update("login_epoch", resellerQuotaLockEpoch).Error; lockErr != nil {
+		Where("id IN ? AND login_epoch >= 0 AND "+overQuotaResellerCond, overQuotaIds).
+		Update("login_epoch", ResellerQuotaLockEpoch).Error; lockErr != nil {
 		logger.Warning("disableResellerOverQuotaClients: locking reseller login:", lockErr)
 	}
 
 	var emails []string
 	err = tx.Model(&model.ClientRecord{}).
-		Where("owner_id IN ? AND enable = ? AND locked = ?", overQuotaIds, true, false).
+		Where("enable = ? AND locked = ? AND owner_id IN (SELECT id FROM users WHERE "+overQuotaResellerCond+")", true, false).
 		Pluck("email", &emails).Error
 	if err != nil || len(emails) == 0 {
 		return needRestart, 0, err

@@ -9,8 +9,6 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/crypto"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
-
-	"gorm.io/gorm"
 )
 
 // ResellerInfo is the admin-facing projection of a reseller account.
@@ -210,6 +208,10 @@ func (s *ResellerService) ReEnableResellerClients(id int) error {
 	return err
 }
 
+func resellerOverQuota(u *model.User) bool {
+	return u.UsageLimit > 0 && u.UsageUp+u.UsageDown >= u.UsageLimit
+}
+
 // clearQuotaLoginLock re-enables a reseller's login only if the over-quota job
 // auto-locked it (LoginEpoch < -1); an owner's manual disable (-1) is left as-is.
 func (s *ResellerService) clearQuotaLoginLock(id int) {
@@ -263,9 +265,20 @@ func (s *ResellerService) ToggleEnableReseller(id int) (bool, bool, error) {
 	if user.Role != "reseller" {
 		return false, false, errors.New("user is not a reseller")
 	}
+	// Enabling a reseller who is still over quota is pointless — the traffic job
+	// re-locks them within seconds. Make the owner reset usage instead.
+	if user.LoginEpoch < 0 && resellerOverQuota(user) {
+		return false, false, errors.New("reseller is over quota; reset usage to re-enable")
+	}
+
 	newEpoch := int64(0)
 	if user.LoginEpoch >= 0 {
+		// Over-quota disable → the quota sentinel, so ResetResellerUsage re-enables
+		// it like the auto job does; a plain manual -1 survives a reset.
 		newEpoch = -1
+		if resellerOverQuota(user) {
+			newEpoch = service.ResellerQuotaLockEpoch
+		}
 	}
 	if err := db.Model(user).Update("login_epoch", newEpoch).Error; err != nil {
 		return false, false, err
@@ -295,16 +308,4 @@ func (s *ResellerService) ToggleEnableReseller(id int) (bool, bool, error) {
 		logger.Warning("ToggleEnableReseller: marking clients locked failed for reseller", id, ":", err)
 	}
 	return enabled, needRestart, nil
-}
-
-func (s *ResellerService) GetOverQuotaResellerIds(tx *gorm.DB) ([]int, error) {
-	if tx == nil {
-		db := database.GetDB()
-		tx = db
-	}
-	var ids []int
-	err := tx.Model(&model.User{}).
-		Where("role = ? AND usage_limit > 0 AND (usage_up + usage_down >= usage_limit)", "reseller").
-		Pluck("id", &ids).Error
-	return ids, err
 }

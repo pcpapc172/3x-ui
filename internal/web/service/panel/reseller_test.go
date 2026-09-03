@@ -373,8 +373,8 @@ func reloadUserEpoch(t *testing.T, id int) int64 {
 // TestResetResellerUsage_ClearsQuotaLoginLock covers the account half of the
 // over-quota lockdown: a reseller auto-locked out of the panel for going over
 // quota regains login access on a usage reset, while a reseller the owner
-// disabled by hand (LoginEpoch -1) stays locked out. -1000000 mirrors the
-// service package's resellerQuotaLockEpoch sentinel.
+// disabled by hand (LoginEpoch -1) stays locked out. -1000000 mirrors
+// service.ResellerQuotaLockEpoch.
 func TestResetResellerUsage_ClearsQuotaLoginLock(t *testing.T) {
 	setupBotTestDB(t)
 	db := database.GetDB()
@@ -402,5 +402,62 @@ func TestResetResellerUsage_ClearsQuotaLoginLock(t *testing.T) {
 	}
 	if got := reloadUserEpoch(t, manual.Id); got != -1 {
 		t.Fatalf("manually-disabled reseller LoginEpoch = %d after reset, want -1 (still locked)", got)
+	}
+}
+
+// TestToggleEnableReseller_OverQuotaUsesSentinelAndRefusesEnable: disabling an
+// over-quota reseller stamps the quota sentinel (so a later usage reset clears
+// it), and re-enabling one while still over quota is refused rather than
+// producing a few seconds of access before the traffic job re-locks it.
+func TestToggleEnableReseller_OverQuotaUsesSentinelAndRefusesEnable(t *testing.T) {
+	setupBotTestDB(t)
+	db := database.GetDB()
+	svc := &ResellerService{}
+
+	reseller, _ := seedResellerWithClient(t, "oq-toggle@x")
+	if err := db.Model(&model.User{}).Where("id = ?", reseller.Id).
+		Updates(map[string]any{"usage_limit": 100, "usage_up": 100}).Error; err != nil {
+		t.Fatalf("set over quota: %v", err)
+	}
+
+	enabled, _, err := svc.ToggleEnableReseller(reseller.Id)
+	if err != nil {
+		t.Fatalf("ToggleEnableReseller (disable): %v", err)
+	}
+	if enabled {
+		t.Fatalf("reseller still enabled after disable toggle")
+	}
+	if got := reloadUserEpoch(t, reseller.Id); got != service.ResellerQuotaLockEpoch {
+		t.Fatalf("LoginEpoch after over-quota disable = %d, want %d (quota sentinel)", got, service.ResellerQuotaLockEpoch)
+	}
+
+	if _, _, err := svc.ToggleEnableReseller(reseller.Id); err == nil {
+		t.Fatalf("ToggleEnableReseller (enable while over quota) returned nil error, want refusal")
+	}
+	if got := reloadUserEpoch(t, reseller.Id); got != service.ResellerQuotaLockEpoch {
+		t.Fatalf("LoginEpoch changed on refused enable = %d, want %d", got, service.ResellerQuotaLockEpoch)
+	}
+
+	if _, err := svc.ResetResellerUsage(reseller.Id); err != nil {
+		t.Fatalf("ResetResellerUsage: %v", err)
+	}
+	if got := reloadUserEpoch(t, reseller.Id); got != 0 {
+		t.Fatalf("LoginEpoch after reset = %d, want 0 (re-enabled)", got)
+	}
+}
+
+// TestToggleEnableReseller_UnderQuotaDisableStaysManual guards the sentinel from
+// over-firing: a reseller within quota still gets a plain -1 on disable, which a
+// usage reset must not clear.
+func TestToggleEnableReseller_UnderQuotaDisableStaysManual(t *testing.T) {
+	setupBotTestDB(t)
+	svc := &ResellerService{}
+
+	reseller, _ := seedResellerWithClient(t, "uq-toggle@x")
+	if _, _, err := svc.ToggleEnableReseller(reseller.Id); err != nil {
+		t.Fatalf("ToggleEnableReseller (disable): %v", err)
+	}
+	if got := reloadUserEpoch(t, reseller.Id); got != -1 {
+		t.Fatalf("LoginEpoch after under-quota disable = %d, want -1 (manual)", got)
 	}
 }

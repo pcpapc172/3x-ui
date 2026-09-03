@@ -45,6 +45,7 @@ import AppSidebar from '@/layouts/AppSidebar';
 import ClientTrafficCell from '@/components/clients/ClientTrafficCell';
 import { SizeFormatter } from '@/utils';
 import { HttpUtil } from '@/utils';
+import { ClipboardManager } from '@/utils';
 import type { Msg } from '@/utils';
 
 interface ResellerInfo {
@@ -254,7 +255,7 @@ export default function AdminsPage() {
     try {
       const resp = await HttpUtil.post<{ reEnabled: number }>(`/panel/api/resellers/resetUsage/${id}`);
       if (resp.success) {
-        messageApi.success(`Reset usage, re-enabled ${resp.obj?.reEnabled ?? 0} clients`);
+        messageApi.success(t('pages.admins.usageResetToast', { count: resp.obj?.reEnabled ?? 0 }));
         fetchResellers();
       }
     } catch {
@@ -273,17 +274,18 @@ export default function AdminsPage() {
     }
   };
 
-  const handleCopyPassword = () => {
+  const handleCopyPassword = async () => {
     if (!passwordModal.password) return;
-    navigator.clipboard?.writeText(passwordModal.password);
-    messageApi.success(t('copied', 'Copied'));
+    const ok = await ClipboardManager.copyText(passwordModal.password);
+    if (ok) messageApi.success(t('copied', 'Copied'));
+    else messageApi.error(t('somethingWentWrong'));
   };
 
   const handleToggleEnable = async (id: number, checked: boolean) => {
     try {
       const resp = await HttpUtil.post<{ enabled: boolean }>(`/panel/api/resellers/toggleEnable/${id}`);
       if (resp.success) {
-        messageApi.success(checked ? 'Reseller enabled' : 'Reseller disabled');
+        messageApi.success(checked ? t('pages.admins.resellerEnabled') : t('pages.admins.resellerDisabled'));
         fetchResellers();
       }
     } catch {
