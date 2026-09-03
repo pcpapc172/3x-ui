@@ -265,9 +265,13 @@ jobs:
           go version
           gcc --version
 
-          # Stamp the commit into per-commit (dev channel) builds only.
+          # Mirror the Linux build: stamp the bare X.Y.Z version on tagged
+          # releases, the commit on per-commit (dev channel) builds.
           LDFLAGS="-w -s"
-          if [[ "$GITHUB_REF" != refs/tags/* ]]; then
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+            LDFLAGS="$LDFLAGS -X github.com/mhsanaei/3x-ui/v3/internal/config.version=${TAG_NAME#v}"
+          else
             LDFLAGS="$LDFLAGS -X github.com/mhsanaei/3x-ui/v3/internal/config.buildCommit=${GITHUB_SHA:0:8} -X github.com/mhsanaei/3x-ui/v3/internal/config.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           fi
           go build -ldflags "$LDFLAGS" -o xui-release.exe -v main.go
