@@ -84,6 +84,7 @@ func (s *ResellerService) CreateReseller(username, password string, usageLimit i
 	user := &model.User{
 		Username:            username,
 		Password:            hashed,
+		ResellerPassword:    password,
 		Role:                "reseller",
 		UsageLimit:          usageLimit,
 		AllowedInboundsMode: allowedInboundsMode,
@@ -122,11 +123,13 @@ func (s *ResellerService) UpdateReseller(id int, username, password string, usag
 			return err
 		}
 		updates["password"] = hashed
+		updates["reseller_password"] = password
 	}
 	if err := db.Model(user).Updates(updates).Error; err != nil {
 		return err
 	}
 	if usageLimit == 0 || (user.UsageUp+user.UsageDown) < usageLimit {
+		s.clearQuotaLoginLock(id)
 		if rerr := s.ReEnableResellerClients(id); rerr != nil {
 			logger.Warning("UpdateReseller: re-enable clients failed for reseller", id, ":", rerr)
 		}
@@ -173,6 +176,7 @@ func (s *ResellerService) ResetResellerUsage(id int) (int64, error) {
 		}).Error; err != nil {
 		return 0, err
 	}
+	s.clearQuotaLoginLock(id)
 
 	affected, _, err := s.reEnableLockedClients(id)
 	return affected, err
@@ -204,6 +208,30 @@ func (s *ResellerService) reEnableLockedClients(id int) (int64, bool, error) {
 func (s *ResellerService) ReEnableResellerClients(id int) error {
 	_, _, err := s.reEnableLockedClients(id)
 	return err
+}
+
+// clearQuotaLoginLock re-enables a reseller's login only if the over-quota job
+// auto-locked it (LoginEpoch < -1); an owner's manual disable (-1) is left as-is.
+func (s *ResellerService) clearQuotaLoginLock(id int) {
+	if err := database.GetDB().Model(&model.User{}).
+		Where("id = ? AND login_epoch < ?", id, -1).
+		Update("login_epoch", 0).Error; err != nil {
+		logger.Warning("clearQuotaLoginLock: reseller", id, ":", err)
+	}
+}
+
+// GetResellerPassword returns the stored plaintext password so the panel owner
+// can view it; empty for a reseller that has neither been re-saved nor logged in
+// since the panel started keeping it.
+func (s *ResellerService) GetResellerPassword(id int) (string, error) {
+	user := &model.User{}
+	if err := database.GetDB().First(user, id).Error; err != nil {
+		return "", err
+	}
+	if user.Role != "reseller" {
+		return "", errors.New("user is not a reseller")
+	}
+	return user.ResellerPassword, nil
 }
 
 func (s *ResellerService) GetResellerById(id int) (*model.User, error) {

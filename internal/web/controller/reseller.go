@@ -31,6 +31,7 @@ func (a *ResellerController) initRouter(g *gin.RouterGroup) {
 
 	g.GET("/list", a.list)
 	g.GET("/:id/clients", a.getClients)
+	g.GET("/:id/password", a.getPassword)
 	g.POST("/add", a.add)
 	g.POST("/update/:id", a.update)
 	g.POST("/del/:id", a.del)
@@ -129,6 +130,20 @@ func (a *ResellerController) getClients(c *gin.Context) {
 		result = append(result, cwt)
 	}
 	jsonObj(c, result, nil)
+}
+
+func (a *ResellerController) getPassword(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	password, err := a.resellerService.GetResellerPassword(id)
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	jsonObj(c, gin.H{"password": password}, nil)
 }
 
 type addResellerForm struct {

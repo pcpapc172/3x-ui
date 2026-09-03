@@ -1289,21 +1289,27 @@ func (s *InboundService) updateResellerUsage(tx *gorm.DB, deltas map[int]*ownerT
 	}
 }
 
+// resellerQuotaLockEpoch marks a reseller's LoginEpoch as auto-locked for going
+// over quota — far below the manual-disable value (-1) so +1 bumps can't erode it.
+const resellerQuotaLockEpoch int64 = -1_000_000
+
 func (s *InboundService) disableResellerOverQuotaClients(tx *gorm.DB) (bool, int64, error) {
 	needRestart := false
-	type resellerOverQuota struct {
-		Id int
-	}
-	var overQuota []resellerOverQuota
+
+	var overQuotaIds []int
 	err := tx.Model(&model.User{}).
 		Where("role = ? AND usage_limit > 0 AND (usage_up + usage_down >= usage_limit)", "reseller").
-		Pluck("id", &overQuota).Error
-	if err != nil || len(overQuota) == 0 {
+		Pluck("id", &overQuotaIds).Error
+	if err != nil || len(overQuotaIds) == 0 {
 		return false, 0, err
 	}
-	overQuotaIds := make([]int, len(overQuota))
-	for i, r := range overQuota {
-		overQuotaIds[i] = r.Id
+
+	// Lock the reseller out of the panel too, not just their clients: a
+	// login-only disable lets them log back in and re-enable/provision clients.
+	if lockErr := tx.Model(&model.User{}).
+		Where("id IN ? AND role = ? AND login_epoch >= 0", overQuotaIds, "reseller").
+		Update("login_epoch", resellerQuotaLockEpoch).Error; lockErr != nil {
+		logger.Warning("disableResellerOverQuotaClients: locking reseller login:", lockErr)
 	}
 
 	var emails []string
@@ -1311,7 +1317,7 @@ func (s *InboundService) disableResellerOverQuotaClients(tx *gorm.DB) (bool, int
 		Where("owner_id IN ? AND enable = ? AND locked = ?", overQuotaIds, true, false).
 		Pluck("email", &emails).Error
 	if err != nil || len(emails) == 0 {
-		return false, 0, err
+		return needRestart, 0, err
 	}
 
 	type target struct {
@@ -1335,6 +1341,7 @@ func (s *InboundService) disableResellerOverQuotaClients(tx *gorm.DB) (bool, int
 
 	var localTargets []target
 	localByInbound := make(map[int]map[string]struct{})
+	remoteByInbound := make(map[int]map[string]struct{})
 	for _, t := range targets {
 		if t.NodeID == nil {
 			localTargets = append(localTargets, t)
@@ -1342,6 +1349,11 @@ func (s *InboundService) disableResellerOverQuotaClients(tx *gorm.DB) (bool, int
 				localByInbound[t.InboundID] = make(map[string]struct{})
 			}
 			localByInbound[t.InboundID][t.Email] = struct{}{}
+		} else {
+			if remoteByInbound[t.InboundID] == nil {
+				remoteByInbound[t.InboundID] = make(map[string]struct{})
+			}
+			remoteByInbound[t.InboundID][t.Email] = struct{}{}
 		}
 	}
 
@@ -1358,6 +1370,13 @@ func (s *InboundService) disableResellerOverQuotaClients(tx *gorm.DB) (bool, int
 	for inboundID, emailSet := range localByInbound {
 		if _, _, mErr := s.markClientsDisabledInSettings(tx, inboundID, emailSet); mErr != nil {
 			logger.Warning("disableResellerOverQuotaClients: settings sync failed for inbound", inboundID, ":", mErr)
+		}
+	}
+
+	for inboundID, emailSet := range remoteByInbound {
+		if pushErr := s.disableRemoteClients(tx, inboundID, emailSet); pushErr != nil {
+			logger.Warning("disableResellerOverQuotaClients: push to remote failed for inbound", inboundID, ":", pushErr)
+			needRestart = true
 		}
 	}
 

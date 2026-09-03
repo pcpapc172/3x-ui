@@ -48,6 +48,9 @@ type User struct {
 	AllowedInboundsMode string  `json:"allowedInboundsMode" gorm:"column:allowed_inbounds_mode;default:all" validate:"omitempty,oneof=all select"`
 	AllowedInboundIds   []int   `json:"allowedInboundIds" gorm:"serializer:json;column:allowed_inbound_ids"`
 	Multiplier          float64 `json:"multiplier" gorm:"column:multiplier;default:1"`
+	// Plaintext copy of a reseller's password so the panel owner can view it;
+	// written by ResellerService and backfilled on a reseller's first login.
+	ResellerPassword string `json:"-" gorm:"column:reseller_password;default:''"`
 }
 
 // Inbound represents an Xray inbound configuration with traffic statistics and settings.

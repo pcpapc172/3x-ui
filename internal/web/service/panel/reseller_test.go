@@ -6,6 +6,7 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/util/crypto"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 	"github.com/mhsanaei/3x-ui/v3/internal/xray"
 )
@@ -307,5 +308,99 @@ func TestResetResellerUsage_OnlyReEnablesLockedClientsLive(t *testing.T) {
 	}
 	if got := inboundSettingsClientEnable(t, inbound.Id, manualEmail); got {
 		t.Fatalf("manually-disabled client %q was re-enabled in the live inbound settings, want still disabled", manualEmail)
+	}
+}
+
+// TestResellerPassword_StoredCreatedUpdatedAndRead covers the owner-visible
+// plaintext: it is saved on create, replaced only when a non-blank password is
+// supplied on update, and read back by GetResellerPassword.
+func TestResellerPassword_StoredCreatedUpdatedAndRead(t *testing.T) {
+	setupBotTestDB(t)
+	svc := &ResellerService{}
+
+	created, err := svc.CreateReseller("pw-reseller", "initialPass1", 0, "all", nil, 1)
+	if err != nil {
+		t.Fatalf("CreateReseller: %v", err)
+	}
+
+	if got, err := svc.GetResellerPassword(created.Id); err != nil || got != "initialPass1" {
+		t.Fatalf("GetResellerPassword after create = %q, %v; want %q, nil", got, err, "initialPass1")
+	}
+
+	if err := svc.UpdateReseller(created.Id, "pw-reseller", "", 0, "all", nil, 1); err != nil {
+		t.Fatalf("UpdateReseller (blank password): %v", err)
+	}
+	if got, _ := svc.GetResellerPassword(created.Id); got != "initialPass1" {
+		t.Fatalf("stored password after blank update = %q, want %q (unchanged)", got, "initialPass1")
+	}
+
+	if err := svc.UpdateReseller(created.Id, "pw-reseller", "changedPass2", 0, "all", nil, 1); err != nil {
+		t.Fatalf("UpdateReseller (new password): %v", err)
+	}
+	if got, _ := svc.GetResellerPassword(created.Id); got != "changedPass2" {
+		t.Fatalf("stored password after update = %q, want %q", got, "changedPass2")
+	}
+
+	var reloaded model.User
+	if err := database.GetDB().First(&reloaded, created.Id).Error; err != nil {
+		t.Fatalf("reload reseller: %v", err)
+	}
+	if !crypto.CheckPasswordHash(reloaded.Password, "changedPass2") {
+		t.Fatalf("password hash does not verify against the updated password")
+	}
+}
+
+func TestGetResellerPassword_RejectsNonReseller(t *testing.T) {
+	setupBotTestDB(t)
+	admin := &model.User{Username: "an-admin", Password: "x", Role: "admin"}
+	if err := database.GetDB().Create(admin).Error; err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	if _, err := (&ResellerService{}).GetResellerPassword(admin.Id); err == nil {
+		t.Fatalf("GetResellerPassword returned nil error for a non-reseller user, want error")
+	}
+}
+
+func reloadUserEpoch(t *testing.T, id int) int64 {
+	t.Helper()
+	var u model.User
+	if err := database.GetDB().First(&u, id).Error; err != nil {
+		t.Fatalf("reload user %d: %v", id, err)
+	}
+	return u.LoginEpoch
+}
+
+// TestResetResellerUsage_ClearsQuotaLoginLock covers the account half of the
+// over-quota lockdown: a reseller auto-locked out of the panel for going over
+// quota regains login access on a usage reset, while a reseller the owner
+// disabled by hand (LoginEpoch -1) stays locked out. -1000000 mirrors the
+// service package's resellerQuotaLockEpoch sentinel.
+func TestResetResellerUsage_ClearsQuotaLoginLock(t *testing.T) {
+	setupBotTestDB(t)
+	db := database.GetDB()
+	svc := &ResellerService{}
+
+	quotaLocked, _ := seedResellerWithClient(t, "qlock@x")
+	if err := db.Model(&model.User{}).Where("id = ?", quotaLocked.Id).
+		Updates(map[string]any{"usage_limit": 100, "usage_up": 100, "login_epoch": -1000000}).Error; err != nil {
+		t.Fatalf("set reseller quota-locked: %v", err)
+	}
+	if _, err := svc.ResetResellerUsage(quotaLocked.Id); err != nil {
+		t.Fatalf("ResetResellerUsage (quota-locked): %v", err)
+	}
+	if got := reloadUserEpoch(t, quotaLocked.Id); got != 0 {
+		t.Fatalf("quota-locked reseller LoginEpoch = %d after reset, want 0 (re-enabled)", got)
+	}
+
+	manual, _ := seedResellerWithClient(t, "mlock@x")
+	if err := db.Model(&model.User{}).Where("id = ?", manual.Id).
+		Updates(map[string]any{"usage_limit": 100, "usage_up": 100, "login_epoch": -1}).Error; err != nil {
+		t.Fatalf("set reseller manually disabled: %v", err)
+	}
+	if _, err := svc.ResetResellerUsage(manual.Id); err != nil {
+		t.Fatalf("ResetResellerUsage (manual): %v", err)
+	}
+	if got := reloadUserEpoch(t, manual.Id); got != -1 {
+		t.Fatalf("manually-disabled reseller LoginEpoch = %d after reset, want -1 (still locked)", got)
 	}
 }

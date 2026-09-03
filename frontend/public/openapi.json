@@ -11963,6 +11963,53 @@
         }
       }
     },
+    "/panel/api/resellers/{id}/password": {
+      "get": {
+        "tags": [
+          "Resellers"
+        ],
+        "summary": "Return the stored plaintext password for a reseller so the panel owner can view it. Empty for a reseller that has not been re-saved or logged in since the panel started keeping it. Admin only.",
+        "operationId": "get_panel_api_resellers_id_password",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Reseller user ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "password": "rY8ilfTTbA"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/resellers/add": {
       "post": {
         "tags": [

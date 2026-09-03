@@ -1531,6 +1531,13 @@ export const sections: readonly Section[] = [
           '{\n  "success": true,\n  "obj": [\n    {\n      "id": 42,\n      "email": "alice",\n      "enable": true,\n      "locked": false,\n      "traffic": { "up": 1024, "down": 2048, "lastOnline": 1730000000000 },\n      "inboundIds": [1, 2]\n    }\n  ]\n}',
       },
       {
+        method: 'GET',
+        path: '/panel/api/resellers/:id/password',
+        summary: 'Return the stored plaintext password for a reseller so the panel owner can view it. Empty for a reseller that has not been re-saved or logged in since the panel started keeping it. Admin only.',
+        params: [{ name: 'id', in: 'path', type: 'integer', desc: 'Reseller user ID.' }],
+        response: '{\n  "success": true,\n  "obj": { "password": "rY8ilfTTbA" }\n}',
+      },
+      {
         method: 'POST',
         path: '/panel/api/resellers/add',
         summary: 'Create a reseller account. Admin only.',

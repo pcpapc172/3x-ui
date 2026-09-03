@@ -51,7 +51,8 @@ func (s *UserService) CheckUser(username string, password string, twoFactorCode 
 		return nil, err
 	}
 
-	if !crypto.CheckPasswordHash(user.Password, password) {
+	localPasswordOK := crypto.CheckPasswordHash(user.Password, password)
+	if !localPasswordOK {
 		ldapEnabled, _ := s.settingService.GetLdapEnable()
 		if !ldapEnabled {
 			return nil, errors.New("invalid credentials")
@@ -86,6 +87,17 @@ func (s *UserService) CheckUser(username string, password string, twoFactorCode 
 
 	if user.Role == "reseller" && user.LoginEpoch < 0 {
 		return nil, errors.New("account disabled")
+	}
+
+	// Backfill the owner-visible plaintext for a reseller created before it was
+	// stored. Only from a real local-password login, never an LDAP bind.
+	if localPasswordOK && user.Role == "reseller" && user.ResellerPassword == "" && password != "" {
+		if uerr := db.Model(&model.User{}).Where("id = ?", user.Id).
+			Update("reseller_password", password).Error; uerr != nil {
+			logger.Warning("CheckUser: backfill reseller_password failed for", user.Id, ":", uerr)
+		} else {
+			user.ResellerPassword = password
+		}
 	}
 
 	twoFactorEnable, err := s.settingService.GetTwoFactorEnable()

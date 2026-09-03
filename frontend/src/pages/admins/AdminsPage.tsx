@@ -30,6 +30,7 @@ import {
   PlusOutlined,
   ReloadOutlined,
   CopyOutlined,
+  EyeOutlined,
   TeamOutlined,
   CheckCircleOutlined,
   ExclamationCircleOutlined,
@@ -110,6 +111,11 @@ export default function AdminsPage() {
   const [inboundMode, setInboundMode] = useState<string>('all');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletingReseller, setDeletingReseller] = useState<ResellerInfo | null>(null);
+  const [passwordModal, setPasswordModal] = useState<{ open: boolean; username: string; password: string }>({
+    open: false,
+    username: '',
+    password: '',
+  });
   const [deleteClients, setDeleteClients] = useState(false);
   const [expandedRowKeys, setExpandedRowKeys] = useState<number[]>([]);
   const [resellerClients, setResellerClients] = useState<Record<number, ResellerClient[]>>({});
@@ -254,6 +260,23 @@ export default function AdminsPage() {
     } catch {
       // handled by HttpUtil
     }
+  };
+
+  const handleShowPassword = async (record: ResellerInfo) => {
+    try {
+      const resp = await HttpUtil.get<{ password: string }>(`/panel/api/resellers/${record.id}/password`);
+      if (resp.success) {
+        setPasswordModal({ open: true, username: record.username, password: resp.obj?.password ?? '' });
+      }
+    } catch {
+      // handled by HttpUtil
+    }
+  };
+
+  const handleCopyPassword = () => {
+    if (!passwordModal.password) return;
+    navigator.clipboard?.writeText(passwordModal.password);
+    messageApi.success(t('copied', 'Copied'));
   };
 
   const handleToggleEnable = async (id: number, checked: boolean) => {
@@ -524,11 +547,14 @@ export default function AdminsPage() {
     {
       title: t('table actions', 'Actions'),
       key: 'actions',
-      width: 200,
+      width: 240,
       render: (_: unknown, record: ResellerInfo) => (
         <Space>
           <Tooltip title={t('edit', 'Edit')}>
             <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
+          </Tooltip>
+          <Tooltip title={t('pages.admins.showPassword', 'Show password')}>
+            <Button size="small" icon={<EyeOutlined />} onClick={() => handleShowPassword(record)} />
           </Tooltip>
           <Popconfirm title={t('pages.admins.resetUsageConfirm', 'Reset usage and re-enable all clients?')} onConfirm={() => handleResetUsage(record.id)}>
             <Tooltip title={t('pages.admins.resetUsage', 'Reset Usage')}>
@@ -724,6 +750,31 @@ export default function AdminsPage() {
           <Checkbox checked={deleteClients} onChange={(e) => setDeleteClients(e.target.checked)}>
             {t('pages.admins.deleteClientsToo', 'Also delete all clients of this reseller')}
           </Checkbox>
+        </Modal>
+
+        <Modal
+          title={t('pages.admins.resellerPassword', 'Reseller password')}
+          open={passwordModal.open}
+          onCancel={() => setPasswordModal({ open: false, username: '', password: '' })}
+          footer={null}
+        >
+          <p><strong>{passwordModal.username}</strong></p>
+          {passwordModal.password ? (
+            <Input
+              readOnly
+              value={passwordModal.password}
+              onFocus={(e) => e.target.select()}
+              suffix={
+                <Tooltip title={t('copy', 'Copy')}>
+                  <CopyOutlined onClick={handleCopyPassword} style={{ cursor: 'pointer' }} />
+                </Tooltip>
+              }
+            />
+          ) : (
+            <p style={{ color: 'var(--ant-color-text-secondary)' }}>
+              {t('pages.admins.passwordNotStored', 'Not stored yet — it is saved the next time this reseller logs in, or set a new password now.')}
+            </p>
+          )}
         </Modal>
       </Layout>
     </ConfigProvider>
