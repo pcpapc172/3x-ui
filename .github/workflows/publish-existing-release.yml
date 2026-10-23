@@ -1,0 +1,66 @@
+name: Publish verified release artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful Release 3X-UI run ID
+        required: true
+        type: string
+      tag:
+        description: Existing version tag built by that run
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: stable-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_RUN: ${{ inputs.run_id }}
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - name: Verify successful build matches tag
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_RUN" =~ ^[0-9]+$ ]]
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN" > /tmp/build-run.json
+          jq -e '.conclusion == "success" and .path == ".github/workflows/release.yml"' /tmp/build-run.json
+          built=$(jq -r .head_sha /tmp/build-run.json)
+          tagged=$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq .sha)
+          [[ "$built" == "$tagged" ]]
+      - name: Checkout tagged release notes
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag }}
+      - name: Download completed build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ inputs.run_id }}
+          path: release-artifacts
+          merge-multiple: true
+      - name: Verify, upload and publish latest
+        run: |
+          set -euo pipefail
+          cd release-artifacts
+          for asset in x-ui-linux-amd64.tar.gz x-ui-linux-arm64.tar.gz x-ui-windows-amd64.zip; do
+            test -s "$asset"
+            sha256sum -c "$asset.sha256"
+          done
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --draft \
+              --title "$RELEASE_TAG" --notes-file "../.github/release-notes/$RELEASE_TAG.md"
+          fi
+          gh release upload "$RELEASE_TAG" *.tar.gz *.zip *.sha256 --repo "$GITHUB_REPOSITORY" --clobber
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease=false --latest \
+            --title "$RELEASE_TAG" --notes-file "../.github/release-notes/$RELEASE_TAG.md"
