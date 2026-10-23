@@ -112,7 +112,11 @@ export default function AdminsPage() {
   const [inboundMode, setInboundMode] = useState<string>('all');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletingReseller, setDeletingReseller] = useState<ResellerInfo | null>(null);
-  const [passwordModal, setPasswordModal] = useState<{ open: boolean; username: string; password: string }>({
+  const [passwordModal, setPasswordModal] = useState<{
+    open: boolean;
+    username: string;
+    password: string;
+  }>({
     open: false,
     username: '',
     password: '',
@@ -142,7 +146,7 @@ export default function AdminsPage() {
     let totalDown = 0;
     let totalClients = 0;
     for (const r of resellers) {
-      const overQuota = r.usageLimit > 0 && (r.usageUp + r.usageDown) >= r.usageLimit;
+      const overQuota = r.usageLimit > 0 && r.usageUp + r.usageDown >= r.usageLimit;
       if (!overQuota) active++;
       totalUp += r.usageUp;
       totalDown += r.usageDown;
@@ -153,31 +157,40 @@ export default function AdminsPage() {
 
   const generateRandom = useCallback(() => {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    const pick = (len: number) => Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    const pick = (len: number) =>
+      Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
     form.setFieldsValue({ username: `rs-${pick(8)}`, password: pick(16) });
   }, [form]);
 
-  const fetchResellers = useCallback(async () => {
-    setLoading(true);
-    setFetchError('');
-    try {
-      const [resp, inbResp] = await Promise.all([
+  const fetchResellers = useCallback(
+    () =>
+      Promise.all([
         HttpUtil.get<ResellerInfo[]>('/panel/api/resellers/list'),
         HttpUtil.get<InboundOption[]>('/panel/api/inbounds/options'),
-      ]);
-      if (resp.success && resp.obj) {
-        setResellers(resp.obj);
-      }
-      if (inbResp.success && inbResp.obj) {
-        setInbounds(inbResp.obj);
-      }
-    } catch {
-      setFetchError(t('somethingWentWrong'));
-    } finally {
-      setLoading(false);
-      setFetched(true);
-    }
-  }, [t]);
+      ])
+        .then(([resp, inbResp]) => {
+          setFetchError('');
+          if (resp.success && resp.obj) {
+            setResellers(resp.obj);
+          }
+          if (inbResp.success && inbResp.obj) {
+            setInbounds(inbResp.obj);
+          }
+        })
+        .catch(() => {
+          setFetchError(t('somethingWentWrong'));
+        })
+        .finally(() => {
+          setLoading(false);
+          setFetched(true);
+        }),
+    [t],
+  );
+
+  const refreshData = () => {
+    setLoading(true);
+    void fetchResellers();
+  };
 
   useEffect(() => {
     fetchResellers();
@@ -186,7 +199,9 @@ export default function AdminsPage() {
   const fetchClientsForReseller = useCallback(async (resellerId: number) => {
     setClientsLoading((prev) => ({ ...prev, [resellerId]: true }));
     try {
-      const resp = await HttpUtil.get<ResellerClient[]>(`/panel/api/resellers/${resellerId}/clients`);
+      const resp = await HttpUtil.get<ResellerClient[]>(
+        `/panel/api/resellers/${resellerId}/clients`,
+      );
       if (resp.success && resp.obj) {
         const clients = resp.obj;
         setResellerClients((prev) => ({ ...prev, [resellerId]: clients }));
@@ -198,15 +213,18 @@ export default function AdminsPage() {
     }
   }, []);
 
-  const handleExpand = useCallback((expanded: boolean, record: ResellerInfo) => {
-    setExpandedRowKeys((prev) => {
-      const next = expanded ? [...prev, record.id] : prev.filter((k) => k !== record.id);
-      return next;
-    });
-    if (expanded && !resellerClients[record.id]) {
-      fetchClientsForReseller(record.id);
-    }
-  }, [resellerClients, fetchClientsForReseller]);
+  const handleExpand = useCallback(
+    (expanded: boolean, record: ResellerInfo) => {
+      setExpandedRowKeys((prev) => {
+        const next = expanded ? [...prev, record.id] : prev.filter((k) => k !== record.id);
+        return next;
+      });
+      if (expanded && !resellerClients[record.id]) {
+        fetchClientsForReseller(record.id);
+      }
+    },
+    [resellerClients, fetchClientsForReseller],
+  );
 
   const handleAdd = () => {
     setEditingReseller(null);
@@ -226,7 +244,7 @@ export default function AdminsPage() {
       usageLimit: record.usageLimit / (1024 * 1024 * 1024),
       allowedInboundsMode: mode,
       allowedInboundIds: record.allowedInboundIds || [],
-      multiplier: record.multiplier || 0,
+      multiplier: record.multiplier || 1,
     });
     setModalOpen(true);
   };
@@ -240,11 +258,13 @@ export default function AdminsPage() {
   const handleDeleteConfirm = async () => {
     if (!deletingReseller) return;
     try {
-      const resp = await HttpUtil.post<unknown>(`/panel/api/resellers/del/${deletingReseller.id}?deleteClients=${deleteClients}`);
+      const resp = await HttpUtil.post<unknown>(
+        `/panel/api/resellers/del/${deletingReseller.id}?deleteClients=${deleteClients}`,
+      );
       if (resp.success) {
         setDeleteModalOpen(false);
         setDeletingReseller(null);
-        fetchResellers();
+        refreshData();
       }
     } catch {
       // handled by HttpUtil
@@ -253,10 +273,12 @@ export default function AdminsPage() {
 
   const handleResetUsage = async (id: number) => {
     try {
-      const resp = await HttpUtil.post<{ reEnabled: number }>(`/panel/api/resellers/resetUsage/${id}`);
+      const resp = await HttpUtil.post<{ reEnabled: number }>(
+        `/panel/api/resellers/resetUsage/${id}`,
+      );
       if (resp.success) {
         messageApi.success(t('pages.admins.usageResetToast', { count: resp.obj?.reEnabled ?? 0 }));
-        fetchResellers();
+        refreshData();
       }
     } catch {
       // handled by HttpUtil
@@ -265,9 +287,15 @@ export default function AdminsPage() {
 
   const handleShowPassword = async (record: ResellerInfo) => {
     try {
-      const resp = await HttpUtil.get<{ password: string }>(`/panel/api/resellers/${record.id}/password`);
+      const resp = await HttpUtil.get<{ password: string }>(
+        `/panel/api/resellers/${record.id}/password`,
+      );
       if (resp.success) {
-        setPasswordModal({ open: true, username: record.username, password: resp.obj?.password ?? '' });
+        setPasswordModal({
+          open: true,
+          username: record.username,
+          password: resp.obj?.password ?? '',
+        });
       }
     } catch {
       // handled by HttpUtil
@@ -283,10 +311,14 @@ export default function AdminsPage() {
 
   const handleToggleEnable = async (id: number, checked: boolean) => {
     try {
-      const resp = await HttpUtil.post<{ enabled: boolean }>(`/panel/api/resellers/toggleEnable/${id}`);
+      const resp = await HttpUtil.post<{ enabled: boolean }>(
+        `/panel/api/resellers/toggleEnable/${id}`,
+      );
       if (resp.success) {
-        messageApi.success(checked ? t('pages.admins.resellerEnabled') : t('pages.admins.resellerDisabled'));
-        fetchResellers();
+        messageApi.success(
+          checked ? t('pages.admins.resellerEnabled') : t('pages.admins.resellerDisabled'),
+        );
+        refreshData();
       }
     } catch {
       // handled by HttpUtil
@@ -296,24 +328,28 @@ export default function AdminsPage() {
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      const usageLimitBytes = (values.usageLimit || 0) * 1024 * 1024 * 1024;
+      const usageLimitBytes = Math.round((values.usageLimit ?? 0) * 1024 * 1024 * 1024);
       const payload = {
         username: values.username,
         password: values.password || '',
         usageLimit: usageLimitBytes,
         allowedInboundsMode: values.allowedInboundsMode || 'all',
-        allowedInboundIds: values.allowedInboundsMode === 'select' ? (values.allowedInboundIds || []) : [],
-        multiplier: values.multiplier || 0,
+        allowedInboundIds:
+          values.allowedInboundsMode === 'select' ? values.allowedInboundIds || [] : [],
+        multiplier: values.multiplier ?? 1,
       };
       let resp: Msg<unknown>;
       if (editingReseller) {
-        resp = await HttpUtil.post<unknown>(`/panel/api/resellers/update/${editingReseller.id}`, payload);
+        resp = await HttpUtil.post<unknown>(
+          `/panel/api/resellers/update/${editingReseller.id}`,
+          payload,
+        );
       } else {
         resp = await HttpUtil.post<unknown>('/panel/api/resellers/add', payload);
       }
       if (resp.success) {
         setModalOpen(false);
-        fetchResellers();
+        refreshData();
       }
     } catch {
       // validation or network error
@@ -385,17 +421,39 @@ export default function AdminsPage() {
       render: (_: unknown, record: ResellerClient) => (
         <Space size={4}>
           <Tooltip title={t('pages.clients.clientInfo')}>
-            <Button size="small" type="text" style={{ fontSize: 16 }} icon={<InfoCircleOutlined />} />
+            <Button
+              size="small"
+              type="text"
+              style={{ fontSize: 16 }}
+              icon={<InfoCircleOutlined />}
+            />
           </Tooltip>
           <Tooltip title={t('pages.inbounds.resetTraffic')}>
             <Button size="small" type="text" style={{ fontSize: 16 }} icon={<RetweetOutlined />} />
           </Tooltip>
           <Tooltip title={t('edit')}>
-            <Button size="small" type="text" style={{ fontSize: 16 }} icon={<EditOutlined />} onClick={() => handleEditClient(record)} />
+            <Button
+              size="small"
+              type="text"
+              style={{ fontSize: 16 }}
+              icon={<EditOutlined />}
+              onClick={() => handleEditClient(record)}
+            />
           </Tooltip>
           <Tooltip title={t('delete')}>
-            <Popconfirm title={t('pages.clients.deleteConfirmTitle', 'Delete client {email}?', { email: record.email })} onConfirm={() => handleDeleteClient(record)}>
-              <Button size="small" type="text" danger style={{ fontSize: 16 }} icon={<DeleteOutlined />} />
+            <Popconfirm
+              title={t('pages.clients.deleteConfirmTitle', 'Delete client {email}?', {
+                email: record.email,
+              })}
+              onConfirm={() => handleDeleteClient(record)}
+            >
+              <Button
+                size="small"
+                type="text"
+                danger
+                style={{ fontSize: 16 }}
+                icon={<DeleteOutlined />}
+              />
             </Popconfirm>
           </Tooltip>
         </Space>
@@ -415,7 +473,8 @@ export default function AdminsPage() {
       width: 90,
       render: (_: unknown, record: ResellerClient) => {
         const now = Date.now();
-        const isOnline = record.traffic?.lastOnline > 0 && (now - record.traffic.lastOnline) < 5 * 60 * 1000;
+        const isOnline =
+          record.traffic?.lastOnline > 0 && now - record.traffic.lastOnline < 5 * 60 * 1000;
         if (record.locked) return <Tag color="red">{t('pages.clients.locked', 'Locked')}</Tag>;
         if (record.enable && isOnline) return <Tag color="green">{t('pages.clients.online')}</Tag>;
         if (!record.enable) return <Tag>{t('disabled')}</Tag>;
@@ -429,8 +488,16 @@ export default function AdminsPage() {
       render: (_: unknown, record: ResellerClient) => (
         <div>
           <div style={{ fontWeight: 500 }}>{record.email}</div>
-          {record.subId && <div style={{ fontSize: 12, color: 'var(--ant-color-text-secondary)' }}>{record.subId}</div>}
-          {record.comment && <div style={{ fontSize: 12, color: 'var(--ant-color-text-secondary)' }}>{record.comment}</div>}
+          {record.subId && (
+            <div style={{ fontSize: 12, color: 'var(--ant-color-text-secondary)' }}>
+              {record.subId}
+            </div>
+          )}
+          {record.comment && (
+            <div style={{ fontSize: 12, color: 'var(--ant-color-text-secondary)' }}>
+              {record.comment}
+            </div>
+          )}
         </div>
       ),
     },
@@ -440,11 +507,19 @@ export default function AdminsPage() {
       width: 170,
       render: (_: unknown, record: ResellerClient) => {
         const ids = record.inboundIds || [];
-        if (ids.length === 0) return <span style={{ color: 'var(--ant-color-text-secondary)' }}>\u2014</span>;
+        if (ids.length === 0)
+          return <span style={{ color: 'var(--ant-color-text-secondary)' }}>\u2014</span>;
         const PROTO_COLORS: Record<string, string> = {
-          vless: 'blue', vmess: 'geekblue', trojan: 'volcano',
-          shadowsocks: 'magenta', hysteria: 'cyan', hysteria2: 'green',
-          wireguard: 'gold', http: 'purple', mixed: 'lime', tunnel: 'orange',
+          vless: 'blue',
+          vmess: 'geekblue',
+          trojan: 'volcano',
+          shadowsocks: 'magenta',
+          hysteria: 'cyan',
+          hysteria2: 'green',
+          wireguard: 'gold',
+          http: 'purple',
+          mixed: 'lime',
+          tunnel: 'orange',
         };
         return (
           <Space size={2} wrap>
@@ -453,7 +528,11 @@ export default function AdminsPage() {
               const proto = (ib?.protocol || '').toLowerCase();
               const color = PROTO_COLORS[proto] ?? 'default';
               const label = ib?.remark || ib?.tag || String(id);
-              return <Tag key={id} color={color} style={{ margin: 1 }}>{label}</Tag>;
+              return (
+                <Tag key={id} color={color} style={{ margin: 1 }}>
+                  {label}
+                </Tag>
+              );
             })}
             {ids.length > 2 && <Tag style={{ margin: 1 }}>+{ids.length - 2}</Tag>}
           </Space>
@@ -489,11 +568,40 @@ export default function AdminsPage() {
       width: 130,
       render: (_: unknown, record: ResellerClient) => (
         <Tooltip title={expiryLabel(record)}>
-          <Tag color={expiryColor(record)}>{record.expiryTime ? expiryRelative(record) : '\u221E'}</Tag>
+          <Tag color={expiryColor(record)}>
+            {record.expiryTime ? expiryRelative(record) : '\u221E'}
+          </Tag>
         </Tooltip>
       ),
     },
   ];
+
+  const renderResellerActions = (record: ResellerInfo) => (
+    <Space>
+      <Tooltip title={t('edit', 'Edit')}>
+        <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
+      </Tooltip>
+      <Tooltip title={t('pages.admins.showPassword', 'Show password')}>
+        <Button size="small" icon={<EyeOutlined />} onClick={() => handleShowPassword(record)} />
+      </Tooltip>
+      <Popconfirm
+        title={t('pages.admins.resetUsageConfirm', 'Reset usage and re-enable all clients?')}
+        onConfirm={() => handleResetUsage(record.id)}
+      >
+        <Tooltip title={t('pages.admins.resetUsage', 'Reset Usage')}>
+          <Button size="small" icon={<ReloadOutlined />} />
+        </Tooltip>
+      </Popconfirm>
+      <Tooltip title={t('delete', 'Delete')}>
+        <Button
+          size="small"
+          danger
+          icon={<DeleteOutlined />}
+          onClick={() => handleDeleteClick(record)}
+        />
+      </Tooltip>
+    </Space>
+  );
 
   const columns = [
     {
@@ -531,7 +639,8 @@ export default function AdminsPage() {
       key: 'status',
       width: 140,
       render: (_: unknown, record: ResellerInfo) => {
-        const overQuota = record.usageLimit > 0 && (record.usageUp + record.usageDown) >= record.usageLimit;
+        const overQuota =
+          record.usageLimit > 0 && record.usageUp + record.usageDown >= record.usageLimit;
         return (
           <Space size="small">
             <Switch
@@ -539,9 +648,11 @@ export default function AdminsPage() {
               checked={record.enabled}
               onChange={(checked) => handleToggleEnable(record.id, checked)}
             />
-            {overQuota
-              ? <Tag color="error">{t('pages.settings.overQuota', 'Over Quota')}</Tag>
-              : <Tag color="success">{t('pages.settings.active', 'Active')}</Tag>}
+            {overQuota ? (
+              <Tag color="error">{t('pages.settings.overQuota', 'Over Quota')}</Tag>
+            ) : (
+              <Tag color="success">{t('pages.settings.active', 'Active')}</Tag>
+            )}
           </Space>
         );
       },
@@ -550,24 +661,7 @@ export default function AdminsPage() {
       title: t('table actions', 'Actions'),
       key: 'actions',
       width: 240,
-      render: (_: unknown, record: ResellerInfo) => (
-        <Space>
-          <Tooltip title={t('edit', 'Edit')}>
-            <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
-          </Tooltip>
-          <Tooltip title={t('pages.admins.showPassword', 'Show password')}>
-            <Button size="small" icon={<EyeOutlined />} onClick={() => handleShowPassword(record)} />
-          </Tooltip>
-          <Popconfirm title={t('pages.admins.resetUsageConfirm', 'Reset usage and re-enable all clients?')} onConfirm={() => handleResetUsage(record.id)}>
-            <Tooltip title={t('pages.admins.resetUsage', 'Reset Usage')}>
-              <Button size="small" icon={<ReloadOutlined />} />
-            </Tooltip>
-          </Popconfirm>
-          <Tooltip title={t('delete', 'Delete')}>
-            <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDeleteClick(record)} />
-          </Tooltip>
-        </Space>
-      ),
+      render: (_: unknown, record: ResellerInfo) => renderResellerActions(record),
     },
   ];
 
@@ -587,7 +681,11 @@ export default function AdminsPage() {
                   status="error"
                   title={t('somethingWentWrong')}
                   subTitle={fetchError}
-                  extra={<Button type="primary" onClick={fetchResellers}>{t('refresh')}</Button>}
+                  extra={
+                    <Button type="primary" onClick={refreshData}>
+                      {t('refresh')}
+                    </Button>
+                  }
                 />
               ) : (
                 <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 12]}>
@@ -605,7 +703,9 @@ export default function AdminsPage() {
                           <Statistic
                             title={t('pages.admins.activeResellers', 'Active')}
                             value={totals.active}
-                            prefix={<CheckCircleOutlined style={{ color: 'var(--ant-color-success)' }} />}
+                            prefix={
+                              <CheckCircleOutlined style={{ color: 'var(--ant-color-success)' }} />
+                            }
                           />
                         </Col>
                         <Col xs={12} sm={12} md={6}>
@@ -637,34 +737,98 @@ export default function AdminsPage() {
                         </Button>
                       }
                     >
-                      <Table
-                        dataSource={resellers}
-                        columns={columns}
-                        rowKey="id"
-                        loading={loading}
-                        pagination={false}
-                        size="small"
-                        expandable={{
-                          expandedRowKeys,
-                          onExpand: handleExpand,
-                          expandedRowRender: (record) => {
-                            const clients = resellerClients[record.id] || [];
-                            const isLoading = clientsLoading[record.id];
-                            if (isLoading) return <Spin size="small" />;
-                            if (clients.length === 0) return <div style={{ padding: 16, color: 'var(--ant-color-text-secondary)' }}>{t('pages.admins.noClients', 'No clients')}</div>;
-                            return (
-                              <Table
-                                dataSource={clients}
-                                columns={clientColumns}
-                                rowKey="id"
-                                pagination={false}
-                                size="small"
-                                style={{ background: 'transparent' }}
+                      {isMobile ? (
+                        <div className="reseller-mobile-list">
+                          {resellers.map((record) => (
+                            <Card
+                              key={record.id}
+                              size="small"
+                              title={
+                                <span className="reseller-mobile-name">
+                                  #{record.id} {record.username}
+                                </span>
+                              }
+                              extra={
+                                <Switch
+                                  size="small"
+                                  checked={record.enabled}
+                                  onChange={(next) => handleToggleEnable(record.id, next)}
+                                />
+                              }
+                            >
+                              <ClientTrafficCell
+                                up={record.usageUp}
+                                down={record.usageDown}
+                                total={record.usageLimit}
+                                enabled={record.enabled}
                               />
-                            );
-                          },
-                        }}
-                      />
+                              <div className="reseller-mobile-actions">
+                                <Button
+                                  size="small"
+                                  onClick={() =>
+                                    handleExpand(!expandedRowKeys.includes(record.id), record)
+                                  }
+                                >
+                                  {t('menu.clients')}: {record.clientCount}
+                                </Button>
+                                {renderResellerActions(record)}
+                              </div>
+                              {expandedRowKeys.includes(record.id) && (
+                                <Table
+                                  dataSource={resellerClients[record.id] || []}
+                                  columns={clientColumns}
+                                  rowKey="id"
+                                  loading={clientsLoading[record.id]}
+                                  pagination={{ pageSize: 10, size: 'small' }}
+                                  size="small"
+                                  scroll={{ x: 800 }}
+                                />
+                              )}
+                            </Card>
+                          ))}
+                        </div>
+                      ) : (
+                        <Table
+                          scroll={{ x: 960 }}
+                          dataSource={resellers}
+                          columns={columns}
+                          rowKey="id"
+                          loading={loading}
+                          pagination={false}
+                          size="small"
+                          expandable={{
+                            expandedRowKeys,
+                            onExpand: handleExpand,
+                            expandedRowRender: (record) => {
+                              const clients = resellerClients[record.id] || [];
+                              const isLoading = clientsLoading[record.id];
+                              if (isLoading) return <Spin size="small" />;
+                              if (clients.length === 0)
+                                return (
+                                  <div
+                                    style={{
+                                      padding: 16,
+                                      color: 'var(--ant-color-text-secondary)',
+                                    }}
+                                  >
+                                    {t('pages.admins.noClients', 'No clients')}
+                                  </div>
+                                );
+                              return (
+                                <Table
+                                  scroll={{ x: 800 }}
+                                  dataSource={clients}
+                                  columns={clientColumns}
+                                  rowKey="id"
+                                  pagination={false}
+                                  size="small"
+                                  style={{ background: 'transparent' }}
+                                />
+                              );
+                            },
+                          }}
+                        />
+                      )}
                     </Card>
                   </Col>
                 </Row>
@@ -674,7 +838,11 @@ export default function AdminsPage() {
         </Layout>
 
         <Modal
-          title={editingReseller ? t('pages.admins.editReseller', 'Edit Reseller') : t('pages.admins.addReseller', 'Add Reseller')}
+          title={
+            editingReseller
+              ? t('pages.admins.editReseller', 'Edit Reseller')
+              : t('pages.admins.addReseller', 'Add Reseller')
+          }
           open={modalOpen}
           onOk={handleSubmit}
           onCancel={() => setModalOpen(false)}
@@ -683,8 +851,12 @@ export default function AdminsPage() {
           <Form form={form} layout="vertical">
             {!editingReseller && (
               <Form.Item>
-                <Tooltip title={t('pages.admins.generateRandom', 'Generate random username and password')}>
-                  <Button icon={<CopyOutlined />} onClick={generateRandom}>{t('pages.admins.generateRandom', 'Generate Random')}</Button>
+                <Tooltip
+                  title={t('pages.admins.generateRandom', 'Generate random username and password')}
+                >
+                  <Button icon={<CopyOutlined />} onClick={generateRandom}>
+                    {t('pages.admins.generateRandom', 'Generate Random')}
+                  </Button>
                 </Tooltip>
               </Form.Item>
             )}
@@ -700,15 +872,29 @@ export default function AdminsPage() {
               label={t('pages.settings.password', 'Password')}
               rules={editingReseller ? [] : [{ required: true }]}
             >
-              <Input.Password placeholder={editingReseller ? t('pages.admins.leaveBlank', 'Leave blank to keep current') : ''} />
+              <Input.Password
+                placeholder={
+                  editingReseller ? t('pages.admins.leaveBlank', 'Leave blank to keep current') : ''
+                }
+              />
             </Form.Item>
             <Form.Item name="usageLimit" label={t('pages.admins.usageLimitGB', 'Usage Limit (GB)')}>
               <InputNumber min={0} style={{ width: '100%' }} />
             </Form.Item>
-            <Form.Item name="multiplier" label={t('pages.admins.resellerMultiplier', 'Reseller Multiplier')} tooltip={t('pages.admins.resellerMultiplierTip', 'Additional multiplier added on top of inbound multipliers (0 = no additional)')}>
-              <InputNumber min={0} step={0.1} style={{ width: '100%' }} addonAfter="x" />
+            <Form.Item
+              name="multiplier"
+              label={t('pages.admins.resellerMultiplier', 'Reseller Multiplier')}
+              tooltip={t(
+                'pages.admins.resellerMultiplierTip',
+                'Multiplied by the highest attached inbound rate (1 = unchanged)',
+              )}
+            >
+              <InputNumber min={1} step={0.1} style={{ width: '100%' }} addonAfter="x" />
             </Form.Item>
-            <Form.Item name="allowedInboundsMode" label={t('pages.admins.allowedInboundsMode', 'Allowed Inbounds')}>
+            <Form.Item
+              name="allowedInboundsMode"
+              label={t('pages.admins.allowedInboundsMode', 'Allowed Inbounds')}
+            >
               <Select
                 onChange={(val) => {
                   setInboundMode(val);
@@ -723,10 +909,16 @@ export default function AdminsPage() {
               />
             </Form.Item>
             {inboundMode === 'select' && (
-              <Form.Item name="allowedInboundIds" label={t('pages.admins.selectInbounds', 'Select Inbounds')}>
+              <Form.Item
+                name="allowedInboundIds"
+                label={t('pages.admins.selectInbounds', 'Select Inbounds')}
+              >
                 <Select
                   mode="multiple"
-                  placeholder={t('pages.admins.selectInboundsPlaceholder', 'Select inbounds this reseller can access')}
+                  placeholder={t(
+                    'pages.admins.selectInboundsPlaceholder',
+                    'Select inbounds this reseller can access',
+                  )}
                   options={inbounds.map((ib) => ({
                     value: ib.id,
                     label: `${ib.remark || ib.tag || ib.id} (${ib.protocol}:${ib.port})`,
@@ -741,13 +933,19 @@ export default function AdminsPage() {
           title={t('pages.admins.deleteReseller', 'Delete Reseller')}
           open={deleteModalOpen}
           onOk={handleDeleteConfirm}
-          onCancel={() => { setDeleteModalOpen(false); setDeletingReseller(null); }}
+          onCancel={() => {
+            setDeleteModalOpen(false);
+            setDeletingReseller(null);
+          }}
           okText={t('delete', 'Delete')}
           okButtonProps={{ danger: true }}
         >
           <p>{t('pages.admins.deleteConfirm', 'Are you sure you want to delete this reseller?')}</p>
           {deletingReseller && (
-            <p><strong>{deletingReseller.username}</strong> ({deletingReseller.clientCount} {t('pages.clients.title', 'clients').toLowerCase()})</p>
+            <p>
+              <strong>{deletingReseller.username}</strong> ({deletingReseller.clientCount}{' '}
+              {t('pages.clients.title', 'clients').toLowerCase()})
+            </p>
           )}
           <Checkbox checked={deleteClients} onChange={(e) => setDeleteClients(e.target.checked)}>
             {t('pages.admins.deleteClientsToo', 'Also delete all clients of this reseller')}
@@ -760,7 +958,9 @@ export default function AdminsPage() {
           onCancel={() => setPasswordModal({ open: false, username: '', password: '' })}
           footer={null}
         >
-          <p><strong>{passwordModal.username}</strong></p>
+          <p>
+            <strong>{passwordModal.username}</strong>
+          </p>
           {passwordModal.password ? (
             <Input
               readOnly
@@ -774,7 +974,10 @@ export default function AdminsPage() {
             />
           ) : (
             <p style={{ color: 'var(--ant-color-text-secondary)' }}>
-              {t('pages.admins.passwordNotStored', 'Not stored yet — it is saved the next time this reseller logs in, or set a new password now.')}
+              {t(
+                'pages.admins.passwordNotStored',
+                'Not stored yet — it is saved the next time this reseller logs in, or set a new password now.',
+              )}
             </p>
           )}
         </Modal>

@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter, type RouteObject } from 'react-router';
+import { Spin } from 'antd';
 
 import PanelLayout from '@/layouts/PanelLayout';
 
@@ -16,9 +17,27 @@ const AdminsPage = lazy(() => import('@/pages/admins/AdminsPage'));
 const MultiplyPage = lazy(() => import('@/pages/multiply/MultiplyPage'));
 const ResellerOverviewPage = lazy(() => import('@/pages/reseller/ResellerOverviewPage'));
 const TelegramBotPage = lazy(() => import('@/pages/telegrambot/TelegramBotPage'));
+const SponsorsPage = lazy(() => import('@/pages/sponsors/SponsorsPage'));
 
 function withSuspense(node: React.ReactNode) {
-  return <Suspense fallback={null}>{node}</Suspense>;
+  return (
+    <Suspense
+      fallback={
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: '60vh',
+          }}
+        >
+          <Spin size="large" />
+        </div>
+      }
+    >
+      {node}
+    </Suspense>
+  );
 }
 
 const routes: RouteObject[] = [
@@ -41,6 +60,7 @@ const routes: RouteObject[] = [
       { path: 'multiply', element: withSuspense(<MultiplyPage />) },
       { path: 'reseller', element: withSuspense(<ResellerOverviewPage />) },
       { path: 'telegram-bot', element: withSuspense(<TelegramBotPage />) },
+      { path: 'sponsors', element: withSuspense(<SponsorsPage />) },
     ],
   },
 ];

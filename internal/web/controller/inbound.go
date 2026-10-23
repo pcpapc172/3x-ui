@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/util/wirecodec"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/middleware"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/session"
@@ -59,6 +60,18 @@ func (a *InboundController) broadcastInboundsUpdate(userId int) {
 	websocket.BroadcastInbounds(inbounds)
 }
 
+// inboundServiceFor tells the service whether this request is a master's
+// node-sync push, so the node stores the row instead of re-judging it.
+func (a *InboundController) inboundServiceFor(c *gin.Context) *service.InboundService {
+	svc := a.inboundService
+	scopeValue, _ := c.Get("api_token_scope")
+	scope, _ := scopeValue.(string)
+	// A master enrolled with an admin token (the -getApiToken default) has no
+	// node-sync scope, so it marks every request it sends instead.
+	svc.FromNodeSync = model.IsNodeSyncApiScope(scope) || c.GetHeader(wirecodec.MasterPushHeader) != ""
+	return &svc
+}
+
 // initRouter initializes the routes for inbound-related operations.
 func (a *InboundController) initRouter(g *gin.RouterGroup) {
 	g.GET("/list", a.getInbounds)
@@ -73,6 +86,7 @@ func (a *InboundController) initRouter(g *gin.RouterGroup) {
 	g.POST("/bulkDel", a.bulkDelInbounds)
 	g.POST("/update/:id", a.updateInbound)
 	g.POST("/setEnable/:id", a.setInboundEnable)
+	g.POST("/:id/subSortIndex", a.setInboundSubSortIndex)
 	g.POST("/:id/resetTraffic", a.resetInboundTraffic)
 	g.POST("/:id/delAllClients", a.delAllInboundClients)
 	g.POST("/resetAllTraffics", a.resetAllTraffics)
@@ -201,7 +215,7 @@ func (a *InboundController) addInbound(c *gin.Context) {
 		inbound.NodeID = nil
 	}
 
-	inbound, needRestart, err := a.inboundService.AddInbound(inbound)
+	inbound, needRestart, err := a.inboundServiceFor(c).AddInbound(inbound)
 	if err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
@@ -281,7 +295,7 @@ func (a *InboundController) updateInbound(c *gin.Context) {
 	if inbound.NodeID != nil && *inbound.NodeID == 0 {
 		inbound.NodeID = nil
 	}
-	inbound, needRestart, err := a.inboundService.UpdateInbound(inbound)
+	inbound, needRestart, err := a.inboundServiceFor(c).UpdateInbound(inbound)
 	if err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
@@ -295,11 +309,30 @@ func (a *InboundController) updateInbound(c *gin.Context) {
 	notifyClientsChanged()
 }
 
-// setInboundEnable flips only the enable flag of an inbound. This is a
-// dedicated endpoint because the regular update path serialises the entire
-// settings JSON (every client) — far too heavy for an interactive switch
-// on inbounds with thousands of clients. Frontend optimistically updates
-// the UI; we just persist + sync xray + nudge other open admin sessions.
+// setInboundSubSortIndex changes only subscription ordering without sending
+// the inbound's settings/client payload.
+func (a *InboundController) setInboundSubSortIndex(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.inboundUpdateSuccess"), err)
+		return
+	}
+	type form struct {
+		SubSortIndex int `json:"subSortIndex" form:"subSortIndex" binding:"required"`
+	}
+	var f form
+	if err := c.ShouldBind(&f); err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	if err := a.inboundService.SetInboundSubSortIndex(id, f.SubSortIndex); err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.inboundUpdateSuccess"), nil)
+	websocket.BroadcastInvalidate(websocket.MessageTypeInbounds)
+}
+
 func (a *InboundController) setInboundEnable(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -453,11 +486,8 @@ func (a *InboundController) importInbound(c *gin.Context) {
 	notifyClientsChanged()
 }
 
-// resolveHost mirrors what sub.SubService.ResolveRequest does for the host
-// field: prefers X-Forwarded-Host (first entry of any list, port stripped),
-// then X-Real-IP, then the host portion of c.Request.Host. Keeping it in the
-// controller layer means the service interface stays HTTP-agnostic — service
-// methods receive a plain host string instead of a *gin.Context.
+// resolveHost mirrors SubService.ResolveRequest's host: trusted X-Forwarded-Host,
+// else the dialed request Host. X-Real-IP names the visitor, not the panel (#6589).
 func resolveHost(c *gin.Context) string {
 	if isTrustedForwardedRequest(c) {
 		if h := strings.TrimSpace(c.GetHeader("X-Forwarded-Host")); h != "" {
@@ -467,9 +497,6 @@ func resolveHost(c *gin.Context) string {
 			if hp, _, err := net.SplitHostPort(h); err == nil {
 				return hp
 			}
-			return h
-		}
-		if h := c.GetHeader("X-Real-IP"); h != "" {
 			return h
 		}
 	}

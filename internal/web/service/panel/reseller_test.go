@@ -2,6 +2,7 @@ package panel
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
@@ -459,5 +460,73 @@ func TestToggleEnableReseller_UnderQuotaDisableStaysManual(t *testing.T) {
 	}
 	if got := reloadUserEpoch(t, reseller.Id); got != -1 {
 		t.Fatalf("LoginEpoch after under-quota disable = %d, want -1 (manual)", got)
+	}
+}
+
+func TestEditingOrResettingManuallyDisabledResellerDoesNotReconnectClients(t *testing.T) {
+	for _, action := range []string{"edit", "reset"} {
+		t.Run(action, func(t *testing.T) {
+			setupBotTestDB(t)
+			owner, _ := seedResellerWithClient(t, "manual-"+action)
+			svc := &ResellerService{}
+			if _, _, err := svc.ToggleEnableReseller(owner.Id); err != nil {
+				t.Fatal(err)
+			}
+			if action == "edit" {
+				if err := svc.UpdateReseller(owner.Id, owner.Username, "", 3*1024*1024*1024*1024, "all", nil, 1); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if _, err := svc.ResetResellerUsage(owner.Id); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var client model.ClientRecord
+			if err := database.GetDB().Where("owner_id = ?", owner.Id).First(&client).Error; err != nil {
+				t.Fatal(err)
+			}
+			if client.Enable || !client.Locked {
+				t.Fatalf("%s reconnected manually-disabled reseller client: enable=%v locked=%v", action, client.Enable, client.Locked)
+			}
+		})
+	}
+}
+
+func TestDeleteResellerCleansAttachmentsOrReassignsKeptClients(t *testing.T) {
+	for _, cleanup := range []bool{true, false} {
+		t.Run(fmt.Sprint(cleanup), func(t *testing.T) {
+			setupBotTestDB(t)
+			owner, ib := seedResellerWithClient(t, "delete-owner")
+			if err := (&ResellerService{}).DeleteReseller(owner.Id, cleanup); err != nil {
+				t.Fatal(err)
+			}
+			var clients []model.ClientRecord
+			if err := database.GetDB().Where("email = ?", "delete-owner").Find(&clients).Error; err != nil {
+				t.Fatal(err)
+			}
+			if !cleanup {
+				if len(clients) != 1 || clients[0].OwnerId != 0 {
+					t.Fatalf("kept clients must belong to admin after seller deletion: %+v", clients)
+				}
+				return
+			}
+			var links int64
+			if err := database.GetDB().Model(&model.ClientInbound{}).Where("inbound_id = ?", ib.Id).Count(&links).Error; err != nil {
+				t.Fatal(err)
+			}
+			var current model.Inbound
+			if err := database.GetDB().First(&current, ib.Id).Error; err != nil {
+				t.Fatal(err)
+			}
+			var settings struct {
+				Clients []model.Client `json:"clients"`
+			}
+			if err := json.Unmarshal([]byte(current.Settings), &settings); err != nil {
+				t.Fatal(err)
+			}
+			if len(clients) != 0 || links != 0 || len(settings.Clients) != 0 {
+				t.Fatalf("deleted reseller left clients=%d attachments=%d inbound users=%d", len(clients), links, len(settings.Clients))
+			}
+		})
 	}
 }

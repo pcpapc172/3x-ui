@@ -24,7 +24,7 @@ func (s *ClientService) RegenerateCredentialsByEmail(inboundSvc *InboundService,
 	updated.Password = strings.ReplaceAll(uuid.NewString(), "-", "")
 	updated.Auth = strings.ReplaceAll(uuid.NewString(), "-", "")
 	updated.SubID = uuid.NewString()
-	if _, err := s.UpdateByEmail(inboundSvc, email, updated); err != nil {
+	if _, err := s.UpdateByEmail(inboundSvc, email, updated, rec.LimitHwid); err != nil {
 		return "", "", err
 	}
 	return updated.ID, updated.SubID, nil

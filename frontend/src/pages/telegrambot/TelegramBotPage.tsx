@@ -41,6 +41,7 @@ import {
 import { useTheme } from '@/hooks/useTheme';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import AppSidebar from '@/layouts/AppSidebar';
+import { useAllSettings } from '@/api/queries/useAllSettings';
 import { HttpUtil } from '@/utils';
 
 interface BotConfigInfo {
@@ -162,6 +163,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function TelegramBotPage() {
   const { t } = useTranslation();
+  const { allSetting, fetched: settingsFetched } = useAllSettings();
   const { isDark, isUltra, antdThemeConfig } = useTheme();
   const { isMobile } = useMediaQuery();
   const [messageApi, messageContextHolder] = message.useMessage();
@@ -223,17 +225,18 @@ export default function TelegramBotPage() {
     return classes.join(' ');
   }, [isDark, isUltra]);
 
-  const stats = useMemo(() => ({
-    plans: plans.length,
-    methods: paymentMethods.length,
-    pendingReview: orders.filter((o) => o.status === 'pending_review').length,
-  }), [plans, paymentMethods, orders]);
+  const stats = useMemo(
+    () => ({
+      plans: plans.length,
+      methods: paymentMethods.length,
+      pendingReview: orders.filter((o) => o.status === 'pending_review').length,
+    }),
+    [plans, paymentMethods, orders],
+  );
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setFetchError('');
-    try {
-      const [cfgResp, plansResp, methodsResp, ordersResp, inbResp, discResp, redeemResp, custResp] = await Promise.all([
+  const fetchData = useCallback(
+    () =>
+      Promise.all([
         HttpUtil.get<BotConfigInfo>('/panel/api/bot/config'),
         HttpUtil.get<BotPlan[]>('/panel/api/bot/plans/list'),
         HttpUtil.get<BotPaymentMethod[]>('/panel/api/bot/payment-methods/list'),
@@ -242,36 +245,59 @@ export default function TelegramBotPage() {
         HttpUtil.get<BotDiscountCode[]>('/panel/api/bot/discount-codes/list'),
         HttpUtil.get<BotRedeemCode[]>('/panel/api/bot/redeem-codes/list'),
         HttpUtil.get<BotCustomer[]>('/panel/api/bot/customers/list'),
-      ]);
-      if (cfgResp.success && cfgResp.obj) {
-        const cfg = cfgResp.obj;
-        setConfig(cfg);
-        setEnabledInput(cfg.enabled);
-        setWelcomeInput(cfg.welcomeMessage);
-        setWalletEnabledInput(cfg.walletEnabled);
-        setReferralEnabledInput(cfg.referralEnabled);
-        setReferralKindInput(cfg.referralKind || 'flat');
-        setReferralValueInput(cfg.referralValue || 0);
-        setReferralTriggerInput(cfg.referralTrigger || 'first_purchase');
-        setSupportTextInput(cfg.supportText);
-        setTutorialTextInput(cfg.tutorialText);
-      }
-      if (plansResp.success && plansResp.obj) setPlans(plansResp.obj);
-      if (methodsResp.success && methodsResp.obj) setPaymentMethods(methodsResp.obj);
-      if (ordersResp.success && ordersResp.obj) setOrders(ordersResp.obj);
-      if (inbResp.success && inbResp.obj) setInbounds(inbResp.obj);
-      if (discResp.success && discResp.obj) setDiscountCodes(discResp.obj);
-      if (redeemResp.success && redeemResp.obj) setRedeemCodes(redeemResp.obj);
-      if (custResp.success && custResp.obj) setCustomers(custResp.obj);
-    } catch {
-      setFetchError(t('somethingWentWrong'));
-    } finally {
-      setLoading(false);
-      setFetched(true);
-    }
-  }, [t]);
+      ])
+        .then(
+          ([
+            cfgResp,
+            plansResp,
+            methodsResp,
+            ordersResp,
+            inbResp,
+            discResp,
+            redeemResp,
+            custResp,
+          ]) => {
+            setFetchError('');
+            if (cfgResp.success && cfgResp.obj) {
+              const cfg = cfgResp.obj;
+              setConfig(cfg);
+              setEnabledInput(cfg.enabled);
+              setWelcomeInput(cfg.welcomeMessage);
+              setWalletEnabledInput(cfg.walletEnabled);
+              setReferralEnabledInput(cfg.referralEnabled);
+              setReferralKindInput(cfg.referralKind || 'flat');
+              setReferralValueInput(cfg.referralValue || 0);
+              setReferralTriggerInput(cfg.referralTrigger || 'first_purchase');
+              setSupportTextInput(cfg.supportText);
+              setTutorialTextInput(cfg.tutorialText);
+            }
+            if (plansResp.success && plansResp.obj) setPlans(plansResp.obj);
+            if (methodsResp.success && methodsResp.obj) setPaymentMethods(methodsResp.obj);
+            if (ordersResp.success && ordersResp.obj) setOrders(ordersResp.obj);
+            if (inbResp.success && inbResp.obj) setInbounds(inbResp.obj);
+            if (discResp.success && discResp.obj) setDiscountCodes(discResp.obj);
+            if (redeemResp.success && redeemResp.obj) setRedeemCodes(redeemResp.obj);
+            if (custResp.success && custResp.obj) setCustomers(custResp.obj);
+          },
+        )
+        .catch(() => {
+          setFetchError(t('somethingWentWrong'));
+        })
+        .finally(() => {
+          setLoading(false);
+          setFetched(true);
+        }),
+    [t],
+  );
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const refreshData = () => {
+    setLoading(true);
+    void fetchData();
+  };
+
+  useEffect(() => {
+    if (settingsFetched && allSetting.resellerBotEnable) fetchData();
+  }, [fetchData, settingsFetched, allSetting.resellerBotEnable]);
 
   const handleSaveConfig = async () => {
     setSavingConfig(true);
@@ -291,7 +317,7 @@ export default function TelegramBotPage() {
       if (resp.success) {
         setTokenInput('');
         messageApi.success(t('pages.telegramBot.saved', 'Bot settings saved'));
-        fetchData();
+        refreshData();
       }
     } finally {
       setSavingConfig(false);
@@ -317,7 +343,11 @@ export default function TelegramBotPage() {
   };
 
   const applyPreset = (preset: (typeof PLAN_PRESETS)[number]) => {
-    planForm.setFieldsValue({ name: preset.name, trafficGB: preset.trafficGB, durationDays: preset.durationDays });
+    planForm.setFieldsValue({
+      name: preset.name,
+      trafficGB: preset.trafficGB,
+      durationDays: preset.durationDays,
+    });
   };
 
   const handlePlanSubmit = async () => {
@@ -328,13 +358,13 @@ export default function TelegramBotPage() {
     });
     if (resp.success) {
       setPlanModalOpen(false);
-      fetchData();
+      refreshData();
     }
   };
 
   const handleDeletePlan = async (id: number) => {
     const resp = await HttpUtil.post(`/panel/api/bot/plans/del/${id}`);
-    if (resp.success) fetchData();
+    if (resp.success) refreshData();
   };
 
   const handleAddMethod = () => {
@@ -358,13 +388,13 @@ export default function TelegramBotPage() {
     });
     if (resp.success) {
       setMethodModalOpen(false);
-      fetchData();
+      refreshData();
     }
   };
 
   const handleDeleteMethod = async (id: number) => {
     const resp = await HttpUtil.post(`/panel/api/bot/payment-methods/del/${id}`);
-    if (resp.success) fetchData();
+    if (resp.success) refreshData();
   };
 
   const handleAddDiscount = () => {
@@ -388,13 +418,13 @@ export default function TelegramBotPage() {
     });
     if (resp.success) {
       setDiscountModalOpen(false);
-      fetchData();
+      refreshData();
     }
   };
 
   const handleDeleteDiscount = async (id: number) => {
     const resp = await HttpUtil.post(`/panel/api/bot/discount-codes/del/${id}`);
-    if (resp.success) fetchData();
+    if (resp.success) refreshData();
   };
 
   const handleAddRedeem = () => {
@@ -418,23 +448,26 @@ export default function TelegramBotPage() {
     });
     if (resp.success) {
       setRedeemModalOpen(false);
-      fetchData();
+      refreshData();
     }
   };
 
   const handleDeleteRedeem = async (id: number) => {
     const resp = await HttpUtil.post(`/panel/api/bot/redeem-codes/del/${id}`);
-    if (resp.success) fetchData();
+    if (resp.success) refreshData();
   };
 
   const handleWalletAdjustSubmit = async () => {
     if (!walletAdjustCustomer) return;
     const values = await walletAdjustForm.validateFields();
-    const resp = await HttpUtil.post<unknown>(`/panel/api/bot/customers/${walletAdjustCustomer.id}/adjust-wallet`, values);
+    const resp = await HttpUtil.post<unknown>(
+      `/panel/api/bot/customers/${walletAdjustCustomer.id}/adjust-wallet`,
+      values,
+    );
     if (resp.success) {
       setWalletAdjustCustomer(null);
       messageApi.success(t('pages.telegramBot.walletAdjusted', 'Wallet balance updated'));
-      fetchData();
+      refreshData();
     }
   };
 
@@ -442,7 +475,7 @@ export default function TelegramBotPage() {
     const resp = await HttpUtil.post(`/panel/api/bot/orders/approve/${id}`);
     if (resp.success) {
       messageApi.success(t('pages.telegramBot.orderApproved', 'Order approved'));
-      fetchData();
+      refreshData();
     } else {
       messageApi.error(resp.msg || t('somethingWentWrong'));
     }
@@ -450,7 +483,7 @@ export default function TelegramBotPage() {
 
   const handleRejectOrder = async (id: number) => {
     const resp = await HttpUtil.post(`/panel/api/bot/orders/reject/${id}`);
-    if (resp.success) fetchData();
+    if (resp.success) refreshData();
   };
 
   const planColumns = [
@@ -477,21 +510,28 @@ export default function TelegramBotPage() {
       title: t('pages.telegramBot.planInbounds', 'Inbounds'),
       dataIndex: 'inboundIds',
       key: 'inboundIds',
-      render: (ids: number[]) => ids.map((id) => inboundsById[id]?.remark || inboundsById[id]?.tag || id).join(', '),
+      render: (ids: number[]) =>
+        ids.map((id) => inboundsById[id]?.remark || inboundsById[id]?.tag || id).join(', '),
     },
     {
       title: t('enabled', 'Enabled'),
       dataIndex: 'enabled',
       key: 'enabled',
       sorter: (a: BotPlan, b: BotPlan) => Number(a.enabled) - Number(b.enabled),
-      render: (v: boolean) => (v ? <CheckOutlined style={{ color: 'var(--ant-color-success)' }} /> : <CloseOutlined style={{ color: 'var(--ant-color-text-quaternary)' }} />),
+      render: (v: boolean) =>
+        v ? (
+          <CheckOutlined style={{ color: 'var(--ant-color-success)' }} />
+        ) : (
+          <CloseOutlined style={{ color: 'var(--ant-color-text-quaternary)' }} />
+        ),
     },
     {
       title: t('pages.telegramBot.trial', 'Trial'),
       dataIndex: 'isTrial',
       key: 'isTrial',
       sorter: (a: BotPlan, b: BotPlan) => Number(a.isTrial) - Number(b.isTrial),
-      render: (v: boolean) => (v ? <Tag color="gold">{t('pages.telegramBot.trial', 'Trial')}</Tag> : null),
+      render: (v: boolean) =>
+        v ? <Tag color="gold">{t('pages.telegramBot.trial', 'Trial')}</Tag> : null,
     },
     {
       title: '',
@@ -500,7 +540,10 @@ export default function TelegramBotPage() {
       render: (_: unknown, record: BotPlan) => (
         <Space>
           <Button size="small" icon={<EditOutlined />} onClick={() => handleEditPlan(record)} />
-          <Popconfirm title={t('pages.telegramBot.deletePlanConfirm', 'Delete this plan?')} onConfirm={() => handleDeletePlan(record.id)}>
+          <Popconfirm
+            title={t('pages.telegramBot.deletePlanConfirm', 'Delete this plan?')}
+            onConfirm={() => handleDeletePlan(record.id)}
+          >
             <Button size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
         </Space>
@@ -523,7 +566,11 @@ export default function TelegramBotPage() {
       sorter: (a: BotPaymentMethod, b: BotPaymentMethod) => a.label.localeCompare(b.label),
     },
     { title: t('pages.telegramBot.methodValue', 'Value'), dataIndex: 'value', key: 'value' },
-    { title: t('pages.telegramBot.methodHolder', 'Holder'), dataIndex: 'holderName', key: 'holderName' },
+    {
+      title: t('pages.telegramBot.methodHolder', 'Holder'),
+      dataIndex: 'holderName',
+      key: 'holderName',
+    },
     {
       title: '',
       key: 'actions',
@@ -531,7 +578,10 @@ export default function TelegramBotPage() {
       render: (_: unknown, record: BotPaymentMethod) => (
         <Space>
           <Button size="small" icon={<EditOutlined />} onClick={() => handleEditMethod(record)} />
-          <Popconfirm title={t('pages.telegramBot.deleteMethodConfirm', 'Delete this payment method?')} onConfirm={() => handleDeleteMethod(record.id)}>
+          <Popconfirm
+            title={t('pages.telegramBot.deleteMethodConfirm', 'Delete this payment method?')}
+            onConfirm={() => handleDeleteMethod(record.id)}
+          >
             <Button size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
         </Space>
@@ -540,8 +590,19 @@ export default function TelegramBotPage() {
   ];
 
   const orderColumns = [
-    { title: '#', dataIndex: 'id', key: 'id', width: 60, sorter: (a: BotOrder, b: BotOrder) => a.id - b.id },
-    { title: t('pages.telegramBot.orderBuyer', 'Buyer'), dataIndex: 'buyerUsername', key: 'buyerUsername', render: (v: string) => (v ? `@${v}` : '-') },
+    {
+      title: '#',
+      dataIndex: 'id',
+      key: 'id',
+      width: 60,
+      sorter: (a: BotOrder, b: BotOrder) => a.id - b.id,
+    },
+    {
+      title: t('pages.telegramBot.orderBuyer', 'Buyer'),
+      dataIndex: 'buyerUsername',
+      key: 'buyerUsername',
+      render: (v: string) => (v ? `@${v}` : '-'),
+    },
     {
       title: t('pages.telegramBot.orderKind', 'Kind'),
       dataIndex: 'kind',
@@ -569,7 +630,11 @@ export default function TelegramBotPage() {
               (-{record.discountAmountToman.toLocaleString()})
             </Typography.Text>
           )}
-          {record.payFromWallet && <Tag color="purple" style={{ marginInlineStart: 4 }}>{t('pages.telegramBot.wallet', 'Wallet')}</Tag>}
+          {record.payFromWallet && (
+            <Tag color="purple" style={{ marginInlineStart: 4 }}>
+              {t('pages.telegramBot.wallet', 'Wallet')}
+            </Tag>
+          )}
         </span>
       ),
     },
@@ -580,7 +645,9 @@ export default function TelegramBotPage() {
         record.proofTgFileId ? (
           <Image src={`${basePath()}/panel/api/bot/orders/${record.id}/proof-photo`} width={48} />
         ) : (
-          <Typography.Text ellipsis style={{ maxWidth: 160, display: 'inline-block' }}>{record.proofText || '-'}</Typography.Text>
+          <Typography.Text ellipsis style={{ maxWidth: 160, display: 'inline-block' }}>
+            {record.proofText || '-'}
+          </Typography.Text>
         ),
     },
     {
@@ -598,8 +665,16 @@ export default function TelegramBotPage() {
       render: (_: unknown, record: BotOrder) =>
         record.status === 'pending_review' ? (
           <Space>
-            <Button size="small" type="primary" icon={<CheckOutlined />} onClick={() => handleApproveOrder(record.id)} />
-            <Popconfirm title={t('pages.telegramBot.rejectOrderConfirm', 'Reject this order?')} onConfirm={() => handleRejectOrder(record.id)}>
+            <Button
+              size="small"
+              type="primary"
+              icon={<CheckOutlined />}
+              onClick={() => handleApproveOrder(record.id)}
+            />
+            <Popconfirm
+              title={t('pages.telegramBot.rejectOrderConfirm', 'Reject this order?')}
+              onConfirm={() => handleRejectOrder(record.id)}
+            >
               <Button size="small" danger icon={<CloseOutlined />} />
             </Popconfirm>
           </Space>
@@ -610,18 +685,34 @@ export default function TelegramBotPage() {
   ];
 
   const discountColumns = [
-    { title: t('pages.telegramBot.code', 'Code'), dataIndex: 'code', key: 'code', sorter: (a: BotDiscountCode, b: BotDiscountCode) => a.code.localeCompare(b.code) },
+    {
+      title: t('pages.telegramBot.code', 'Code'),
+      dataIndex: 'code',
+      key: 'code',
+      sorter: (a: BotDiscountCode, b: BotDiscountCode) => a.code.localeCompare(b.code),
+    },
     {
       title: t('pages.telegramBot.discountValue', 'Value'),
       key: 'value',
-      render: (_: unknown, record: BotDiscountCode) => (record.kind === 'percent' ? `${record.value}%` : `${record.value.toLocaleString()} Toman`),
+      render: (_: unknown, record: BotDiscountCode) =>
+        record.kind === 'percent' ? `${record.value}%` : `${record.value.toLocaleString()} Toman`,
     },
-    { title: t('pages.telegramBot.uses', 'Uses'), key: 'uses', render: (_: unknown, record: BotDiscountCode) => `${record.usedCount} / ${record.maxUses || '∞'}` },
+    {
+      title: t('pages.telegramBot.uses', 'Uses'),
+      key: 'uses',
+      render: (_: unknown, record: BotDiscountCode) =>
+        `${record.usedCount} / ${record.maxUses || '∞'}`,
+    },
     {
       title: t('enabled', 'Enabled'),
       dataIndex: 'enabled',
       key: 'enabled',
-      render: (v: boolean) => (v ? <CheckOutlined style={{ color: 'var(--ant-color-success)' }} /> : <CloseOutlined style={{ color: 'var(--ant-color-text-quaternary)' }} />),
+      render: (v: boolean) =>
+        v ? (
+          <CheckOutlined style={{ color: 'var(--ant-color-success)' }} />
+        ) : (
+          <CloseOutlined style={{ color: 'var(--ant-color-text-quaternary)' }} />
+        ),
     },
     {
       title: '',
@@ -630,7 +721,10 @@ export default function TelegramBotPage() {
       render: (_: unknown, record: BotDiscountCode) => (
         <Space>
           <Button size="small" icon={<EditOutlined />} onClick={() => handleEditDiscount(record)} />
-          <Popconfirm title={t('pages.telegramBot.deleteCodeConfirm', 'Delete this code?')} onConfirm={() => handleDeleteDiscount(record.id)}>
+          <Popconfirm
+            title={t('pages.telegramBot.deleteCodeConfirm', 'Delete this code?')}
+            onConfirm={() => handleDeleteDiscount(record.id)}
+          >
             <Button size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
         </Space>
@@ -639,7 +733,12 @@ export default function TelegramBotPage() {
   ];
 
   const redeemColumns = [
-    { title: t('pages.telegramBot.code', 'Code'), dataIndex: 'code', key: 'code', sorter: (a: BotRedeemCode, b: BotRedeemCode) => a.code.localeCompare(b.code) },
+    {
+      title: t('pages.telegramBot.code', 'Code'),
+      dataIndex: 'code',
+      key: 'code',
+      sorter: (a: BotRedeemCode, b: BotRedeemCode) => a.code.localeCompare(b.code),
+    },
     {
       title: t('pages.telegramBot.amount', 'Amount'),
       dataIndex: 'amountToman',
@@ -647,12 +746,22 @@ export default function TelegramBotPage() {
       sorter: (a: BotRedeemCode, b: BotRedeemCode) => a.amountToman - b.amountToman,
       render: (v: number) => `${v.toLocaleString()} Toman`,
     },
-    { title: t('pages.telegramBot.uses', 'Uses'), key: 'uses', render: (_: unknown, record: BotRedeemCode) => `${record.usedCount} / ${record.maxUses || '∞'}` },
+    {
+      title: t('pages.telegramBot.uses', 'Uses'),
+      key: 'uses',
+      render: (_: unknown, record: BotRedeemCode) =>
+        `${record.usedCount} / ${record.maxUses || '∞'}`,
+    },
     {
       title: t('enabled', 'Enabled'),
       dataIndex: 'enabled',
       key: 'enabled',
-      render: (v: boolean) => (v ? <CheckOutlined style={{ color: 'var(--ant-color-success)' }} /> : <CloseOutlined style={{ color: 'var(--ant-color-text-quaternary)' }} />),
+      render: (v: boolean) =>
+        v ? (
+          <CheckOutlined style={{ color: 'var(--ant-color-success)' }} />
+        ) : (
+          <CloseOutlined style={{ color: 'var(--ant-color-text-quaternary)' }} />
+        ),
     },
     {
       title: '',
@@ -661,7 +770,10 @@ export default function TelegramBotPage() {
       render: (_: unknown, record: BotRedeemCode) => (
         <Space>
           <Button size="small" icon={<EditOutlined />} onClick={() => handleEditRedeem(record)} />
-          <Popconfirm title={t('pages.telegramBot.deleteCodeConfirm', 'Delete this code?')} onConfirm={() => handleDeleteRedeem(record.id)}>
+          <Popconfirm
+            title={t('pages.telegramBot.deleteCodeConfirm', 'Delete this code?')}
+            onConfirm={() => handleDeleteRedeem(record.id)}
+          >
             <Button size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
         </Space>
@@ -670,8 +782,17 @@ export default function TelegramBotPage() {
   ];
 
   const customerColumns = [
-    { title: t('pages.telegramBot.orderBuyer', 'Buyer'), dataIndex: 'buyerUsername', key: 'buyerUsername', render: (v: string) => (v ? `@${v}` : '-') },
-    { title: t('pages.telegramBot.buyerTgId', 'Telegram ID'), dataIndex: 'buyerTgId', key: 'buyerTgId' },
+    {
+      title: t('pages.telegramBot.orderBuyer', 'Buyer'),
+      dataIndex: 'buyerUsername',
+      key: 'buyerUsername',
+      render: (v: string) => (v ? `@${v}` : '-'),
+    },
+    {
+      title: t('pages.telegramBot.buyerTgId', 'Telegram ID'),
+      dataIndex: 'buyerTgId',
+      key: 'buyerTgId',
+    },
     {
       title: t('pages.telegramBot.walletBalance', 'Wallet Balance'),
       dataIndex: 'walletBalanceToman',
@@ -679,7 +800,16 @@ export default function TelegramBotPage() {
       sorter: (a: BotCustomer, b: BotCustomer) => a.walletBalanceToman - b.walletBalanceToman,
       render: (v: number) => `${v.toLocaleString()} Toman`,
     },
-    { title: t('pages.telegramBot.referralCode', 'Referral Code'), dataIndex: 'referralCode', key: 'referralCode', render: (v: string) => <Typography.Text code copyable>{v}</Typography.Text> },
+    {
+      title: t('pages.telegramBot.referralCode', 'Referral Code'),
+      dataIndex: 'referralCode',
+      key: 'referralCode',
+      render: (v: string) => (
+        <Typography.Text code copyable>
+          {v}
+        </Typography.Text>
+      ),
+    },
     {
       title: t('pages.telegramBot.accountJoined', 'Joined'),
       dataIndex: 'createdAt',
@@ -692,7 +822,14 @@ export default function TelegramBotPage() {
       key: 'actions',
       width: 80,
       render: (_: unknown, record: BotCustomer) => (
-        <Button size="small" icon={<WalletOutlined />} onClick={() => { setWalletAdjustCustomer(record); walletAdjustForm.resetFields(); }} />
+        <Button
+          size="small"
+          icon={<WalletOutlined />}
+          onClick={() => {
+            setWalletAdjustCustomer(record);
+            walletAdjustForm.resetFields();
+          }}
+        />
       ),
     },
   ];
@@ -723,7 +860,11 @@ export default function TelegramBotPage() {
                 <div>
                   <div style={{ marginBottom: 4 }}>{t('pages.telegramBot.token', 'Bot Token')}</div>
                   <Input.Password
-                    placeholder={config?.hasToken ? t('pages.admins.leaveBlank', 'Leave blank to keep current') : t('pages.telegramBot.tokenPlaceholder', 'From @BotFather')}
+                    placeholder={
+                      config?.hasToken
+                        ? t('pages.admins.leaveBlank', 'Leave blank to keep current')
+                        : t('pages.telegramBot.tokenPlaceholder', 'From @BotFather')
+                    }
                     value={tokenInput}
                     onChange={(e) => setTokenInput(e.target.value)}
                   />
@@ -740,15 +881,33 @@ export default function TelegramBotPage() {
           </Col>
           <Col xs={24} md={12}>
             <Space direction="vertical" style={{ width: '100%' }} size={isMobile ? 8 : 16}>
-              <Card size="small" hoverable title={t('pages.telegramBot.welcomeMessage', 'Welcome Message')}>
-                <Input.TextArea rows={3} value={welcomeInput} onChange={(e) => setWelcomeInput(e.target.value)} />
+              <Card
+                size="small"
+                hoverable
+                title={t('pages.telegramBot.welcomeMessage', 'Welcome Message')}
+              >
+                <Input.TextArea
+                  rows={3}
+                  value={welcomeInput}
+                  onChange={(e) => setWelcomeInput(e.target.value)}
+                />
               </Card>
-              <Card size="small" hoverable title={t('pages.telegramBot.linkOwnerChat', 'Link your Telegram chat for order notifications')}>
+              <Card
+                size="small"
+                hoverable
+                title={t(
+                  'pages.telegramBot.linkOwnerChat',
+                  'Link your Telegram chat for order notifications',
+                )}
+              >
                 <Space direction="vertical">
-                  <Button icon={<CopyOutlined />} onClick={handleGenerateLinkCode}>{t('pages.telegramBot.getLinkCode', 'Get link code')}</Button>
+                  <Button icon={<CopyOutlined />} onClick={handleGenerateLinkCode}>
+                    {t('pages.telegramBot.getLinkCode', 'Get link code')}
+                  </Button>
                   {linkCode && (
                     <Typography.Text>
-                      {t('pages.telegramBot.linkInstructions', 'Send this to your bot:')} <Typography.Text code copyable>{`/link ${linkCode}`}</Typography.Text>
+                      {t('pages.telegramBot.linkInstructions', 'Send this to your bot:')}{' '}
+                      <Typography.Text code copyable>{`/link ${linkCode}`}</Typography.Text>
                     </Typography.Text>
                   )}
                 </Space>
@@ -766,7 +925,11 @@ export default function TelegramBotPage() {
             </Card>
           </Col>
           <Col xs={24} md={12}>
-            <Card size="small" hoverable title={t('pages.telegramBot.referralSettings', 'Referrals')}>
+            <Card
+              size="small"
+              hoverable
+              title={t('pages.telegramBot.referralSettings', 'Referrals')}
+            >
               <Space direction="vertical" style={{ width: '100%' }} size="middle">
                 <Space align="center">
                   <Switch checked={referralEnabledInput} onChange={setReferralEnabledInput} />
@@ -777,31 +940,64 @@ export default function TelegramBotPage() {
                   value={referralKindInput}
                   onChange={setReferralKindInput}
                   options={[
-                    { value: 'flat', label: t('pages.telegramBot.referralFlat', 'Flat bonus (Toman)') },
-                    { value: 'percent', label: t('pages.telegramBot.referralPercent', 'Percent of purchase') },
+                    {
+                      value: 'flat',
+                      label: t('pages.telegramBot.referralFlat', 'Flat bonus (Toman)'),
+                    },
+                    {
+                      value: 'percent',
+                      label: t('pages.telegramBot.referralPercent', 'Percent of purchase'),
+                    },
                   ]}
                 />
-                <InputNumber style={{ width: '100%' }} min={0} value={referralValueInput} onChange={(v) => setReferralValueInput(v || 0)} />
+                <InputNumber
+                  style={{ width: '100%' }}
+                  min={0}
+                  value={referralValueInput}
+                  onChange={(v) => setReferralValueInput(v || 0)}
+                />
                 <Select
                   style={{ width: '100%' }}
                   value={referralTriggerInput}
                   onChange={setReferralTriggerInput}
                   options={[
-                    { value: 'first_purchase', label: t('pages.telegramBot.triggerFirst', 'On first purchase only') },
-                    { value: 'every_purchase', label: t('pages.telegramBot.triggerEvery', 'On every purchase') },
+                    {
+                      value: 'first_purchase',
+                      label: t('pages.telegramBot.triggerFirst', 'On first purchase only'),
+                    },
+                    {
+                      value: 'every_purchase',
+                      label: t('pages.telegramBot.triggerEvery', 'On every purchase'),
+                    },
                   ]}
                 />
               </Space>
             </Card>
           </Col>
           <Col xs={24} md={12}>
-            <Card size="small" hoverable title={t('pages.telegramBot.supportText', 'Support message')}>
-              <Input.TextArea rows={2} value={supportTextInput} onChange={(e) => setSupportTextInput(e.target.value)} />
+            <Card
+              size="small"
+              hoverable
+              title={t('pages.telegramBot.supportText', 'Support message')}
+            >
+              <Input.TextArea
+                rows={2}
+                value={supportTextInput}
+                onChange={(e) => setSupportTextInput(e.target.value)}
+              />
             </Card>
           </Col>
           <Col xs={24} md={12}>
-            <Card size="small" hoverable title={t('pages.telegramBot.tutorialText', 'Connection guide')}>
-              <Input.TextArea rows={2} value={tutorialTextInput} onChange={(e) => setTutorialTextInput(e.target.value)} />
+            <Card
+              size="small"
+              hoverable
+              title={t('pages.telegramBot.tutorialText', 'Connection guide')}
+            >
+              <Input.TextArea
+                rows={2}
+                value={tutorialTextInput}
+                onChange={(e) => setTutorialTextInput(e.target.value)}
+              />
             </Card>
           </Col>
         </Row>
@@ -814,9 +1010,21 @@ export default function TelegramBotPage() {
         <Card
           size="small"
           hoverable
-          extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleAddPlan}>{isMobile ? '' : t('add', 'Add')}</Button>}
+          extra={
+            <Button type="primary" icon={<PlusOutlined />} onClick={handleAddPlan}>
+              {isMobile ? '' : t('add', 'Add')}
+            </Button>
+          }
         >
-          <Table dataSource={plans} columns={planColumns} rowKey="id" loading={loading} pagination={false} size="small" />
+          <Table
+            scroll={{ x: 700 }}
+            dataSource={plans}
+            columns={planColumns}
+            rowKey="id"
+            loading={loading}
+            pagination={false}
+            size="small"
+          />
         </Card>
       ),
     },
@@ -827,9 +1035,21 @@ export default function TelegramBotPage() {
         <Card
           size="small"
           hoverable
-          extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleAddMethod}>{isMobile ? '' : t('add', 'Add')}</Button>}
+          extra={
+            <Button type="primary" icon={<PlusOutlined />} onClick={handleAddMethod}>
+              {isMobile ? '' : t('add', 'Add')}
+            </Button>
+          }
         >
-          <Table dataSource={paymentMethods} columns={methodColumns} rowKey="id" loading={loading} pagination={false} size="small" />
+          <Table
+            scroll={{ x: 700 }}
+            dataSource={paymentMethods}
+            columns={methodColumns}
+            rowKey="id"
+            loading={loading}
+            pagination={false}
+            size="small"
+          />
         </Card>
       ),
     },
@@ -838,7 +1058,15 @@ export default function TelegramBotPage() {
       label: t('pages.telegramBot.tabOrders', 'Orders'),
       children: (
         <Card size="small" hoverable>
-          <Table dataSource={orders} columns={orderColumns} rowKey="id" loading={loading} pagination={{ pageSize: 20 }} size="small" />
+          <Table
+            scroll={{ x: 700 }}
+            dataSource={orders}
+            columns={orderColumns}
+            rowKey="id"
+            loading={loading}
+            pagination={{ pageSize: 20 }}
+            size="small"
+          />
         </Card>
       ),
     },
@@ -849,9 +1077,21 @@ export default function TelegramBotPage() {
         <Card
           size="small"
           hoverable
-          extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleAddDiscount}>{isMobile ? '' : t('add', 'Add')}</Button>}
+          extra={
+            <Button type="primary" icon={<PlusOutlined />} onClick={handleAddDiscount}>
+              {isMobile ? '' : t('add', 'Add')}
+            </Button>
+          }
         >
-          <Table dataSource={discountCodes} columns={discountColumns} rowKey="id" loading={loading} pagination={false} size="small" />
+          <Table
+            scroll={{ x: 700 }}
+            dataSource={discountCodes}
+            columns={discountColumns}
+            rowKey="id"
+            loading={loading}
+            pagination={false}
+            size="small"
+          />
         </Card>
       ),
     },
@@ -862,9 +1102,21 @@ export default function TelegramBotPage() {
         <Card
           size="small"
           hoverable
-          extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleAddRedeem}>{isMobile ? '' : t('add', 'Add')}</Button>}
+          extra={
+            <Button type="primary" icon={<PlusOutlined />} onClick={handleAddRedeem}>
+              {isMobile ? '' : t('add', 'Add')}
+            </Button>
+          }
         >
-          <Table dataSource={redeemCodes} columns={redeemColumns} rowKey="id" loading={loading} pagination={false} size="small" />
+          <Table
+            scroll={{ x: 700 }}
+            dataSource={redeemCodes}
+            columns={redeemColumns}
+            rowKey="id"
+            loading={loading}
+            pagination={false}
+            size="small"
+          />
         </Card>
       ),
     },
@@ -873,7 +1125,15 @@ export default function TelegramBotPage() {
       label: t('pages.telegramBot.tabCustomers', 'Customers'),
       children: (
         <Card size="small" hoverable>
-          <Table dataSource={customers} columns={customerColumns} rowKey="id" loading={loading} pagination={{ pageSize: 20 }} size="small" />
+          <Table
+            scroll={{ x: 700 }}
+            dataSource={customers}
+            columns={customerColumns}
+            rowKey="id"
+            loading={loading}
+            pagination={{ pageSize: 20 }}
+            size="small"
+          />
         </Card>
       ),
     },
@@ -887,58 +1147,78 @@ export default function TelegramBotPage() {
 
         <Layout className="content-shell">
           <Layout.Content id="content-layout" className="content-area">
-            <Spin spinning={!fetched} delay={200} description={t('loading')} size="large">
-              {!fetched ? (
-                <div className="loading-spacer" />
-              ) : fetchError ? (
-                <Result
-                  status="error"
-                  title={t('somethingWentWrong')}
-                  subTitle={fetchError}
-                  extra={<Button type="primary" onClick={fetchData}>{t('refresh')}</Button>}
-                />
-              ) : (
-                <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 12]}>
-                  <Col span={24}>
-                    <Card size="small" hoverable className="summary-card">
-                      <Row gutter={[16, isMobile ? 16 : 12]}>
-                        <Col xs={12} sm={12} md={8}>
-                          <Statistic
-                            title={t('pages.telegramBot.tabPlans', 'Plans')}
-                            value={stats.plans}
-                            prefix={<UnorderedListOutlined />}
-                          />
-                        </Col>
-                        <Col xs={12} sm={12} md={8}>
-                          <Statistic
-                            title={t('pages.telegramBot.tabPaymentMethods', 'Payment Methods')}
-                            value={stats.methods}
-                            prefix={<WalletOutlined />}
-                          />
-                        </Col>
-                        <Col xs={24} sm={24} md={8}>
-                          <Statistic
-                            title={t('pages.telegramBot.pendingReview', 'Pending Review')}
-                            value={stats.pendingReview}
-                            prefix={<ClockCircleOutlined />}
-                            valueStyle={stats.pendingReview > 0 ? { color: 'var(--ant-color-warning)' } : undefined}
-                          />
-                        </Col>
-                      </Row>
-                    </Card>
-                  </Col>
-                  <Col span={24}>
-                    <Tabs items={tabItems} tabBarExtraContent={<RobotOutlined />} />
-                  </Col>
-                </Row>
-              )}
-            </Spin>
+            {settingsFetched && !allSetting.resellerBotEnable ? (
+              <Result
+                status="info"
+                title={t('pages.settings.resellerBotEnable')}
+                subTitle={t('pages.settings.resellerBotEnableDesc')}
+              />
+            ) : (
+              <Spin spinning={!fetched} delay={200} description={t('loading')} size="large">
+                {!fetched ? (
+                  <div className="loading-spacer" />
+                ) : fetchError ? (
+                  <Result
+                    status="error"
+                    title={t('somethingWentWrong')}
+                    subTitle={fetchError}
+                    extra={
+                      <Button type="primary" onClick={refreshData}>
+                        {t('refresh')}
+                      </Button>
+                    }
+                  />
+                ) : (
+                  <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 12]}>
+                    <Col span={24}>
+                      <Card size="small" hoverable className="summary-card">
+                        <Row gutter={[16, isMobile ? 16 : 12]}>
+                          <Col xs={12} sm={12} md={8}>
+                            <Statistic
+                              title={t('pages.telegramBot.tabPlans', 'Plans')}
+                              value={stats.plans}
+                              prefix={<UnorderedListOutlined />}
+                            />
+                          </Col>
+                          <Col xs={12} sm={12} md={8}>
+                            <Statistic
+                              title={t('pages.telegramBot.tabPaymentMethods', 'Payment Methods')}
+                              value={stats.methods}
+                              prefix={<WalletOutlined />}
+                            />
+                          </Col>
+                          <Col xs={24} sm={24} md={8}>
+                            <Statistic
+                              title={t('pages.telegramBot.pendingReview', 'Pending Review')}
+                              value={stats.pendingReview}
+                              prefix={<ClockCircleOutlined />}
+                              valueStyle={
+                                stats.pendingReview > 0
+                                  ? { color: 'var(--ant-color-warning)' }
+                                  : undefined
+                              }
+                            />
+                          </Col>
+                        </Row>
+                      </Card>
+                    </Col>
+                    <Col span={24}>
+                      <Tabs items={tabItems} tabBarExtraContent={<RobotOutlined />} />
+                    </Col>
+                  </Row>
+                )}
+              </Spin>
+            )}
           </Layout.Content>
         </Layout>
       </Layout>
 
       <Modal
-        title={editingPlan ? t('pages.telegramBot.editPlan', 'Edit Plan') : t('pages.telegramBot.addPlan', 'Add Plan')}
+        title={
+          editingPlan
+            ? t('pages.telegramBot.editPlan', 'Edit Plan')
+            : t('pages.telegramBot.addPlan', 'Add Plan')
+        }
         open={planModalOpen}
         onOk={handlePlanSubmit}
         onCancel={() => setPlanModalOpen(false)}
@@ -946,58 +1226,117 @@ export default function TelegramBotPage() {
       >
         {!editingPlan && (
           <div style={{ marginBottom: 12 }}>
-            <div style={{ marginBottom: 4, fontSize: 12, color: 'var(--ant-color-text-secondary)' }}>{t('pages.telegramBot.presets', 'Presets')}</div>
+            <div
+              style={{ marginBottom: 4, fontSize: 12, color: 'var(--ant-color-text-secondary)' }}
+            >
+              {t('pages.telegramBot.presets', 'Presets')}
+            </div>
             <Space wrap>
               {PLAN_PRESETS.map((preset) => (
-                <Button key={preset.name} size="small" onClick={() => applyPreset(preset)}>{preset.name}</Button>
+                <Button key={preset.name} size="small" onClick={() => applyPreset(preset)}>
+                  {preset.name}
+                </Button>
               ))}
             </Space>
           </div>
         )}
         <Form form={planForm} layout="vertical">
-          <Form.Item name="name" label={t('pages.telegramBot.planName', 'Name')} rules={[{ required: true }]}>
+          <Form.Item
+            name="name"
+            label={t('pages.telegramBot.planName', 'Name')}
+            rules={[{ required: true }]}
+          >
             <Input />
           </Form.Item>
-          <Form.Item name="trafficGB" label={t('pages.telegramBot.planTrafficGB', 'Traffic (GB)')} rules={[{ required: true }]}>
+          <Form.Item
+            name="trafficGB"
+            label={t('pages.telegramBot.planTrafficGB', 'Traffic (GB)')}
+            rules={[{ required: true }]}
+          >
             <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name="durationDays" label={t('pages.telegramBot.planDuration', 'Duration (days)')} rules={[{ required: true }]}>
+          <Form.Item
+            name="durationDays"
+            label={t('pages.telegramBot.planDuration', 'Duration (days)')}
+            rules={[{ required: true }]}
+          >
             <InputNumber min={1} style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name="priceToman" label={t('pages.telegramBot.planPrice', 'Price (Toman)')} rules={[{ required: true }]}>
+          <Form.Item
+            name="priceToman"
+            label={t('pages.telegramBot.planPrice', 'Price (Toman)')}
+            rules={[{ required: true }]}
+          >
             <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name="inboundIds" label={t('pages.telegramBot.planInbounds', 'Inbounds')} rules={[{ required: true }]}>
+          <Form.Item
+            name="inboundIds"
+            label={t('pages.telegramBot.planInbounds', 'Inbounds')}
+            rules={[{ required: true }]}
+          >
             <Select
               mode="multiple"
-              options={inbounds.map((ib) => ({ value: ib.id, label: `${ib.remark || ib.tag || ib.id} (${ib.protocol}:${ib.port})` }))}
+              options={inbounds.map((ib) => ({
+                value: ib.id,
+                label: `${ib.remark || ib.tag || ib.id} (${ib.protocol}:${ib.port})`,
+              }))}
             />
           </Form.Item>
           <Form.Item name="enabled" label={t('enabled', 'Enabled')} valuePropName="checked">
             <Switch />
           </Form.Item>
-          <Form.Item name="isTrial" label={t('pages.telegramBot.planIsTrial', 'Free trial plan')} valuePropName="checked">
+          <Form.Item
+            name="isTrial"
+            label={t('pages.telegramBot.planIsTrial', 'Free trial plan')}
+            valuePropName="checked"
+          >
             <Switch />
           </Form.Item>
         </Form>
       </Modal>
 
       <Modal
-        title={editingMethod ? t('pages.telegramBot.editMethod', 'Edit Payment Method') : t('pages.telegramBot.addMethod', 'Add Payment Method')}
+        title={
+          editingMethod
+            ? t('pages.telegramBot.editMethod', 'Edit Payment Method')
+            : t('pages.telegramBot.addMethod', 'Add Payment Method')
+        }
         open={methodModalOpen}
         onOk={handleMethodSubmit}
         onCancel={() => setMethodModalOpen(false)}
         okText={editingMethod ? t('update', 'Update') : t('add', 'Add')}
       >
         <Form form={methodForm} layout="vertical">
-          <Form.Item name="type" label={t('pages.telegramBot.methodType', 'Type')} rules={[{ required: true }]}>
-            <Select options={[{ value: 'card', label: t('pages.telegramBot.methodCard', 'Card to Card') }, { value: 'crypto', label: t('pages.telegramBot.methodCrypto', 'Crypto') }]} />
+          <Form.Item
+            name="type"
+            label={t('pages.telegramBot.methodType', 'Type')}
+            rules={[{ required: true }]}
+          >
+            <Select
+              options={[
+                { value: 'card', label: t('pages.telegramBot.methodCard', 'Card to Card') },
+                { value: 'crypto', label: t('pages.telegramBot.methodCrypto', 'Crypto') },
+              ]}
+            />
           </Form.Item>
-          <Form.Item name="label" label={t('pages.telegramBot.methodLabel', 'Label')} rules={[{ required: true }]}>
+          <Form.Item
+            name="label"
+            label={t('pages.telegramBot.methodLabel', 'Label')}
+            rules={[{ required: true }]}
+          >
             <Input placeholder={t('pages.telegramBot.methodLabelPlaceholder', 'e.g. Bank Melli')} />
           </Form.Item>
-          <Form.Item name="value" label={t('pages.telegramBot.methodValue', 'Value')} rules={[{ required: true }]}>
-            <Input placeholder={t('pages.telegramBot.methodValuePlaceholder', 'Card number or wallet address')} />
+          <Form.Item
+            name="value"
+            label={t('pages.telegramBot.methodValue', 'Value')}
+            rules={[{ required: true }]}
+          >
+            <Input
+              placeholder={t(
+                'pages.telegramBot.methodValuePlaceholder',
+                'Card number or wallet address',
+              )}
+            />
           </Form.Item>
           <Form.Item name="holderName" label={t('pages.telegramBot.methodHolder', 'Holder Name')}>
             <Input />
@@ -1009,26 +1348,59 @@ export default function TelegramBotPage() {
       </Modal>
 
       <Modal
-        title={editingDiscount ? t('pages.telegramBot.editDiscount', 'Edit Discount Code') : t('pages.telegramBot.addDiscount', 'Add Discount Code')}
+        title={
+          editingDiscount
+            ? t('pages.telegramBot.editDiscount', 'Edit Discount Code')
+            : t('pages.telegramBot.addDiscount', 'Add Discount Code')
+        }
         open={discountModalOpen}
         onOk={handleDiscountSubmit}
         onCancel={() => setDiscountModalOpen(false)}
         okText={editingDiscount ? t('update', 'Update') : t('add', 'Add')}
       >
         <Form form={discountForm} layout="vertical">
-          <Form.Item name="code" label={t('pages.telegramBot.code', 'Code')} rules={[{ required: true }]}>
+          <Form.Item
+            name="code"
+            label={t('pages.telegramBot.code', 'Code')}
+            rules={[{ required: true }]}
+          >
             <Input />
           </Form.Item>
-          <Form.Item name="kind" label={t('pages.telegramBot.discountKind', 'Kind')} rules={[{ required: true }]}>
-            <Select options={[{ value: 'percent', label: t('pages.telegramBot.referralPercent', 'Percent of purchase') }, { value: 'fixed', label: t('pages.telegramBot.discountFixed', 'Fixed amount (Toman)') }]} />
+          <Form.Item
+            name="kind"
+            label={t('pages.telegramBot.discountKind', 'Kind')}
+            rules={[{ required: true }]}
+          >
+            <Select
+              options={[
+                {
+                  value: 'percent',
+                  label: t('pages.telegramBot.referralPercent', 'Percent of purchase'),
+                },
+                {
+                  value: 'fixed',
+                  label: t('pages.telegramBot.discountFixed', 'Fixed amount (Toman)'),
+                },
+              ]}
+            />
           </Form.Item>
-          <Form.Item name="value" label={t('pages.telegramBot.discountValue', 'Value')} rules={[{ required: true }]}>
+          <Form.Item
+            name="value"
+            label={t('pages.telegramBot.discountValue', 'Value')}
+            rules={[{ required: true }]}
+          >
             <InputNumber min={1} style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name="maxUses" label={t('pages.telegramBot.maxUses', 'Max uses (0 = unlimited)')}>
+          <Form.Item
+            name="maxUses"
+            label={t('pages.telegramBot.maxUses', 'Max uses (0 = unlimited)')}
+          >
             <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name="planIds" label={t('pages.telegramBot.discountPlans', 'Applies to (empty = all plans)')}>
+          <Form.Item
+            name="planIds"
+            label={t('pages.telegramBot.discountPlans', 'Applies to (empty = all plans)')}
+          >
             <Select mode="multiple" options={plans.map((p) => ({ value: p.id, label: p.name }))} />
           </Form.Item>
           <Form.Item name="enabled" label={t('enabled', 'Enabled')} valuePropName="checked">
@@ -1038,20 +1410,35 @@ export default function TelegramBotPage() {
       </Modal>
 
       <Modal
-        title={editingRedeem ? t('pages.telegramBot.editRedeem', 'Edit Redeem Code') : t('pages.telegramBot.addRedeem', 'Add Redeem Code')}
+        title={
+          editingRedeem
+            ? t('pages.telegramBot.editRedeem', 'Edit Redeem Code')
+            : t('pages.telegramBot.addRedeem', 'Add Redeem Code')
+        }
         open={redeemModalOpen}
         onOk={handleRedeemSubmit}
         onCancel={() => setRedeemModalOpen(false)}
         okText={editingRedeem ? t('update', 'Update') : t('add', 'Add')}
       >
         <Form form={redeemForm} layout="vertical">
-          <Form.Item name="code" label={t('pages.telegramBot.code', 'Code')} rules={[{ required: true }]}>
+          <Form.Item
+            name="code"
+            label={t('pages.telegramBot.code', 'Code')}
+            rules={[{ required: true }]}
+          >
             <Input />
           </Form.Item>
-          <Form.Item name="amountToman" label={t('pages.telegramBot.amount', 'Amount (Toman)')} rules={[{ required: true }]}>
+          <Form.Item
+            name="amountToman"
+            label={t('pages.telegramBot.amount', 'Amount (Toman)')}
+            rules={[{ required: true }]}
+          >
             <InputNumber min={1} style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name="maxUses" label={t('pages.telegramBot.maxUses', 'Max uses (0 = unlimited)')}>
+          <Form.Item
+            name="maxUses"
+            label={t('pages.telegramBot.maxUses', 'Max uses (0 = unlimited)')}
+          >
             <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="enabled" label={t('enabled', 'Enabled')} valuePropName="checked">
@@ -1069,13 +1456,20 @@ export default function TelegramBotPage() {
       >
         {walletAdjustCustomer && (
           <Typography.Paragraph>
-            {walletAdjustCustomer.buyerUsername ? `@${walletAdjustCustomer.buyerUsername}` : walletAdjustCustomer.buyerTgId}
+            {walletAdjustCustomer.buyerUsername
+              ? `@${walletAdjustCustomer.buyerUsername}`
+              : walletAdjustCustomer.buyerTgId}
             {' — '}
-            {t('pages.telegramBot.currentBalance', 'Current balance')}: {walletAdjustCustomer.walletBalanceToman.toLocaleString()} Toman
+            {t('pages.telegramBot.currentBalance', 'Current balance')}:{' '}
+            {walletAdjustCustomer.walletBalanceToman.toLocaleString()} Toman
           </Typography.Paragraph>
         )}
         <Form form={walletAdjustForm} layout="vertical">
-          <Form.Item name="deltaToman" label={t('pages.telegramBot.deltaToman', 'Amount (negative to debit)')} rules={[{ required: true }]}>
+          <Form.Item
+            name="deltaToman"
+            label={t('pages.telegramBot.deltaToman', 'Amount (negative to debit)')}
+            rules={[{ required: true }]}
+          >
             <InputNumber style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="note" label={t('pages.telegramBot.note', 'Note')}>

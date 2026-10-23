@@ -1,11 +1,14 @@
 package controller
 
 import (
+	"errors"
+	"math"
 	"net/http"
 	"strconv"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/resellerbot"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service/panel"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/session"
@@ -170,12 +173,12 @@ func (a *ResellerController) add(c *gin.Context) {
 }
 
 type updateResellerForm struct {
-	Username            string  `form:"username" json:"username"`
-	Password            string  `form:"password" json:"password"`
-	UsageLimit          float64 `form:"usageLimit" json:"usageLimit"`
-	AllowedInboundsMode string  `form:"allowedInboundsMode" json:"allowedInboundsMode"`
-	AllowedInboundIds   []int   `form:"allowedInboundIds" json:"allowedInboundIds"`
-	Multiplier          float64 `form:"multiplier" json:"multiplier"`
+	Username            string   `form:"username" json:"username"`
+	Password            string   `form:"password" json:"password"`
+	UsageLimit          *float64 `form:"usageLimit" json:"usageLimit"`
+	AllowedInboundsMode string   `form:"allowedInboundsMode" json:"allowedInboundsMode"`
+	AllowedInboundIds   []int    `form:"allowedInboundIds" json:"allowedInboundIds"`
+	Multiplier          float64  `form:"multiplier" json:"multiplier"`
 }
 
 func (a *ResellerController) update(c *gin.Context) {
@@ -189,7 +192,20 @@ func (a *ResellerController) update(c *gin.Context) {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
-	if err := a.resellerService.UpdateReseller(id, form.Username, form.Password, int64(form.UsageLimit), form.AllowedInboundsMode, form.AllowedInboundIds, form.Multiplier); err != nil {
+	current, err := a.resellerService.GetResellerById(id)
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	usageLimit := current.UsageLimit
+	if form.UsageLimit != nil {
+		if math.IsNaN(*form.UsageLimit) || math.IsInf(*form.UsageLimit, 0) || *form.UsageLimit < 0 || *form.UsageLimit >= float64(math.MaxInt64) {
+			jsonMsg(c, I18nWeb(c, "somethingWentWrong"), errors.New("usage limit must be a non-negative byte count within int64 range"))
+			return
+		}
+		usageLimit = int64(*form.UsageLimit)
+	}
+	if err := a.resellerService.UpdateReseller(id, form.Username, form.Password, usageLimit, form.AllowedInboundsMode, form.AllowedInboundIds, form.Multiplier); err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
@@ -207,6 +223,8 @@ func (a *ResellerController) del(c *gin.Context) {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
+	resellerbot.GetManager().Stop(id)
+	notifyClientsChanged()
 	jsonMsg(c, "success", nil)
 }
 

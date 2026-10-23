@@ -117,7 +117,7 @@ func TestDisableResellerOverQuota_LocksAccountAndEnabledClients(t *testing.T) {
 	seedResellerClient(t, db, ib, reseller.Id, "rq-live@x", true, false)
 	seedResellerClient(t, db, ib, reseller.Id, "rq-selfdisabled@x", false, false)
 
-	_, count, err := svc.disableResellerOverQuotaClients(db)
+	_, count, err := svc.disableResellerOverQuotaClients(db, newTrafficMutationBatch())
 	if err != nil {
 		t.Fatalf("disableResellerOverQuotaClients: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestDisableResellerOverQuota_UnderLimitIsNoop(t *testing.T) {
 	}
 	seedResellerClient(t, db, ib, reseller.Id, "ru-live@x", true, false)
 
-	_, count, err := svc.disableResellerOverQuotaClients(db)
+	_, count, err := svc.disableResellerOverQuotaClients(db, newTrafficMutationBatch())
 	if err != nil {
 		t.Fatalf("disableResellerOverQuotaClients: %v", err)
 	}
@@ -204,7 +204,7 @@ func TestDisableResellerOverQuota_KeepsManualAccountDisable(t *testing.T) {
 	}
 	seedResellerClient(t, db, ib, reseller.Id, "rm-live@x", true, false)
 
-	if _, _, err := svc.disableResellerOverQuotaClients(db); err != nil {
+	if _, _, err := svc.disableResellerOverQuotaClients(db, newTrafficMutationBatch()); err != nil {
 		t.Fatalf("disableResellerOverQuotaClients: %v", err)
 	}
 	if got := reloadUser(t, db, reseller.Id).LoginEpoch; got != -1 {

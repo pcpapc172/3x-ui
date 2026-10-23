@@ -1,16 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Button,
-  Card,
-  Col,
-  ConfigProvider,
-  Layout,
-  Result,
-  Row,
-  Spin,
-  Statistic,
-} from 'antd';
+import { Button, Card, Col, ConfigProvider, Layout, Result, Row, Spin, Statistic } from 'antd';
 import {
   CloudDownloadOutlined,
   CloudUploadOutlined,
@@ -60,26 +50,37 @@ export default function ResellerOverviewPage() {
     return classes.join(' ');
   }, [isDark, isUltra]);
 
-  const fetchOverview = useCallback(async () => {
-    setFetchError('');
-    try {
-      const resp = await HttpUtil.get<ResellerOverview>('/panel/api/user/overview');
-      if (resp.success && resp.obj) {
-        setOverview(resp.obj);
-      }
-    } catch {
-      setFetchError(t('somethingWentWrong'));
-    } finally {
-      setFetched(true);
-    }
-  }, [t]);
+  const fetchOverview = useCallback(
+    () =>
+      HttpUtil.get<ResellerOverview>('/panel/api/user/overview')
+        .then((resp) => {
+          setFetchError('');
+          if (resp.success && resp.obj) {
+            setOverview(resp.obj);
+          }
+        })
+        .catch(() => {
+          setFetchError(t('somethingWentWrong'));
+        })
+        .finally(() => {
+          setFetched(true);
+        }),
+    [t],
+  );
 
-  useEffect(() => { fetchOverview(); }, [fetchOverview]);
+  const refreshData = () => {
+    void fetchOverview();
+  };
+
+  useEffect(() => {
+    fetchOverview();
+  }, [fetchOverview]);
 
   const totalUsage = overview ? overview.usageUp + overview.usageDown : 0;
-  const usagePercent = overview && overview.usageLimit > 0
-    ? Math.min(100, (totalUsage / overview.usageLimit) * 100)
-    : 0;
+  const usagePercent =
+    overview && overview.usageLimit > 0
+      ? Math.min(100, (totalUsage / overview.usageLimit) * 100)
+      : 0;
 
   return (
     <ConfigProvider theme={antdThemeConfig}>
@@ -96,74 +97,119 @@ export default function ResellerOverviewPage() {
                   status="error"
                   title={t('somethingWentWrong')}
                   subTitle={fetchError}
-                  extra={<Button type="primary" onClick={fetchOverview}>{t('refresh')}</Button>}
+                  extra={
+                    <Button type="primary" onClick={refreshData}>
+                      {t('refresh')}
+                    </Button>
+                  }
                 />
-              ) : overview && (
-                <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 12]}>
-                  <Col span={24}>
-                    <Card size="small" hoverable className="summary-card">
-                      <Row gutter={[16, isMobile ? 16 : 12]}>
-                        <Col xs={12} sm={12} md={6}>
-                          <Statistic
-                            title={t('pages.reseller.sent', 'Sent')}
-                            value={formatBytes(overview.usageUp)}
-                            prefix={<CloudUploadOutlined style={{ color: 'var(--ant-color-info)' }} />}
-                          />
-                        </Col>
-                        <Col xs={12} sm={12} md={6}>
-                          <Statistic
-                            title={t('pages.reseller.received', 'Received')}
-                            value={formatBytes(overview.usageDown)}
-                            prefix={<CloudDownloadOutlined style={{ color: 'var(--ant-color-success)' }} />}
-                          />
-                        </Col>
-                        <Col xs={12} sm={12} md={6}>
-                          <Statistic
-                            title={t('pages.reseller.remaining', 'Remaining')}
-                            value={overview.usageLimit > 0 ? formatBytes(overview.remaining) : t('pages.reseller.unlimited', 'Unlimited')}
-                            prefix={<CloudSyncOutlined style={{ color: overview.usageLimit > 0 && overview.remaining < overview.usageLimit * 0.1 ? 'var(--ant-color-error)' : 'var(--ant-color-warning)' }} />}
-                          />
-                        </Col>
-                        <Col xs={12} sm={12} md={6}>
-                          <Statistic
-                            title={t('pages.reseller.totalUsage', 'Total Usage')}
-                            value={formatBytes(totalUsage)}
-                            suffix={overview.usageLimit > 0 ? `/ ${formatBytes(overview.usageLimit)}` : ''}
-                            prefix={<DatabaseOutlined />}
-                          />
-                        </Col>
-                      </Row>
-                    </Card>
-                  </Col>
+              ) : (
+                overview && (
+                  <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 12]}>
+                    <Col span={24}>
+                      <Card size="small" hoverable className="summary-card">
+                        <Row gutter={[16, isMobile ? 16 : 12]}>
+                          <Col xs={12} sm={12} md={6}>
+                            <Statistic
+                              title={t('pages.reseller.sent', 'Sent')}
+                              value={formatBytes(overview.usageUp)}
+                              prefix={
+                                <CloudUploadOutlined style={{ color: 'var(--ant-color-info)' }} />
+                              }
+                            />
+                          </Col>
+                          <Col xs={12} sm={12} md={6}>
+                            <Statistic
+                              title={t('pages.reseller.received', 'Received')}
+                              value={formatBytes(overview.usageDown)}
+                              prefix={
+                                <CloudDownloadOutlined
+                                  style={{ color: 'var(--ant-color-success)' }}
+                                />
+                              }
+                            />
+                          </Col>
+                          <Col xs={12} sm={12} md={6}>
+                            <Statistic
+                              title={t('pages.reseller.remaining', 'Remaining')}
+                              value={
+                                overview.usageLimit > 0
+                                  ? formatBytes(overview.remaining)
+                                  : t('pages.reseller.unlimited', 'Unlimited')
+                              }
+                              prefix={
+                                <CloudSyncOutlined
+                                  style={{
+                                    color:
+                                      overview.usageLimit > 0 &&
+                                      overview.remaining < overview.usageLimit * 0.1
+                                        ? 'var(--ant-color-error)'
+                                        : 'var(--ant-color-warning)',
+                                  }}
+                                />
+                              }
+                            />
+                          </Col>
+                          <Col xs={12} sm={12} md={6}>
+                            <Statistic
+                              title={t('pages.reseller.totalUsage', 'Total Usage')}
+                              value={formatBytes(totalUsage)}
+                              suffix={
+                                overview.usageLimit > 0
+                                  ? `/ ${formatBytes(overview.usageLimit)}`
+                                  : ''
+                              }
+                              prefix={<DatabaseOutlined />}
+                            />
+                          </Col>
+                        </Row>
+                      </Card>
+                    </Col>
 
-                  <Col span={24}>
-                    <Card size="small" hoverable>
-                      <Row gutter={[16, isMobile ? 16 : 12]}>
-                        <Col xs={12} sm={12} md={8}>
-                          <Statistic
-                            title={t('pages.reseller.totalClients', 'Total Clients')}
-                            value={overview.clientCount}
-                            prefix={<TeamOutlined />}
-                          />
-                        </Col>
-                        <Col xs={12} sm={12} md={8}>
-                          <Statistic
-                            title={t('pages.reseller.activeClients', 'Active Clients')}
-                            value={overview.enabledCount}
-                            prefix={<CheckCircleOutlined style={{ color: 'var(--ant-color-success)' }} />}
-                          />
-                        </Col>
-                        <Col xs={12} sm={12} md={8}>
-                          <Statistic
-                            title={t('pages.reseller.quotaUsed', 'Quota Used')}
-                            value={overview.usageLimit > 0 ? `${usagePercent.toFixed(1)}%` : '-'}
-                            prefix={<DatabaseOutlined style={{ color: usagePercent > 90 ? 'var(--ant-color-error)' : usagePercent > 70 ? 'var(--ant-color-warning)' : 'var(--ant-color-info)' }} />}
-                          />
-                        </Col>
-                      </Row>
-                    </Card>
-                  </Col>
-                </Row>
+                    <Col span={24}>
+                      <Card size="small" hoverable>
+                        <Row gutter={[16, isMobile ? 16 : 12]}>
+                          <Col xs={12} sm={12} md={8}>
+                            <Statistic
+                              title={t('pages.reseller.totalClients', 'Total Clients')}
+                              value={overview.clientCount}
+                              prefix={<TeamOutlined />}
+                            />
+                          </Col>
+                          <Col xs={12} sm={12} md={8}>
+                            <Statistic
+                              title={t('pages.reseller.activeClients', 'Active Clients')}
+                              value={overview.enabledCount}
+                              prefix={
+                                <CheckCircleOutlined
+                                  style={{ color: 'var(--ant-color-success)' }}
+                                />
+                              }
+                            />
+                          </Col>
+                          <Col xs={12} sm={12} md={8}>
+                            <Statistic
+                              title={t('pages.reseller.quotaUsed', 'Quota Used')}
+                              value={overview.usageLimit > 0 ? `${usagePercent.toFixed(1)}%` : '-'}
+                              prefix={
+                                <DatabaseOutlined
+                                  style={{
+                                    color:
+                                      usagePercent > 90
+                                        ? 'var(--ant-color-error)'
+                                        : usagePercent > 70
+                                          ? 'var(--ant-color-warning)'
+                                          : 'var(--ant-color-info)',
+                                  }}
+                                />
+                              }
+                            />
+                          </Col>
+                        </Row>
+                      </Card>
+                    </Col>
+                  </Row>
+                )
               )}
             </Spin>
           </Layout.Content>

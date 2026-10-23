@@ -8,7 +8,9 @@
 .api-docs-page,
 .admins-page,
 .multiply-page,
-.reseller-page {
+.reseller-page,
+.telegram-bot-page,
+.sponsors-page {
   --bg-page: #e6e8ec;
   --bg-card: #ffffff;
   min-height: 100vh;
@@ -25,7 +27,9 @@
 .api-docs-page.is-dark,
 .admins-page.is-dark,
 .multiply-page.is-dark,
-.reseller-page.is-dark {
+.reseller-page.is-dark,
+.telegram-bot-page.is-dark,
+.sponsors-page.is-dark {
   --bg-page: #1a1b1f;
   --bg-card: #23252b;
 }
@@ -40,7 +44,9 @@
 .api-docs-page.is-dark.is-ultra,
 .admins-page.is-dark.is-ultra,
 .multiply-page.is-dark.is-ultra,
-.reseller-page.is-dark.is-ultra {
+.reseller-page.is-dark.is-ultra,
+.telegram-bot-page.is-dark.is-ultra,
+.sponsors-page.is-dark.is-ultra {
   --bg-page: #000;
   --bg-card: #101013;
 }
@@ -66,7 +72,9 @@
 .multiply-page .ant-layout,
 .multiply-page .ant-layout-content,
 .reseller-page .ant-layout,
-.reseller-page .ant-layout-content {
+.telegram-bot-page .ant-layout,
+.reseller-page .ant-layout-content,
+.telegram-bot-page .ant-layout-content {
   background: transparent;
 }
 
@@ -80,7 +88,8 @@
 .api-docs-page .content-shell,
 .admins-page .content-shell,
 .multiply-page .content-shell,
-.reseller-page .content-shell {
+.reseller-page .content-shell,
+.telegram-bot-page .content-shell {
   background: transparent;
 }
 
@@ -93,7 +102,8 @@
 .groups-page .content-area,
 .admins-page .content-area,
 .multiply-page .content-area,
-.reseller-page .content-area {
+.reseller-page .content-area,
+.telegram-bot-page .content-area {
   padding: 24px;
 }
 
@@ -104,7 +114,8 @@
   .groups-page .content-area,
   .admins-page .content-area,
   .multiply-page .content-area,
-  .reseller-page .content-area {
+  .reseller-page .content-area,
+  .telegram-bot-page .content-area {
     padding: 8px;
   }
 }
@@ -120,13 +131,23 @@
   overflow-y: auto;
 }
 
-.ant-dropdown-menu-item:not(.ant-dropdown-menu-item-disabled):not(.ant-dropdown-menu-item-danger):hover,
-.ant-dropdown-menu-item:not(.ant-dropdown-menu-item-disabled):not(.ant-dropdown-menu-item-danger):hover .ant-dropdown-menu-title-content,
-.ant-dropdown-menu-item:not(.ant-dropdown-menu-item-disabled):not(.ant-dropdown-menu-item-danger):hover > .anticon {
+.ant-dropdown-menu-item:not(.ant-dropdown-menu-item-disabled):not(
+    .ant-dropdown-menu-item-danger
+  ):hover,
+.ant-dropdown-menu-item:not(.ant-dropdown-menu-item-disabled):not(
+    .ant-dropdown-menu-item-danger
+  ):hover
+  .ant-dropdown-menu-title-content,
+.ant-dropdown-menu-item:not(.ant-dropdown-menu-item-disabled):not(
+    .ant-dropdown-menu-item-danger
+  ):hover
+  > .anticon {
   color: var(--ant-color-primary) !important;
 }
 
-.ant-dropdown-menu-item:not(.ant-dropdown-menu-item-disabled):not(.ant-dropdown-menu-item-danger):hover {
+.ant-dropdown-menu-item:not(.ant-dropdown-menu-item-disabled):not(
+    .ant-dropdown-menu-item-danger
+  ):hover {
   background-color: color-mix(in srgb, var(--ant-color-primary) 14%, transparent) !important;
 }
 
@@ -191,7 +212,8 @@ body.dark .ant-dropdown-menu-item-divider {
 .groups-page .summary-card,
 .admins-page .summary-card,
 .multiply-page .summary-card,
-.reseller-page .summary-card {
+.reseller-page .summary-card,
+.telegram-bot-page .summary-card {
   padding: 16px;
 }
 
@@ -202,7 +224,8 @@ body.dark .ant-dropdown-menu-item-divider {
   .groups-page .summary-card,
   .admins-page .summary-card,
   .multiply-page .summary-card,
-  .reseller-page .summary-card {
+  .reseller-page .summary-card,
+  .telegram-bot-page .summary-card {
     padding: 8px;
   }
 }
@@ -284,5 +307,61 @@ body.dark .ant-dropdown-menu-item-divider {
   .telegram-bot-page .content-area,
   .telegram-bot-page .summary-card {
     padding: 8px;
+  }
+}
+
+:is(.admins-page, .multiply-page, .reseller-page, .telegram-bot-page)
+  :is(.content-shell, .content-area, .ant-col, .ant-card-body, .ant-table-wrapper) {
+  min-width: 0;
+  max-width: 100%;
+}
+.reseller-mobile-list {
+  display: grid;
+  gap: 12px;
+}
+.reseller-mobile-name {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.reseller-mobile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+@media (max-width: 768px) {
+  :is(.admins-page, .multiply-page, .reseller-page, .telegram-bot-page) .ant-card-head {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-block: 12px;
+  }
+  :is(.multiply-page, .telegram-bot-page) .ant-card-extra {
+    max-width: 100%;
+    margin-inline-start: 0;
+  }
+  :is(.multiply-page, .telegram-bot-page) .ant-card-extra > .ant-space {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 768px) {
+  :is(.admins-page, .multiply-page, .reseller-page, .telegram-bot-page) .content-area {
+    padding-top: 56px;
+  }
+}
+
+@media (max-width: 768px) {
+  :is(.multiply-page, .telegram-bot-page) .ant-card-head-wrapper {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  :is(.multiply-page, .telegram-bot-page) .ant-card-head-title {
+    flex: 1 0 100%;
+    white-space: normal;
+  }
+  :is(.multiply-page, .telegram-bot-page) .ant-card-extra {
+    overflow-wrap: anywhere;
+    white-space: normal;
   }
 }

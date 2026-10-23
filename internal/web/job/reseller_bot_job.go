@@ -3,6 +3,7 @@ package job
 import (
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	"github.com/mhsanaei/3x-ui/v3/internal/resellerbot"
+	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service/panel"
 )
 
@@ -19,6 +20,10 @@ func NewResellerBotJob() *ResellerBotJob {
 
 func (j *ResellerBotJob) Run() {
 	resellerbot.GetManager().Reconcile()
+	enabled, err := (&service.SettingService{}).GetResellerBotEnabled()
+	if err != nil || !enabled {
+		return
+	}
 
 	if n, err := j.botService.ExpireStalePendingOrders(); err != nil {
 		logger.Warning("reseller bot job: expire stale orders failed:", err)

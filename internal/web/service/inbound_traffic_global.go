@@ -82,14 +82,7 @@ func (s *InboundService) AcceptGlobalTraffic(masterGuid string, traffics []*xray
 					return err
 				}
 			}
-			knownTraffic := make([]*xray.ClientTraffic, 0, len(known))
-			for _, email := range known {
-				if t := byEmail[email]; t != nil {
-					knownTraffic = append(knownTraffic, t)
-				}
-			}
-			svc := &InboundService{}
-			svc.updateResellerUsage(tx, svc.resellerMultiplierDeltas(tx, knownTraffic))
+
 			return nil
 		}); err != nil {
 			return err
@@ -180,10 +173,8 @@ func overlayGlobalTrafficValues(db *gorm.DB, rows []xray.ClientTraffic) {
 // its own aggregate.
 func (s *InboundService) GetNodeClientTraffics(nodeID int) ([]*xray.ClientTraffic, error) {
 	db := database.GetDB()
-	var emails []string
-	if err := db.Model(&model.NodeClientTraffic{}).
-		Where("node_id = ?", nodeID).
-		Pluck("email", &emails).Error; err != nil {
+	emails, err := nodeHostedEmails(db, nodeID)
+	if err != nil {
 		return nil, err
 	}
 	if len(emails) == 0 {

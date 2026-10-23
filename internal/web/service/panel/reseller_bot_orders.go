@@ -233,7 +233,7 @@ func (s *BotService) settleOrder(order *model.BotOrder) (string, error) {
 		}
 		inboundSvc := &service.InboundService{}
 		clientSvc := &service.ClientService{}
-		result, _, err := clientSvc.BulkAdjust(inboundSvc, []string{sub.ClientEmail}, plan.DurationDays, plan.TrafficGB*bytesPerGB, "")
+		result, _, err := clientSvc.BulkAdjust(inboundSvc, []string{sub.ClientEmail}, plan.DurationDays, plan.TrafficGB*bytesPerGB, "", nil, "")
 		if err != nil {
 			return "", err
 		}

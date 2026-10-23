@@ -12,6 +12,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 )
 
 // Manager owns the set of running bot instances keyed by owner id.
@@ -47,7 +48,8 @@ func (m *Manager) Ensure(ownerId int) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if !cfg.Enabled || cfg.Token == "" {
+	enabled, err := (&service.SettingService{}).GetResellerBotEnabled()
+	if err != nil || !enabled || !cfg.Enabled || cfg.Token == "" {
 		if cur, ok := m.instances[ownerId]; ok {
 			cur.stop()
 			delete(m.instances, ownerId)
@@ -86,6 +88,11 @@ func (m *Manager) Stop(ownerId int) {
 // starting missing instances and stopping any that no longer have an
 // enabled config. Used at boot and by a periodic job to self-heal.
 func (m *Manager) Reconcile() {
+	enabled, err := (&service.SettingService{}).GetResellerBotEnabled()
+	if err != nil || !enabled {
+		m.StopAll()
+		return
+	}
 	var configs []model.BotConfig
 	if err := database.GetDB().Where("enabled = ? AND token != ''", true).Find(&configs).Error; err != nil {
 		logger.Warning("resellerbot: reconcile failed to load configs:", err)

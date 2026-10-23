@@ -3,6 +3,7 @@ package job
 import (
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	"github.com/mhsanaei/3x-ui/v3/internal/resellerbot"
+	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service/panel"
 )
 
@@ -23,6 +24,11 @@ func NewBotAutoRenewJob() *BotAutoRenewJob {
 }
 
 func (j *BotAutoRenewJob) Run() {
+	enabled, err := (&service.SettingService{}).GetResellerBotEnabled()
+	if err != nil || !enabled {
+		return
+	}
+
 	subs, err := j.botService.DueForAutoRenew(autoRenewWindowMs, autoRenewCooldownMs)
 	if err != nil {
 		logger.Warning("bot auto-renew job: failed to list due subscriptions:", err)

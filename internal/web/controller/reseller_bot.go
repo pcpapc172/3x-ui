@@ -7,6 +7,7 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/resellerbot"
+	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service/panel"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/session"
 
@@ -28,6 +29,14 @@ func NewResellerBotController(g *gin.RouterGroup) *ResellerBotController {
 
 func (a *ResellerBotController) initRouter(g *gin.RouterGroup) {
 	g = g.Group("/bot")
+	g.Use(func(c *gin.Context) {
+		enabled, err := (&service.SettingService{}).GetResellerBotEnabled()
+		if err != nil || !enabled {
+			c.AbortWithStatus(http.StatusServiceUnavailable)
+			return
+		}
+		c.Next()
+	})
 
 	g.GET("/config", a.getConfig)
 	g.POST("/config", a.saveConfig)

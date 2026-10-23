@@ -79,3 +79,105 @@ func TestAddTraffic_MultiplierAppliesToClientAndReseller(t *testing.T) {
 			reloadedReseller.UsageUp, reloadedReseller.UsageDown)
 	}
 }
+
+func TestGlobalTrafficDoesNotBillRepeatedMasterSnapshots(t *testing.T) {
+	db := initTrafficTestDB(t)
+	owner := &model.User{Username: "global-owner", Role: "reseller", UsageLimit: 3 * 1024 * 1024 * 1024 * 1024}
+	if err := db.Create(owner).Error; err != nil {
+		t.Fatal(err)
+	}
+	seedMultiplierClient(t, db, 1, "master-client", owner.Id)
+	svc := &InboundService{}
+	for range 3 {
+		if err := svc.AcceptGlobalTraffic("master", []*xray.ClientTraffic{{Email: "master-client", Up: 100, Down: 200}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var got model.User
+	if err := db.First(&got, owner.Id).Error; err != nil {
+		t.Fatal(err)
+	}
+	if got.UsageUp != 0 || got.UsageDown != 0 {
+		t.Fatalf("master display snapshot billed again: up=%d down=%d, want 0/0 (local traffic already accounted)", got.UsageUp, got.UsageDown)
+	}
+}
+
+func TestAddTrafficMultiplierCannotOverflowQuotaCounters(t *testing.T) {
+	db := initTrafficTestDB(t)
+	inbound := &model.Inbound{UserId: 1, Tag: "overflow-mult", Enable: true, Port: 44032, Protocol: model.VLESS, Settings: `{"clients":[]}`}
+	if err := db.Create(inbound).Error; err != nil {
+		t.Fatal(err)
+	}
+	owner := &model.User{Username: "overflow-owner", Role: "reseller", Multiplier: 4}
+	if err := db.Create(owner).Error; err != nil {
+		t.Fatal(err)
+	}
+	seedMultiplierClient(t, db, inbound.Id, "overflow-client", owner.Id)
+	if _, _, err := (&InboundService{}).AddTraffic(nil, []*xray.ClientTraffic{{Email: "overflow-client", Up: 4_000_000_000_000_000_000}}); err != nil {
+		t.Fatal(err)
+	}
+	got := readTraffic(t, db, "overflow-client")
+	if got.Up != 9_000_000_000_000_000_000 {
+		t.Fatalf("multiplied up=%d, want saturated 9000000000000000000", got.Up)
+	}
+	var user model.User
+	if err := db.First(&user, owner.Id).Error; err != nil {
+		t.Fatal(err)
+	}
+	if user.UsageUp != got.Up {
+		t.Fatalf("owner up=%d, want %d", user.UsageUp, got.Up)
+	}
+}
+
+func TestNodeMultiplierBillsClientAndOwnerOnlyForNewTraffic(t *testing.T) {
+	db := initTrafficTestDB(t)
+	nodeID, _ := setupNodeRuntime(t)
+	owner := &model.User{Username: "node-owner", Role: "reseller", Multiplier: 2}
+	if err := db.Create(owner).Error; err != nil {
+		t.Fatal(err)
+	}
+	client := model.Client{Email: "node-mult-client", Enable: true, OwnerId: owner.Id}
+	ib := nodeInbound(t, nodeID, 44033, []model.Client{client})
+	if err := db.Create(&model.InboundMultiplier{InboundId: ib.Id, Rate: 3}).Error; err != nil {
+		t.Fatal(err)
+	}
+	seedClientTraffic(t, ib.Id, client.Email, true)
+	svc := &InboundService{}
+	syncNode(t, svc, nodeID, ib.Tag, xray.ClientTraffic{Email: client.Email, Enable: true})
+	for range 2 {
+		syncNode(t, svc, nodeID, ib.Tag, xray.ClientTraffic{Email: client.Email, Enable: true, Up: 100, Down: 50})
+	}
+	got := readTraffic(t, db, client.Email)
+	if got.Up != 600 || got.Down != 300 {
+		t.Fatalf("node client up/down=%d/%d, want 600/300 without replay billing", got.Up, got.Down)
+	}
+	var user model.User
+	if err := db.First(&user, owner.Id).Error; err != nil {
+		t.Fatal(err)
+	}
+	if user.UsageUp != 600 || user.UsageDown != 300 {
+		t.Fatalf("node owner up/down=%d/%d, want 600/300", user.UsageUp, user.UsageDown)
+	}
+}
+
+func TestAddTrafficDoesNotCompoundReusedDelta(t *testing.T) {
+	db := initTrafficTestDB(t)
+	ib := &model.Inbound{UserId: 1, Tag: "reused-mult", Port: 44034, Protocol: model.VLESS, Settings: `{"clients":[]}`}
+	if err := db.Create(ib).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.InboundMultiplier{InboundId: ib.Id, Rate: 2}).Error; err != nil {
+		t.Fatal(err)
+	}
+	seedMultiplierClient(t, db, ib.Id, "reused-client", 0)
+	delta := []*xray.ClientTraffic{{Email: "reused-client", Up: 100}}
+	for range 2 {
+		if _, _, err := (&InboundService{}).AddTraffic(nil, delta); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := readTraffic(t, db, "reused-client")
+	if got.Up != 400 {
+		t.Fatalf("two 100-byte ticks at 2x billed %d, want 400", got.Up)
+	}
+}

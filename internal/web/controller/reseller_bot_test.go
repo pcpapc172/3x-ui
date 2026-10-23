@@ -37,6 +37,9 @@ func TestResellerBotController_SetPlanAndPaymentMethod_FormEncoded(t *testing.T)
 	}
 	t.Cleanup(func() { _ = database.CloseDB() })
 	db := database.GetDB()
+	if err := db.Create(&model.Setting{Key: "resellerBotEnable", Value: "true"}).Error; err != nil {
+		t.Fatal(err)
+	}
 
 	ib := &model.Inbound{Tag: "bot-test", Enable: true, Port: 6443, Protocol: model.VLESS, Settings: `{"clients":[]}`}
 	if err := db.Create(ib).Error; err != nil {

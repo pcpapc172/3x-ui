@@ -57,7 +57,7 @@ func TestBulkAdjust_RenewalPreservesUsage(t *testing.T) {
 			mkTraffic(t, ib.Id, email, 1_000_000_000, 2_000_000_000, c.TotalGB, c.ExpiryTime, true)
 
 			addBytes := int64(10) * gbBytes // renewal plan: +10GB
-			result, _, err := svc.BulkAdjust(inboundSvc, []string{email}, tc.durationDays, addBytes, "")
+			result, _, err := svc.BulkAdjust(inboundSvc, []string{email}, tc.durationDays, addBytes, "", nil, "")
 			if err != nil {
 				t.Fatalf("BulkAdjust: %v", err)
 			}

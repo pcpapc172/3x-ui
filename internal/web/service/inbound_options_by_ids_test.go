@@ -71,3 +71,52 @@ func TestGetInboundOptionsByIds_Enable(t *testing.T) {
 		t.Fatalf("disabled inbound Enable = true, want false")
 	}
 }
+
+func TestGetInboundOptionsByIdsPreservesFlowPolicyAndTransport(t *testing.T) {
+	setupConflictDB(t)
+	inbound := &model.Inbound{
+		UserId: 1, Tag: "reseller-flow-policy", Enable: true, Port: 44031,
+		Protocol: model.VLESS, DisableFlow: true,
+		StreamSettings: `{"network":"tcp","security":"tls"}`,
+		Settings:       `{"clients":[]}`,
+	}
+	if err := database.GetDB().Create(inbound).Error; err != nil {
+		t.Fatalf("seed inbound: %v", err)
+	}
+	options, err := (&InboundService{}).GetInboundOptionsByIds([]int{inbound.Id})
+	if err != nil {
+		t.Fatalf("get reseller inbound options: %v", err)
+	}
+	if len(options) != 1 {
+		t.Fatalf("got %d inbound options, want 1", len(options))
+	}
+	got := options[0]
+	if got.Network != "tcp" || got.Security != "tls" || got.TlsFlowCapable {
+		t.Fatalf("reseller option network=%q security=%q flow=%v, want tcp/tls/false", got.Network, got.Security, got.TlsFlowCapable)
+	}
+}
+
+func TestResellerInboundOptionsIncludeAmneziaWGServer(t *testing.T) {
+	setupConflictDB(t)
+	ib := &model.Inbound{
+		UserId: 1, Tag: "reseller-awg", Enable: true, Port: 51820, Protocol: model.AmneziaWG,
+		Settings: `{"server":{"privateKey":"secret","publicKey":"shared-public-key","mtu":1420},"clients":[]}`,
+	}
+	if err := database.GetDB().Create(ib).Error; err != nil {
+		t.Fatal(err)
+	}
+	options, err := (&InboundService{}).GetInboundOptionsByIds([]int{ib.Id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(options) != 1 {
+		t.Fatalf("got %d options, want 1", len(options))
+	}
+	got := options[0]
+	if got.AwgServer == nil {
+		t.Fatal("AmneziaWG server settings missing from reseller picker")
+	}
+	if got.Network != "udp" || !got.Enable || got.AwgServer.PublicKey != "shared-public-key" || got.AwgServer.PrivateKey != "" {
+		t.Fatalf("invalid reseller AmneziaWG option: %+v server=%+v", got, got.AwgServer)
+	}
+}

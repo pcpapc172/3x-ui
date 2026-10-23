@@ -3,6 +3,7 @@ package panel
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
@@ -66,6 +67,9 @@ func (s *ResellerService) CreateReseller(username, password string, usageLimit i
 	if allowedInboundsMode == "" {
 		allowedInboundsMode = "all"
 	}
+	if usageLimit < 0 {
+		return nil, errors.New("usage limit cannot be negative")
+	}
 	if multiplier < 1 {
 		multiplier = 1
 	}
@@ -96,6 +100,9 @@ func (s *ResellerService) CreateReseller(username, password string, usageLimit i
 }
 
 func (s *ResellerService) UpdateReseller(id int, username, password string, usageLimit int64, allowedInboundsMode string, allowedInboundIds []int, multiplier float64) error {
+	if usageLimit < 0 {
+		return errors.New("usage limit cannot be negative")
+	}
 	db := database.GetDB()
 	user := &model.User{}
 	if err := db.First(user, id).Error; err != nil {
@@ -146,13 +153,25 @@ func (s *ResellerService) DeleteReseller(id int, deleteClients bool) error {
 	}
 	if deleteClients {
 		var emails []string
-		db.Model(&model.ClientRecord{}).Where("owner_id = ?", id).Pluck("email", &emails)
-		if len(emails) > 0 {
-			db.Where("email IN ?", emails).Delete(&model.ClientRecord{})
-			db.Table("client_traffics").Where("email IN ?", emails).Delete(nil)
-			db.Where("client_id IN (SELECT id FROM clients WHERE owner_id = ?)", id).Delete(&model.ClientInbound{})
-			db.Where("owner_id = ?", id).Delete(&model.Client{})
+		if err := db.Model(&model.ClientRecord{}).Where("owner_id = ?", id).Pluck("email", &emails).Error; err != nil {
+			return err
 		}
+		result, restart, err := (&service.ClientService{}).BulkDelete(&service.InboundService{}, emails, false)
+		if restart {
+			(&service.XrayService{}).SetToNeedRestart()
+		}
+		if err != nil {
+			return err
+		}
+		if result.Deleted != len(emails) {
+			return fmt.Errorf("reseller deletion incomplete: deleted %d of %d clients", result.Deleted, len(emails))
+		}
+	} else if err := db.Model(&model.ClientRecord{}).Where("owner_id = ?", id).
+		Updates(map[string]any{"owner_id": 0, "locked": false}).Error; err != nil {
+		return err
+	}
+	if err := db.Model(&model.BotConfig{}).Where("owner_id = ?", id).Update("enabled", false).Error; err != nil {
+		return err
 	}
 	return db.Delete(user).Error
 }
@@ -188,6 +207,13 @@ func (s *ResellerService) ResetResellerUsage(id int) (int64, error) {
 // Clients the reseller disabled manually (Locked=false) are left alone.
 func (s *ResellerService) reEnableLockedClients(id int) (int64, bool, error) {
 	db := database.GetDB()
+	var owner model.User
+	if err := db.First(&owner, id).Error; err != nil {
+		return 0, false, err
+	}
+	if owner.LoginEpoch < 0 || resellerOverQuota(&owner) {
+		return 0, false, nil
+	}
 	var emails []string
 	db.Model(&model.ClientRecord{}).Where("owner_id = ? AND locked = ?", id, true).Pluck("email", &emails)
 	if len(emails) == 0 {
@@ -209,7 +235,7 @@ func (s *ResellerService) ReEnableResellerClients(id int) error {
 }
 
 func resellerOverQuota(u *model.User) bool {
-	return u.UsageLimit > 0 && u.UsageUp+u.UsageDown >= u.UsageLimit
+	return u.UsageLimit > 0 && u.UsageUp >= u.UsageLimit-u.UsageDown
 }
 
 // clearQuotaLoginLock re-enables a reseller's login only if the over-quota job

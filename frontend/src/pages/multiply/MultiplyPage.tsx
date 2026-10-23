@@ -61,9 +61,15 @@ export default function MultiplyPage() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<MultiplyEntry | null>(null);
   const [editRate, setEditRate] = useState<number>(1);
-  const [resellers, setResellers] = useState<{ id: number; username: string; multiplier: number }[]>([]);
+  const [resellers, setResellers] = useState<
+    { id: number; username: string; multiplier: number }[]
+  >([]);
   const [resellerModalOpen, setResellerModalOpen] = useState(false);
-  const [editingReseller, setEditingReseller] = useState<{ id: number; username: string; multiplier: number } | null>(null);
+  const [editingReseller, setEditingReseller] = useState<{
+    id: number;
+    username: string;
+    multiplier: number;
+  } | null>(null);
   const [resellerRate, setResellerRate] = useState<number>(0);
 
   const pageClass = useMemo(() => {
@@ -84,27 +90,39 @@ export default function MultiplyPage() {
     return { total: entries.length, maxRate, avgRate };
   }, [entries]);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setFetchError('');
-    try {
-      const [multResp, inbResp, resResp] = await Promise.all([
+  const fetchData = useCallback(
+    () =>
+      Promise.all([
         HttpUtil.get<MultiplyEntry[]>('/panel/api/multiply/list'),
         HttpUtil.get<InboundOption[]>('/panel/api/inbounds/options'),
-        HttpUtil.get<{ id: number; username: string; multiplier: number }[]>('/panel/api/resellers/list'),
-      ]);
-      if (multResp.success && multResp.obj) setEntries(multResp.obj);
-      if (inbResp.success && inbResp.obj) setInbounds(inbResp.obj);
-      if (resResp.success && resResp.obj) setResellers(resResp.obj);
-    } catch {
-      setFetchError(t('somethingWentWrong'));
-    } finally {
-      setLoading(false);
-      setFetched(true);
-    }
-  }, [t]);
+        HttpUtil.get<{ id: number; username: string; multiplier: number }[]>(
+          '/panel/api/resellers/list',
+        ),
+      ])
+        .then(([multResp, inbResp, resResp]) => {
+          setFetchError('');
+          if (multResp.success && multResp.obj) setEntries(multResp.obj);
+          if (inbResp.success && inbResp.obj) setInbounds(inbResp.obj);
+          if (resResp.success && resResp.obj) setResellers(resResp.obj);
+        })
+        .catch(() => {
+          setFetchError(t('somethingWentWrong'));
+        })
+        .finally(() => {
+          setLoading(false);
+          setFetched(true);
+        }),
+    [t],
+  );
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const refreshData = () => {
+    setLoading(true);
+    void fetchData();
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleAdd = async () => {
     if (!selectedInbound) return;
@@ -115,13 +133,13 @@ export default function MultiplyPage() {
     if (resp.success) {
       setSelectedInbound(null);
       setRate(1);
-      fetchData();
+      refreshData();
     }
   };
 
   const handleDelete = async (id: number) => {
     const resp = await HttpUtil.post(`/panel/api/multiply/del/${id}`);
-    if (resp.success) fetchData();
+    if (resp.success) refreshData();
   };
 
   const handleEdit = (entry: MultiplyEntry) => {
@@ -139,7 +157,7 @@ export default function MultiplyPage() {
     if (resp.success) {
       setEditModalOpen(false);
       setEditingEntry(null);
-      fetchData();
+      refreshData();
     }
   };
 
@@ -160,7 +178,7 @@ export default function MultiplyPage() {
     if (resp.success) {
       setResellerModalOpen(false);
       setEditingReseller(null);
-      fetchData();
+      refreshData();
     }
   };
 
@@ -184,7 +202,10 @@ export default function MultiplyPage() {
       render: (_: unknown, record: MultiplyEntry) => (
         <Space>
           <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
-          <Popconfirm title={t('pages.multiply.removeConfirm', 'Remove this multiplier?')} onConfirm={() => handleDelete(record.id)}>
+          <Popconfirm
+            title={t('pages.multiply.removeConfirm', 'Remove this multiplier?')}
+            onConfirm={() => handleDelete(record.id)}
+          >
             <Button size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
         </Space>
@@ -211,7 +232,11 @@ export default function MultiplyPage() {
                   status="error"
                   title={t('somethingWentWrong')}
                   subTitle={fetchError}
-                  extra={<Button type="primary" onClick={fetchData}>{t('refresh')}</Button>}
+                  extra={
+                    <Button type="primary" onClick={refreshData}>
+                      {t('refresh')}
+                    </Button>
+                  }
                 />
               ) : (
                 <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 12]}>
@@ -268,13 +293,19 @@ export default function MultiplyPage() {
                             addonAfter="x"
                             style={{ width: 100 }}
                           />
-                          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} disabled={!selectedInbound}>
+                          <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={handleAdd}
+                            disabled={!selectedInbound}
+                          >
                             {isMobile ? '' : t('add', 'Add')}
                           </Button>
                         </Space>
                       }
                     >
                       <Table
+                        scroll={{ x: 700 }}
                         dataSource={entries}
                         columns={columns}
                         rowKey="id"
@@ -292,11 +323,15 @@ export default function MultiplyPage() {
                       title={t('pages.multiply.resellerMultiplier', 'Reseller Multiplier')}
                       extra={
                         <span style={{ color: 'var(--ant-color-text-secondary)', fontSize: 12 }}>
-                          {t('pages.multiply.resellerMultiplierDesc', 'Additional rate added on top of inbound multipliers')}
+                          {t(
+                            'pages.multiply.resellerMultiplierDesc',
+                            'Multiplied by the highest attached inbound rate',
+                          )}
                         </span>
                       }
                     >
                       <Table
+                        scroll={{ x: 700 }}
                         dataSource={resellers}
                         columns={[
                           {
@@ -308,14 +343,21 @@ export default function MultiplyPage() {
                             title: t('pages.multiply.rate', 'Rate'),
                             dataIndex: 'multiplier',
                             key: 'multiplier',
-                            render: (r: number) => <strong>{r > 0 ? `+${r}x` : '0x'}</strong>,
+                            render: (r: number) => <strong>{`${Math.max(1, r)}x`}</strong>,
                           },
                           {
                             title: '',
                             key: 'actions',
                             width: 60,
-                            render: (_: unknown, record: { id: number; username: string; multiplier: number }) => (
-                              <Button size="small" icon={<EditOutlined />} onClick={() => handleResellerEdit(record)} />
+                            render: (
+                              _: unknown,
+                              record: { id: number; username: string; multiplier: number },
+                            ) => (
+                              <Button
+                                size="small"
+                                icon={<EditOutlined />}
+                                onClick={() => handleResellerEdit(record)}
+                              />
                             ),
                           },
                         ]}
@@ -336,11 +378,15 @@ export default function MultiplyPage() {
         title={t('pages.multiply.editMultiplier', 'Edit Multiplier')}
         open={editModalOpen}
         onOk={handleEditSubmit}
-        onCancel={() => { setEditModalOpen(false); setEditingEntry(null); }}
+        onCancel={() => {
+          setEditModalOpen(false);
+          setEditingEntry(null);
+        }}
         okText={t('update', 'Update')}
       >
         <div style={{ marginBottom: 8 }}>
-          <strong>{t('pages.multiply.inbound', 'Inbound')}:</strong> {editingEntry?.inboundTag || 'Unknown'}
+          <strong>{t('pages.multiply.inbound', 'Inbound')}:</strong>{' '}
+          {editingEntry?.inboundTag || 'Unknown'}
         </div>
         <InputNumber
           min={0.1}
@@ -356,7 +402,10 @@ export default function MultiplyPage() {
         title={t('pages.multiply.editResellerMultiplier', 'Edit Reseller Multiplier')}
         open={resellerModalOpen}
         onOk={handleResellerEditSubmit}
-        onCancel={() => { setResellerModalOpen(false); setEditingReseller(null); }}
+        onCancel={() => {
+          setResellerModalOpen(false);
+          setEditingReseller(null);
+        }}
         okText={t('update', 'Update')}
       >
         <div style={{ marginBottom: 8 }}>
@@ -371,7 +420,10 @@ export default function MultiplyPage() {
           style={{ width: '100%' }}
         />
         <div style={{ marginTop: 8, color: 'var(--ant-color-text-secondary)', fontSize: 12 }}>
-          {t('pages.multiply.resellerMultiplierHint', 'Set to 0 for no additional multiplier. This is added on top of inbound multipliers.')}
+          {t(
+            'pages.multiply.resellerMultiplierHint',
+            'Use 1 for no extra charge. The effective rate is the highest attached inbound rate multiplied by this value.',
+          )}
         </div>
       </Modal>
     </ConfigProvider>
