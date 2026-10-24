@@ -1,11 +1,14 @@
 package service
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/xray"
+
+	"gorm.io/gorm"
 )
 
 // The node-page client breakdown must classify by EMAIL, not by
@@ -59,6 +62,18 @@ func TestGetAll_ClientBreakdownMatchesByEmailNotStaleInboundId(t *testing.T) {
 		}
 	}
 
+	var statusSQL string
+	var statusArgs []any
+	const callbackName = "test:capture-node-status-query"
+	if err := db.Callback().Row().After("gorm:row").Register(callbackName, func(tx *gorm.DB) {
+		if strings.Contains(tx.Statement.SQL.String(), "ct.expiry_time AS expiry_time") {
+			statusSQL = tx.Statement.SQL.String()
+			statusArgs = append([]any(nil), tx.Statement.Vars...)
+		}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	defer db.Callback().Row().Remove(callbackName)
 	nodes, err := svc.GetAll()
 	if err != nil {
 		t.Fatalf("GetAll: %v", err)
@@ -72,6 +87,18 @@ func TestGetAll_ClientBreakdownMatchesByEmailNotStaleInboundId(t *testing.T) {
 	if n == nil {
 		t.Fatal("node 1 not found")
 		return
+	}
+	if statusSQL == "" {
+		t.Fatal("node status query was not captured")
+	}
+	var plan []struct{ Detail string }
+	if err := db.Raw("EXPLAIN QUERY PLAN "+statusSQL, statusArgs...).Scan(&plan).Error; err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range plan {
+		if strings.Contains(step.Detail, "SEARCH inbounds USING INTEGER PRIMARY KEY") {
+			t.Fatalf("node status query reads large inbound rows per attachment: %s", step.Detail)
+		}
 	}
 	if n.ClientCount != 3 {
 		t.Errorf("ClientCount = %d, want 3", n.ClientCount)

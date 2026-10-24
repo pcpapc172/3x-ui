@@ -145,8 +145,10 @@ func (s *NodeService) GetAll() ([]*model.Node, error) {
 		return nodes, nil
 	}
 	inboundsByNode := make(map[int][]int, len(nodes))
+	nodeByInbound := make(map[int]int, len(inboundRows))
 	for _, row := range inboundRows {
 		inboundsByNode[row.NodeID] = append(inboundsByNode[row.NodeID], row.Id)
+		nodeByInbound[row.Id] = row.NodeID
 	}
 
 	type clientCountRow struct {
@@ -174,7 +176,7 @@ func (s *NodeService) GetAll() ([]*model.Node, error) {
 	depletedByNode := make(map[int]int)
 	disabledByNode := make(map[int]int)
 	activeByNode := make(map[int]int)
-	statuses, _ := s.nodeClientStatuses()
+	statuses, _ := s.nodeClientStatuses(nodeByInbound)
 	seen := make(map[int]map[int]struct{}, len(nodes))
 	for _, st := range statuses {
 		clientsSeen := seen[st.NodeID]
@@ -231,10 +233,9 @@ type nodeClientStatus struct {
 // client_inbounds -> clients join is the reliable client set and the email join
 // pulls each client's live counters. Precedence matches the inbound page:
 // depleted (expired/exhausted) wins over disabled.
-func (s *NodeService) nodeClientStatuses() ([]nodeClientStatus, error) {
+func (s *NodeService) nodeClientStatuses(nodeByInbound map[int]int) ([]nodeClientStatus, error) {
 	type row struct {
 		InboundID  int   `gorm:"column:inbound_id"`
-		NodeID     int   `gorm:"column:node_id"`
 		ClientID   int   `gorm:"column:client_id"`
 		Enable     bool  `gorm:"column:enable"`
 		Total      int64 `gorm:"column:total"`
@@ -242,21 +243,30 @@ func (s *NodeService) nodeClientStatuses() ([]nodeClientStatus, error) {
 		Down       int64 `gorm:"column:down"`
 		ExpiryTime int64 `gorm:"column:expiry_time"`
 	}
+	// Keep the large inbounds rows out of the attachment join: SQLite otherwise
+	// rereads their overflow pages for every client just to retrieve node_id.
+	inboundIDs := make([]int, 0, len(nodeByInbound))
+	for id := range nodeByInbound {
+		inboundIDs = append(inboundIDs, id)
+	}
 	var rows []row
-	if err := database.GetDB().Table("inbounds").
-		Select("inbounds.id AS inbound_id, inbounds.node_id AS node_id, clients.id AS client_id, " +
-			"clients.enable AS enable, ct.total AS total, ct.up AS up, ct.down AS down, ct.expiry_time AS expiry_time").
-		Joins("JOIN client_inbounds ON client_inbounds.inbound_id = inbounds.id").
-		Joins("JOIN clients ON clients.id = client_inbounds.client_id").
-		Joins("LEFT JOIN client_traffics ct ON ct.email = clients.email").
-		Where("inbounds.node_id IS NOT NULL").
-		Scan(&rows).Error; err != nil {
-		return nil, err
+	for _, ids := range chunkInts(inboundIDs, sqlInChunk) {
+		var page []row
+		if err := database.GetDB().Table("client_inbounds").
+			Select("client_inbounds.inbound_id AS inbound_id, clients.id AS client_id, "+
+				"clients.enable AS enable, ct.total AS total, ct.up AS up, ct.down AS down, ct.expiry_time AS expiry_time").
+			Joins("JOIN clients ON clients.id = client_inbounds.client_id").
+			Joins("LEFT JOIN client_traffics ct ON ct.email = clients.email").
+			Where("client_inbounds.inbound_id IN ?", ids).
+			Scan(&page).Error; err != nil {
+			return nil, err
+		}
+		rows = append(rows, page...)
 	}
 	now := time.Now().UnixMilli()
 	out := make([]nodeClientStatus, 0, len(rows))
 	for _, r := range rows {
-		st := nodeClientStatus{InboundID: r.InboundID, NodeID: r.NodeID, ClientID: r.ClientID}
+		st := nodeClientStatus{InboundID: r.InboundID, NodeID: nodeByInbound[r.InboundID], ClientID: r.ClientID}
 		expired := r.ExpiryTime > 0 && r.ExpiryTime <= now
 		exhausted := r.Total > 0 && r.Up+r.Down >= r.Total
 		switch {

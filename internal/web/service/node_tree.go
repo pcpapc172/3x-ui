@@ -199,8 +199,12 @@ func (s *NodeService) recountByGuid(nodes []*model.Node, selfGuid string) {
 	}
 	ambiguous := ambiguousNodeGuids(nodes, selfGuid)
 	effByInbound := make(map[int]string, len(ibRows))
+	nodeByInbound := make(map[int]int, len(ibRows))
 	inboundCountByGuid := make(map[string]int)
 	for _, r := range ibRows {
+		if r.NodeID != nil {
+			nodeByInbound[r.Id] = *r.NodeID
+		}
 		guid := r.OriginNodeGuid
 		if guid == "" {
 			if r.NodeID != nil {
@@ -226,7 +230,7 @@ func (s *NodeService) recountByGuid(nodes []*model.Node, selfGuid string) {
 	depletedByGuid := make(map[string]int)
 	disabledByGuid := make(map[string]int)
 	activeByGuid := make(map[string]int)
-	if statuses, err := s.nodeClientStatuses(); err == nil {
+	if statuses, err := s.nodeClientStatuses(nodeByInbound); err == nil {
 		seen := make(map[string]map[int]struct{})
 		for _, st := range statuses {
 			guid, ok := effByInbound[st.InboundID]
