@@ -2,32 +2,32 @@
 
 ## Provenance
 
-| Item | Revision |
-| --- | --- |
-| Original fork | `3e7efdb6` (`origin/main`, fork tag `v13.1.0`) |
-| Preserved original branch | `backup/pre-upstream-20261023` |
-| Last shared upstream commit | `ece16559397f756513d7338f59168049dd6e2e51` |
-| Original upstream version | `v3.6.0` plus 19 commits; embedded version `3.6.0` |
-| Integrated upstream | `775b2b0b26a699bb5ae361ce3c78b319ab790991` |
-| Upstream release line | `v3.10.2` plus four commits on upstream `main` |
-| Integration branch | `merge/upstream-20261023` |
+| Item                        | Revision                                           |
+| --------------------------- | -------------------------------------------------- |
+| Original fork               | `3e7efdb6` (`origin/main`, fork tag `v13.1.0`)     |
+| Preserved original branch   | `backup/pre-upstream-20261023`                     |
+| Last shared upstream commit | `ece16559397f756513d7338f59168049dd6e2e51`         |
+| Original upstream version   | `v3.6.0` plus 19 commits; embedded version `3.6.0` |
+| Integrated upstream         | `775b2b0b26a699bb5ae361ce3c78b319ab790991`         |
+| Upstream release line       | `v3.10.2` plus four commits on upstream `main`     |
+| Integration branch          | `merge/upstream-20261023`                          |
 
 The fork had 73 commits beyond the shared revision, with a net change across 138 files. Upstream had 504 commits after that revision. The integration preserves both histories through a merge, rather than replacing the fork with an upstream tree.
 
 ## What the fork added
 
-| Modification | Principal code |
-| --- | --- |
-| Reseller roles, accounts, quotas, usage, passwords, manual disabling and quota locks | `internal/database/model/model.go`, `internal/web/service/panel/reseller.go`, `internal/web/controller/reseller.go` |
-| Reseller inbound selection, read-only inbound views and client ownership | `internal/web/middleware/rbac.go`, inbound/client controllers and services |
-| Admin reseller management, reseller overview, client owner column and owner filter | `frontend/src/pages/admins`, `frontend/src/pages/reseller`, `frontend/src/pages/clients` |
-| Inbound and reseller traffic multipliers, management page and usage accounting | `frontend/src/pages/multiply`, `internal/web/controller/multiply.go`, traffic services |
-| Independent Telegram sales bots per owner; plans, payment methods, proof review and delivery | `internal/resellerbot`, `internal/web/controller/reseller_bot.go`, `internal/web/service/panel/reseller_bot*` |
-| Wallet ledger, discount/redeem codes, referrals, trials, subscriptions, credential revocation and auto-renewal | Sales-bot services, models and jobs |
-| Shared subscription URL/host resolution and Jalali conversion | `internal/web/service/subscription_url.go`, `observed_host.go`, `internal/util/jalali` |
-| Navigation, translations, generated API schemas and documentation for these features | Frontend routes/sidebar, all 13 locales, `tools/openapigen`, both OpenAPI files |
-| Fork installation/update URLs and badges; release version stamping; narrower release architectures | READMEs, installation scripts, release workflow, panel update service |
-| Intentional removal of the Docker publication workflow | `.github/workflows/docker.yml` remains absent |
+| Modification                                                                                                   | Principal code                                                                                                      |
+| -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Reseller roles, accounts, quotas, usage, passwords, manual disabling and quota locks                           | `internal/database/model/model.go`, `internal/web/service/panel/reseller.go`, `internal/web/controller/reseller.go` |
+| Reseller inbound selection, read-only inbound views and client ownership                                       | `internal/web/middleware/rbac.go`, inbound/client controllers and services                                          |
+| Admin reseller management, reseller overview, client owner column and owner filter                             | `frontend/src/pages/admins`, `frontend/src/pages/reseller`, `frontend/src/pages/clients`                            |
+| Inbound and reseller traffic multipliers, management page and usage accounting                                 | `frontend/src/pages/multiply`, `internal/web/controller/multiply.go`, traffic services                              |
+| Independent Telegram sales bots per owner; plans, payment methods, proof review and delivery                   | `internal/resellerbot`, `internal/web/controller/reseller_bot.go`, `internal/web/service/panel/reseller_bot*`       |
+| Wallet ledger, discount/redeem codes, referrals, trials, subscriptions, credential revocation and auto-renewal | Sales-bot services, models and jobs                                                                                 |
+| Shared subscription URL/host resolution and Jalali conversion                                                  | `internal/web/service/subscription_url.go`, `observed_host.go`, `internal/util/jalali`                              |
+| Navigation, translations, generated API schemas and documentation for these features                           | Frontend routes/sidebar, all 13 locales, `tools/openapigen`, both OpenAPI files                                     |
+| Fork installation/update URLs and badges; release version stamping; narrower release architectures             | READMEs, installation scripts, release workflow, panel update service                                               |
+| Intentional removal of the Docker publication workflow                                                         | `.github/workflows/docker.yml` remains absent                                                                       |
 
 These features remain present. Upstream dependency upgrades supersede the fork's earlier Go version bump. Generated API documentation was rebuilt from the combined source. Upstream fixes that already cover the fork's translated host-doc corrections were retained.
 

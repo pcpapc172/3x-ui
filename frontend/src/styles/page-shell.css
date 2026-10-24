@@ -9,8 +9,7 @@
 .admins-page,
 .multiply-page,
 .reseller-page,
-.telegram-bot-page,
-.sponsors-page {
+.telegram-bot-page {
   --bg-page: #e6e8ec;
   --bg-card: #ffffff;
   min-height: 100vh;
@@ -28,8 +27,7 @@
 .admins-page.is-dark,
 .multiply-page.is-dark,
 .reseller-page.is-dark,
-.telegram-bot-page.is-dark,
-.sponsors-page.is-dark {
+.telegram-bot-page.is-dark {
   --bg-page: #1a1b1f;
   --bg-card: #23252b;
 }
@@ -45,8 +43,7 @@
 .admins-page.is-dark.is-ultra,
 .multiply-page.is-dark.is-ultra,
 .reseller-page.is-dark.is-ultra,
-.telegram-bot-page.is-dark.is-ultra,
-.sponsors-page.is-dark.is-ultra {
+.telegram-bot-page.is-dark.is-ultra {
   --bg-page: #000;
   --bg-card: #101013;
 }
