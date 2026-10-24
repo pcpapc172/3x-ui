@@ -43,6 +43,13 @@ func RBACMiddleware() gin.HandlerFunc {
 		}
 		path = strings.TrimPrefix(path, "/")
 
+		// Client/inbound pages need share hosts and credential-free node metadata.
+		// Permit only these exact reads; management endpoints remain admin-only.
+		if c.Request.Method == http.MethodGet && (path == "panel/api/hosts/list" || path == "panel/api/nodes/list") {
+			c.Next()
+			return
+		}
+
 		for _, prefix := range resellerAllowedPrefixes {
 			if strings.HasPrefix(path, prefix) {
 				c.Next()
